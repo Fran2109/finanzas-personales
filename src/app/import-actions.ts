@@ -11,6 +11,7 @@ import {
   normalizeAmountForKind,
   normalizeMerchant,
   periodOfDate,
+  type Currency,
   type Kind,
 } from "@/lib/domain";
 import { centsToNumeric } from "@/lib/money";
@@ -18,7 +19,6 @@ import { extractPdfText } from "@/lib/import/pdf";
 import { parseGaliciaStatement } from "@/lib/import/galicia";
 import { reconcile } from "@/lib/import/reconcile";
 import { withFingerprints } from "@/lib/import/fingerprint";
-import type { ParsedRow } from "@/lib/import/types";
 import { suggestCategory, suggestPattern, type Rule } from "@/lib/import/categorize";
 import type { FormState } from "@/app/actions";
 
@@ -97,7 +97,9 @@ export async function uploadStatement(
     return { error: `No se pudo crear el import: ${importError?.message}` };
   }
 
-  const rows = withFingerprints(statement.rows).map((row) => {
+  // La huella se calcula recien al confirmar: import_rows no la guarda, y
+  // depende del monto ya normalizado.
+  const rows = statement.rows.map((row) => {
     const suggested = suggestCategory(row, (rules.data ?? []) as Rule[], categories.data ?? []);
     return {
       import_id: imported.id,
@@ -268,42 +270,41 @@ export async function commitImport(formData: FormData): Promise<void> {
   const pending = (rows ?? []).sort((a, b) => (a.line_no ?? 0) - (b.line_no ?? 0));
   if (pending.some((r) => r.needs_review)) return;
 
-  // La huella se recalcula aca: import_rows no la guarda, pero tiene todo lo
-  // que hace falta. Es la red anti-duplicados, asi que no puede ir en null.
-  const fingerprinted = withFingerprints(
-    pending.map<ParsedRow>((r) => ({
-      lineNo: r.line_no ?? 0,
+  // Se arma primero la fila final (monto ya normalizado) y recien despues la
+  // huella, para que se pueda recomputar desde lo guardado sin volver al PDF.
+  const preparadas = pending.map((r) => {
+    const kind = r.kind as Kind;
+    return {
+      accountId: imported.account_id,
       occurredOn: r.occurred_on!,
-      rawDescription: r.raw_description,
-      amount: Math.round(Number(r.amount) * 100),
-      currency: r.currency as ParsedRow["currency"],
-      kind: r.kind as ParsedRow["kind"],
+      amount: normalizeAmountForKind(Math.round(Number(r.amount) * 100), kind),
+      currency: r.currency as Currency,
+      description: r.raw_description,
       cardLast4: r.card_last4,
       cuotaCurrent: r.cuota_current,
       cuotaTotal: r.cuota_total,
-    })),
-  );
+      kind,
+      categoryId: r.suggested_category_id,
+    };
+  });
+
+  const fingerprinted = withFingerprints(preparadas);
 
   const { error } = await supabase.from("transactions").insert(
-    pending.map((r, i) => ({
-      account_id: imported.account_id,
-      category_id: r.suggested_category_id,
-      occurred_on: r.occurred_on,
-      // El resumen imprime pagos y devoluciones en negativo y el importador los
-      // transcribe asi para reconciliar. Al escribir en transactions se pasan a
-      // la convencion del saldo, o el signo se invertiria dos veces.
-      amount: centsToNumeric(
-        normalizeAmountForKind(Math.round(Number(r.amount) * 100), r.kind as Kind),
-      ),
+    fingerprinted.map((r) => ({
+      account_id: r.accountId,
+      category_id: r.categoryId,
+      occurred_on: r.occurredOn,
+      amount: centsToNumeric(r.amount),
       currency: r.currency,
       kind: r.kind,
-      description: r.raw_description,
-      merchant_normalized: normalizeMerchant(r.raw_description),
-      card_last4: r.card_last4,
-      cuota_number: r.cuota_current,
+      description: r.description,
+      merchant_normalized: normalizeMerchant(r.description),
+      card_last4: r.cardLast4,
+      cuota_number: r.cuotaCurrent,
       import_id: importId,
       statement_period: statementPeriod,
-      fingerprint: fingerprinted[i].fingerprint,
+      fingerprint: r.fingerprint,
     })),
   );
 

@@ -90,8 +90,17 @@ los totales, y la vista del mes aclara aparte cuánto de ese consumo son cuotas
 de compras anteriores.
 
 **`fingerprint` con índice único parcial** sobre `(user_id, fingerprint)` es la
-red anti-duplicados. Se calcula sobre fecha + monto + descripción normalizada.
-Si se sube el mismo resumen dos veces, la base lo rechaza.
+red anti-duplicados. Se calcula sobre cuenta + fecha + monto ya normalizado +
+moneda + descripción normalizada + plástico + número de cuota. Si se sube el
+mismo resumen dos veces, la base lo rechaza.
+
+El **número de cuota no es opcional** en esa huella: la cuota 1/3 y la 2/3 de la
+misma compra comparten fecha, monto y descripción (el `01/03` se limpia al
+normalizar), así que sin él la segunda parece un duplicado de la primera y el
+resumen del mes siguiente se rechaza entero. La **cuenta** tampoco: el mismo
+consumo en dos tarjetas son dos movimientos reales. Se calcula sobre el monto
+ya normalizado, el mismo que queda guardado, para poder recomputarla desde la
+fila sin volver al PDF.
 
 **Montos en `numeric(18,2)`.** Nunca float. En el cliente, enteros en centavos.
 Todo pasa por `src/lib/money.ts`: parseo de lo que se tipea, string para la base
