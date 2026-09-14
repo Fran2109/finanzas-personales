@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { Amount } from "@/components/Amount";
-import { commitImport, discardRow, setRowCategory } from "@/app/import-actions";
+import { commitImport, discardRow } from "@/app/import-actions";
+import { RowCategorySelect } from "@/components/RowCategorySelect";
 import { DeleteImportButton } from "@/components/DeleteImportButton";
 import { createClient } from "@/lib/supabase/server";
 import { getCategories } from "@/lib/data";
@@ -212,28 +213,12 @@ function RowTable({
                   "Sin categoria"}
               </span>
             ) : (
-              <form action={setRowCategory} className="flex shrink-0 items-center gap-2">
-                <input type="hidden" name="row_id" value={row.id} />
-                <input type="hidden" name="import_id" value={importId} />
-                <select
-                  name="category_id"
-                  defaultValue={row.suggested_category_id ?? ""}
-                  className="w-44 rounded-md border border-border bg-background px-2 py-1 text-xs"
-                >
-                  <option value="">Sin categoria</option>
-                  {opciones.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="submit"
-                  className="rounded border border-border px-2 py-1 text-xs text-muted hover:text-foreground"
-                >
-                  Guardar
-                </button>
-              </form>
+              <RowCategorySelect
+                rowId={row.id}
+                categories={opciones}
+                categoryKind={CATEGORY_KIND_FOR[kind]}
+                defaultValue={row.suggested_category_id ?? ""}
+              />
             )}
             {!readOnly ? (
               <form action={discardRow}>

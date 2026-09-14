@@ -119,13 +119,47 @@ export async function uploadStatement(
   redirect(`/importar/${imported.id}`);
 }
 
-/** Categoriza una fila en la pantalla de revision. */
+/**
+ * Categoriza una fila en la pantalla de revision.
+ *
+ * Acepta tambien una categoria nueva escrita ahi mismo: cortar la revision de
+ * 40 filas para ir a crear "Seguros" en otra pantalla y volver a empezar es la
+ * clase de friccion que hace que uno deje de usar la app.
+ */
 export async function setRowCategory(formData: FormData) {
   const { supabase } = await requireUser();
   const rowId = String(formData.get("row_id") ?? "");
-  const categoryId = String(formData.get("category_id") ?? "");
-  const importId = String(formData.get("import_id") ?? "");
   if (!rowId) return;
+
+  let categoryId = String(formData.get("category_id") ?? "");
+  const nuevaCategoria = String(formData.get("new_category") ?? "").trim();
+
+  if (nuevaCategoria) {
+    // El kind lo fija la fila, no el usuario: una categoria de gasto creada
+    // desde un consumo tiene que quedar como gasto o despues no aparece.
+    const kind = String(formData.get("category_kind") ?? "expense");
+
+    const { data: creada, error } = await supabase
+      .from("categories")
+      .insert({ name: nuevaCategoria, kind })
+      .select("id")
+      .single();
+
+    if (creada) {
+      categoryId = creada.id;
+    } else if (error?.code === "23505") {
+      // Ya existia con ese nombre: se reusa en vez de fallar.
+      const { data: existente } = await supabase
+        .from("categories")
+        .select("id")
+        .eq("name", nuevaCategoria)
+        .single();
+      if (!existente) return;
+      categoryId = existente.id;
+    } else {
+      return;
+    }
+  }
 
   await supabase
     .from("import_rows")
@@ -136,7 +170,7 @@ export async function setRowCategory(formData: FormData) {
     })
     .eq("id", rowId);
 
-  revalidatePath(`/importar/${importId}`);
+  revalidatePath("/", "layout");
 }
 
 /** Descarta una fila: no va a llegar a transactions. */
