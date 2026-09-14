@@ -5,6 +5,7 @@ import { withRetry } from "@/lib/retry";
 import { centsFromDb, type Cents } from "@/lib/money";
 import {
   balanceSign,
+  isPeriod,
   periodRange,
   type Currency,
   type Kind,
@@ -35,6 +36,8 @@ export type Transaction = {
   description: string | null;
   card_last4: string | null;
   is_projected: boolean;
+  statement_period: string | null;
+  created_at: string;
   account: { id: string; name: string; is_liability: boolean } | null;
   category: { id: string; name: string } | null;
 };
@@ -63,6 +66,7 @@ export async function getCategories(): Promise<Category[]> {
 
 const TX_SELECT =
   "id, occurred_on, amount, currency, kind, description, card_last4, is_projected," +
+  " statement_period, created_at," +
   " account:accounts!inner(id, name, is_liability), category:categories(id, name)";
 
 type RawTransaction = Omit<Transaction, "amount"> & { amount: number };
@@ -72,19 +76,47 @@ function toTransaction(row: RawTransaction): Transaction {
 }
 
 export async function getTransactionsForPeriod(period: Period): Promise<Transaction[]> {
+  // El periodo se interpola en el filtro, asi que no puede venir de cualquier
+  // lado sin validar.
+  if (!isPeriod(period)) throw new Error(`Periodo invalido: ${period}`);
   const { from, to } = periodRange(period);
   const supabase = await createClient();
-  const { data, error } = await withRetry(() =>
-    supabase
-      .from("transactions")
-      .select(TX_SELECT)
-      .gte("occurred_on", from)
-      .lte("occurred_on", to)
-      .order("occurred_on", { ascending: false })
-      .order("created_at", { ascending: false }),
-  );
+  // Un movimiento de tarjeta pertenece al mes de su resumen, aunque la compra
+  // sea anterior: la plata sale cuando se paga el resumen. El resto cae por su
+  // propia fecha.
+  //
+  // Van en dos consultas y no en un OR: los dos conjuntos son excluyentes, y
+  // asi cada filtro es de los simples en vez de depender de la sintaxis anidada
+  // de PostgREST. El volumen de un mes es chico, el costo es irrelevante.
+  const [delResumen, porFecha] = await Promise.all([
+    withRetry(() =>
+      supabase.from("transactions").select(TX_SELECT).eq("statement_period", period),
+    ),
+    withRetry(() =>
+      supabase
+        .from("transactions")
+        .select(TX_SELECT)
+        .is("statement_period", null)
+        .gte("occurred_on", from)
+        .lte("occurred_on", to),
+    ),
+  ]);
+
+  const error = delResumen.error ?? porFecha.error;
   if (error) throw new Error(`No se pudieron leer los movimientos: ${error.message}`);
-  return (data as unknown as RawTransaction[]).map(toTransaction);
+
+  const rows = [
+    ...((delResumen.data ?? []) as unknown as RawTransaction[]),
+    ...((porFecha.data ?? []) as unknown as RawTransaction[]),
+  ];
+
+  rows.sort((a, b) =>
+    a.occurred_on === b.occurred_on
+      ? b.created_at.localeCompare(a.created_at)
+      : b.occurred_on.localeCompare(a.occurred_on),
+  );
+
+  return rows.map(toTransaction);
 }
 
 /** Totales del mes. Sin `fx_rates` cargadas no se pesifica nada: se separa. */

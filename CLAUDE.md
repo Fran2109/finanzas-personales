@@ -32,7 +32,7 @@ La key publishable va en `.env.local`, nunca commiteada. Usar la publishable
 
 El esquema del remoto está versionado en `supabase/migrations/`. Los nombres de
 archivo coinciden con las versiones registradas (`20260914112501_init`,
-`20260914134533_add_installment_kind`), así que `db push` no los reaplica.
+`20260914134533_add_installment_kind`, `20260914140347_add_statement_period`), así que `db push` no los reaplica.
 
 ## Contexto de dominio: Argentina
 
@@ -42,6 +42,14 @@ Esto no es un tracker genérico. Las reglas que siguen no son opcionales.
 La conversión es un problema de lectura, nunca de escritura: se resuelve en
 `v_transactions_ars` contra `fx_rates` a la fecha de la operación. Nunca
 pesificar al insertar.
+
+**El resumen manda sobre la fecha de compra.** Un movimiento que viene de un
+resumen de tarjeta pertenece al mes del resumen, no al de la compra: el resumen
+de agosto trae compras de junio y julio, pero la plata sale en agosto. Se guarda
+en `transactions.statement_period` (`YYYY-MM`), y la vista del mes agrupa por ahí
+cuando está y por `occurred_on` cuando no. `occurred_on` nunca se pisa: la fecha
+real de la compra no se puede recuperar después. Solo aplica a cuentas de
+tarjeta; un extracto bancario no tiene esa demora.
 
 **Cuotas.** Una compra en 12 cuotas es una decisión que genera 12 salidas de
 caja. Se modela como `installment_plans` + N filas en `transactions` con

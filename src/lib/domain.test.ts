@@ -8,6 +8,7 @@ import {
   KIND_LABELS,
   MANUAL_KINDS,
   normalizeAmountForKind,
+  periodOfDate,
   SPENDING_KINDS,
 } from "./domain.ts";
 
@@ -75,4 +76,13 @@ test("un pago de tarjeta cancela deuda, no la aumenta", () => {
 test("una devolucion de percepcion baja la deuda de la tarjeta", () => {
   const guardado = normalizeAmountForKind(-1017931, "tax_fee");
   assert.equal(balanceSign("tax_fee", true) * guardado, 1017931);
+});
+
+test("el periodo del resumen sale de su fecha de cierre", () => {
+  // El resumen que cierra el 20 de agosto es el de agosto, aunque venza en
+  // septiembre y traiga compras de junio.
+  assert.equal(periodOfDate("2026-08-20"), "2026-08");
+  assert.equal(periodOfDate("2026-01-02"), "2026-01");
+  assert.equal(periodOfDate("no es una fecha"), null);
+  assert.equal(periodOfDate(""), null);
 });

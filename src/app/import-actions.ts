@@ -10,6 +10,7 @@ import {
   isKind,
   normalizeAmountForKind,
   normalizeMerchant,
+  periodOfDate,
   type Kind,
 } from "@/lib/domain";
 import { centsToNumeric } from "@/lib/money";
@@ -244,10 +245,19 @@ export async function commitImport(formData: FormData): Promise<void> {
 
   const { data: imported } = await supabase
     .from("imports")
-    .select("id, account_id, status")
+    .select("id, account_id, status, period_close, accounts!inner(is_liability)")
     .eq("id", importId)
     .single();
   if (!imported || imported.status === "committed") return;
+
+  // Solo la tarjeta difiere el gasto: el resumen de agosto se paga en agosto,
+  // aunque traiga compras de junio. Un extracto bancario no tiene esa demora,
+  // asi que sus movimientos siguen cayendo por su propia fecha.
+  const esTarjeta = Boolean(
+    (imported.accounts as unknown as { is_liability: boolean } | null)?.is_liability,
+  );
+  const statementPeriod =
+    esTarjeta && imported.period_close ? periodOfDate(imported.period_close) : null;
 
   const { data: rows } = await supabase
     .from("import_rows")
@@ -292,6 +302,7 @@ export async function commitImport(formData: FormData): Promise<void> {
       card_last4: r.card_last4,
       cuota_number: r.cuota_current,
       import_id: importId,
+      statement_period: statementPeriod,
       fingerprint: fingerprinted[i].fingerprint,
     })),
   );

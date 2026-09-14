@@ -173,6 +173,17 @@ export function periodRange(period: Period): { from: string; to: string } {
   };
 }
 
+/**
+ * Periodo del resumen a partir de su fecha de cierre.
+ *
+ * El resumen que cierra el 20 de agosto es el de agosto, aunque venza en
+ * septiembre y traiga compras de junio.
+ */
+export function periodOfDate(isoDate: string): Period | null {
+  const m = isoDate.match(/^(\d{4})-(\d{2})-\d{2}$/);
+  return m ? `${m[1]}-${m[2]}` : null;
+}
+
 export function shiftPeriod(period: Period, months: number): Period {
   const [year, month] = period.split("-").map(Number);
   const d = new Date(Date.UTC(year, month - 1 + months, 1));

@@ -279,6 +279,10 @@ function TransactionList({
                   tx.account?.name,
                   tx.card_last4 ? `*${tx.card_last4}` : null,
                   tx.kind === "consumption" ? null : KIND_LABELS[tx.kind],
+                  // Explica por que una compra de junio aparece en agosto.
+                  tx.statement_period && tx.statement_period !== tx.occurred_on.slice(0, 7)
+                    ? `resumen ${tx.statement_period}`
+                    : null,
                 ]
                   .filter(Boolean)
                   .join(" · ")}
