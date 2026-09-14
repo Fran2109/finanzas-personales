@@ -205,3 +205,42 @@ export async function goToPeriod(formData: FormData) {
   const period = String(formData.get("period") ?? "");
   redirect(isPeriod(period) ? `/?mes=${period}` : `/?mes=${periodOf(new Date())}`);
 }
+
+// ---------------------------------------------------------------------------
+// Categorias
+// ---------------------------------------------------------------------------
+
+export async function createCategory(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const { supabase } = await requireUser();
+
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) return fail("Ponele un nombre.");
+
+  const kind = String(formData.get("kind") ?? "expense");
+  if (!["expense", "income", "tax_fee", "financing", "transfer"].includes(kind)) {
+    return fail("Tipo de categoria invalido.");
+  }
+
+  const { error } = await supabase.from("categories").insert({ name, kind });
+  if (error) {
+    return fail(
+      error.code === "23505"
+        ? `Ya existe una categoria "${name}".`
+        : `No se pudo crear: ${error.message}`,
+    );
+  }
+
+  revalidatePath("/", "layout");
+  return { ok: `Categoria "${name}" creada.` };
+}
+
+export async function deleteCategory(formData: FormData) {
+  const { supabase } = await requireUser();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  await supabase.from("categories").delete().eq("id", id);
+  revalidatePath("/", "layout");
+}

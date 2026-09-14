@@ -40,3 +40,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Resumenes y datos extraidos de ellos: nunca al repo. Solo la logica de como
+# leerlos vive en el codigo.
+*.pdf
+/fixtures/
+resumen*.json
+raw.txt

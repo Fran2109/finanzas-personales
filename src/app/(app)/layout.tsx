@@ -3,6 +3,7 @@ import { signOut } from "@/app/actions";
 
 const navItems = [
   { href: "/", label: "Mes" },
+  { href: "/importar", label: "Importar" },
   { href: "/cuentas", label: "Cuentas" },
   { href: "/ajustes", label: "Ajustes" },
 ];
