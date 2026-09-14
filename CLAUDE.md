@@ -27,7 +27,7 @@ La key publishable va en `.env.local`, nunca commiteada. Usar la publishable
 - [x] Scaffold de Next.js 16 (App Router, Tailwind v4, `@supabase/ssr`)
 - [x] Fase 1 construida: alta manual, vista del mes, saldo por cuenta
 - [ ] Fase 1 aceptada: una semana de gastos reales cargados sin que dé fastidio
-- [ ] Deploy en Vercel
+- [x] Deploy en Vercel: https://finanzas-personales-rouge-eta.vercel.app
 
 El esquema del remoto está versionado en `supabase/migrations/20260914112501_init.sql`.
 No se reaplica: el nombre coincide con la versión ya registrada.
