@@ -3,8 +3,14 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { MultiSelect } from "@/components/MultiSelect";
 import { KIND_LABELS, MANUAL_KINDS } from "@/lib/domain";
-import { FILTER_KEYS, SIN_CATEGORIA, type Filters } from "@/lib/filters";
+import {
+  countActiveFilters,
+  monthQuery,
+  SIN_CATEGORIA,
+  type Filters,
+} from "@/lib/filters";
 
 const control =
   "rounded-md border border-border bg-surface px-2 py-1.5 text-xs outline-none focus:border-accent";
@@ -36,15 +42,10 @@ export function MonthFilters({
   const [q, setQ] = useState(filters.q);
 
   function navigate(next: Partial<Filters>) {
-    const params = new URLSearchParams({ mes: period });
-    const merged = { ...filters, ...next };
-    for (const key of FILTER_KEYS) {
-      if (merged[key]) params.set(key, merged[key]);
-    }
-    router.push(`/?${params.toString()}`);
+    router.push(`/?${monthQuery(period, { ...filters, ...next })}`);
   }
 
-  const activos = FILTER_KEYS.filter((k) => filters[k] !== "").length;
+  const activos = countActiveFilters(filters);
 
   return (
     <section className="rounded-lg border border-border bg-surface px-3 py-2.5">
@@ -66,60 +67,48 @@ export function MonthFilters({
         </form>
 
         {accounts.length > 1 ? (
-          <select
-            value={filters.cuenta}
-            onChange={(e) => navigate({ cuenta: e.target.value })}
-            aria-label="Cuenta"
-            className={control}
-          >
-            <option value="">Toda cuenta</option>
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </select>
+          <MultiSelect
+            etiqueta="Cuenta"
+            todos="Toda cuenta"
+            plural="cuentas"
+            opciones={accounts.map((a) => ({ value: a.id, label: a.name }))}
+            seleccion={filters.cuenta}
+            onChange={(cuenta) => navigate({ cuenta })}
+          />
         ) : null}
 
-        <select
-          value={filters.categoria}
-          onChange={(e) => navigate({ categoria: e.target.value })}
-          aria-label="Categoria"
-          className={control}
-        >
-          <option value="">Toda categoria</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-          <option value={SIN_CATEGORIA}>Sin categoria</option>
-        </select>
+        <MultiSelect
+          etiqueta="Categoria"
+          todos="Toda categoria"
+          plural="categorias"
+          opciones={[
+            ...categories.map((c) => ({ value: c.id, label: c.name })),
+            { value: SIN_CATEGORIA, label: "Sin categoria" },
+          ]}
+          seleccion={filters.categoria}
+          onChange={(categoria) => navigate({ categoria })}
+        />
 
-        <select
-          value={filters.tipo}
-          onChange={(e) => navigate({ tipo: e.target.value })}
-          aria-label="Tipo"
-          className={control}
-        >
-          <option value="">Todo tipo</option>
-          {MANUAL_KINDS.map((k) => (
-            <option key={k} value={k}>
-              {KIND_LABELS[k]}
-            </option>
-          ))}
-        </select>
+        <MultiSelect
+          etiqueta="Tipo"
+          todos="Todo tipo"
+          plural="tipos"
+          opciones={MANUAL_KINDS.map((k) => ({ value: k, label: KIND_LABELS[k] }))}
+          seleccion={filters.tipo}
+          onChange={(tipo) => navigate({ tipo })}
+        />
 
-        <select
-          value={filters.moneda}
-          onChange={(e) => navigate({ moneda: e.target.value })}
-          aria-label="Moneda"
-          className={control}
-        >
-          <option value="">Toda moneda</option>
-          <option value="ARS">ARS</option>
-          <option value="USD">USD</option>
-        </select>
+        <MultiSelect
+          etiqueta="Moneda"
+          todos="Toda moneda"
+          plural="monedas"
+          opciones={[
+            { value: "ARS", label: "ARS" },
+            { value: "USD", label: "USD" },
+          ]}
+          seleccion={filters.moneda}
+          onChange={(moneda) => navigate({ moneda })}
+        />
       </div>
 
       {activos > 0 ? (

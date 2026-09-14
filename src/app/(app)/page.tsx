@@ -247,7 +247,7 @@ function CategoryBreakdown({
             {/* Clickear una categoria filtra por ella: es la pregunta que
                 sigue naturalmente a ver la barra mas larga. */}
             <Link
-              href={`/?${monthQuery(period, { ...filters, categoria: category.id })}`}
+              href={`/?${monthQuery(period, { ...filters, categoria: [category.id] })}`}
               className="flex items-baseline justify-between gap-3 text-sm hover:text-accent"
             >
               <span>{category.name}</span>
