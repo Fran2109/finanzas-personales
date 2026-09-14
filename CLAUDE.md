@@ -33,13 +33,15 @@ La key publishable va en `.env.local`, nunca commiteada. Usar la publishable
 - [x] Importador de resúmenes Galicia y Supervielle (VISA y MASTERCARD) con gate
       de reconciliación, con la cuenta inferida del propio resumen
 - [x] Carga provisoria del mes en curso pegando la lista del home banking
+- [x] Calendario de compromisos: cuánto de cada mes que viene ya está gastado
 - [ ] Fase 1 aceptada: una semana de gastos reales cargados sin que dé fastidio
 - [x] Deploy en Vercel: https://finanzas-personales-rouge-eta.vercel.app
 
 El esquema del remoto está versionado en `supabase/migrations/`. Los nombres de
 archivo coinciden con las versiones registradas (`20260914112501_init`,
 `20260914134533_add_installment_kind`, `20260914140347_add_statement_period`,
-`20260914170801_add_provisional_imports`), así que `db push` no los reaplica.
+`20260914170801_add_provisional_imports`, `20260914181405_add_cuota_total`), así
+que `db push` no los reaplica.
 
 ## Contexto de dominio: Argentina
 
@@ -274,6 +276,38 @@ revisión.** Sin excepciones.
 **En el repo no va ningún dato de resúmenes**, solo la lógica de cómo leerlos.
 Los tests del parser usan resúmenes inventados con el formato real; `.gitignore`
 bloquea PDFs y JSON extraídos.
+
+## Análisis: lo que ya está decidido
+
+La primera pantalla de análisis no describe el pasado, proyecta lo que ya no se
+puede cambiar. Las cuotas son entre el **45% y el 52%** de cada mes: sobre esa
+parte no hay nada que decidir cuando el mes empieza, y decirlo así es lo único
+que convierte el dato en algo accionable.
+
+**Un plan se deduce de las filas, porque `installment_plans` está vacío.** La
+misma compra aparece una vez por resumen, así que de cada plan se toma la cuota
+más alta vista y desde ahí se proyecta una cuota por mes.
+
+La identidad del plan es **cuenta + cantidad de cuotas + monto de la cuota
+redondeado al peso**, y a propósito **no** incluye el comercio. El comercio
+parece la parte obvia de la identidad y es justo la que falla: una
+refinanciación lleva el número de cuota pegado al nombre (`PLAN V CONSOLID
+4-12`, después `5-12`) y el home banking encima la llama distinto que el PDF.
+Tres nombres para una sola deuda, que contada por nombre se **triplicaba**. El
+redondeo al peso es por el otro lado: una cuota fija puede venir con un centavo
+de diferencia entre un resumen y el siguiente, y eso partía el plan en dos.
+
+El límite conocido: dos compras distintas en la misma tarjeta, con la misma
+cantidad de cuotas y la misma cuota mensual se leen como una sola. Es más raro
+que el caso del nombre, y su error —subestimar— es menos grave que triplicar.
+`installment_plans` existe para resolverlo cuando la fase 2 lo modele.
+
+**La fase 4 quedó desactualizada.** "Tasa de ahorro" y "patrimonio en USD" son
+incompatibles con "esto no lleva balances": sin ingresos ni saldos no hay con
+qué calcularlos. Lo que sí queda pendiente y necesita más historia: real vs
+nominal con IPC (en Argentina no es opcional, 2,86M de julio y 3,67M de
+septiembre no son plata de la misma calidad), estacionalidad y detección de
+anomalías. Nada de eso da con tres meses.
 
 ## Plan por fases
 

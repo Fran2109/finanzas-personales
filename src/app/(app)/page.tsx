@@ -185,12 +185,28 @@ function MonthTotals({
         </h2>
       ) : null}
       {/* "Total gastado" y no "Gastado": este numero es la suma de los otros
-          dos, y con nombres parecidos se leia uno por otro. Los dos de la
-          derecha se llaman igual que los dos tipos de la app. */}
+          dos, y con nombres parecidos se leia uno por otro.
+          Los otros dos no se llaman por su tipo sino por lo que significan:
+          sobre las cuotas de compras viejas no se podia hacer nada este mes, y
+          esa es la unica lectura que sirve para decidir algo. */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Stat label="Total gastado" cents={totals.total} currency={currency} destacado />
-        <Stat label="Gastos" cents={totals.purchases} currency={currency} hint="sin cuotas" />
-        <Stat label="Cuotas" cents={totals.installments} currency={currency} hint="de compras anteriores" />
+        <Stat
+          label="Ya estaba decidido"
+          cents={totals.installments}
+          currency={currency}
+          hint={
+            totals.total === 0
+              ? "cuotas"
+              : `${Math.round((totals.installments / totals.total) * 100)}%, cuotas`
+          }
+        />
+        <Stat
+          label="Decidido este mes"
+          cents={totals.purchases}
+          currency={currency}
+          hint="gastos nuevos"
+        />
       </div>
     </section>
   );

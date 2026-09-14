@@ -6,11 +6,14 @@ import { centsFromDb, type Cents } from "@/lib/money";
 import {
   isExpenseKind,
   isPeriod,
+  normalizeMerchant,
+  periodOfDate,
   periodRange,
   type Currency,
   type Kind,
   type Period,
 } from "@/lib/domain";
+import type { InstallmentRow } from "@/lib/commitments";
 
 export type Account = {
   id: string;
@@ -189,6 +192,89 @@ export function summarize(transactions: Transaction[]): MonthSummary {
     .sort((a, b) => b.total - a.total);
 
   return { totals, byCategory, count: transactions.length };
+}
+
+/**
+ * Todas las cuotas registradas, para proyectar compromisos.
+ *
+ * Trae el historial entero y no un mes: un plan de 12 cuotas puede haber
+ * empezado mucho antes del mes que se este mirando, y lo que interesa es donde
+ * esta parado hoy.
+ */
+export async function getInstallmentRows(): Promise<InstallmentRow[]> {
+  const supabase = await createClient();
+  const { data, error } = await withRetry(() =>
+    supabase
+      .from("transactions")
+      .select(
+        "amount, currency, occurred_on, statement_period, description, merchant_normalized, cuota_number, cuota_total, account:accounts!inner(id, name), category:categories(name)",
+      )
+      .eq("kind", "installment")
+      .not("cuota_total", "is", null),
+  );
+  if (error) throw new Error(`No se pudieron leer las cuotas: ${error.message}`);
+
+  const rows: InstallmentRow[] = [];
+  for (const row of data ?? []) {
+    const cuenta = row.account as unknown as { id: string; name: string } | null;
+    const periodo = row.statement_period ?? periodOfDate(row.occurred_on);
+    if (!cuenta || !periodo || !row.cuota_number || !row.cuota_total) continue;
+
+    rows.push({
+      accountId: cuenta.id,
+      accountName: cuenta.name,
+      merchant: row.merchant_normalized ?? normalizeMerchant(row.description ?? ""),
+      description: row.description ?? "",
+      categoryName:
+        (row.category as unknown as { name: string } | null)?.name ?? null,
+      amount: centsFromDb(row.amount),
+      currency: row.currency as Currency,
+      cuotaCurrent: row.cuota_number,
+      cuotaTotal: row.cuota_total,
+      period: periodo,
+    });
+  }
+  return rows;
+}
+
+/** Lo minimo de cada movimiento para armar el historico por mes. */
+export type MonthlyRow = {
+  period: Period;
+  amount: Cents;
+  currency: Currency;
+  kind: Kind;
+  isProjected: boolean;
+};
+
+/**
+ * Todos los movimientos, reducidos a lo que hace falta para el historico.
+ *
+ * El volumen de esta app es chico, asi que se agrupa en memoria en vez de
+ * pedirle a PostgREST un group by que tendria que replicar la regla de
+ * "manda el resumen sobre la fecha de compra".
+ */
+export async function getMonthlyRows(): Promise<MonthlyRow[]> {
+  const supabase = await createClient();
+  const { data, error } = await withRetry(() =>
+    supabase
+      .from("transactions")
+      .select("amount, currency, kind, occurred_on, statement_period, is_projected"),
+  );
+  if (error) throw new Error(`No se pudieron leer los movimientos: ${error.message}`);
+
+  const rows: MonthlyRow[] = [];
+  for (const row of data ?? []) {
+    const periodo = row.statement_period ?? periodOfDate(row.occurred_on);
+    if (!periodo) continue;
+    rows.push({
+      period: periodo,
+      amount: centsFromDb(row.amount),
+      currency: row.currency as Currency,
+      kind: row.kind as Kind,
+      isProjected: row.is_projected,
+    });
+  }
+  return rows;
 }
 
 export type AccountActivity = Account & { movements: number };
