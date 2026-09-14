@@ -119,8 +119,11 @@ export default async function MonthPage({
         </div>
       )}
 
+      {/* min-w-0 en las dos columnas: un item de grid no baja de su ancho de
+          contenido, asi que sin esto una descripcion larga ensancha la columna
+          entera y se lleva puesta la pagina en un telefono. */}
       <div className="grid gap-8 lg:grid-cols-[1fr_20rem]">
-        <div className="space-y-8">
+        <div className="min-w-0 space-y-8">
           <CategoryBreakdown
             byCategory={summary.byCategory}
             period={period}
@@ -134,7 +137,7 @@ export default async function MonthPage({
           />
         </div>
 
-        <aside>
+        <aside className="min-w-0">
           <section>
             <h2 className="mb-3 text-sm font-semibold">Nuevo movimiento</h2>
             <TransactionForm

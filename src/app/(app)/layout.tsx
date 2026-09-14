@@ -19,7 +19,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <Link href="/" className="text-sm font-semibold transition hover:text-accent">
             Finanzas
           </Link>
-          <nav className="flex gap-4 text-sm">
+          {/* flex-wrap: cinco items mas la marca y "Salir" no entran en una linea
+              de telefono, y sin envolver empujan el ancho de toda la pagina. */}
+          <nav className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
             {navItems.map((item) => (
               <Link
                 key={item.href}

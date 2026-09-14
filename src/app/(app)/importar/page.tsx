@@ -89,7 +89,7 @@ export default async function ImportsPage({
               return (
                 <li key={imp.id} className="flex flex-wrap items-center gap-3 px-3 py-3 text-sm">
                   <div className="min-w-0 flex-1">
-                    <Link href={`/importar/${imp.id}`} className="truncate hover:underline">
+                    <Link href={`/importar/${imp.id}`} className="block truncate hover:underline">
                       {imp.filename}
                     </Link>
                     {imp.provisional ? (

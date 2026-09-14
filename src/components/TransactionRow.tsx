@@ -162,7 +162,7 @@ function Editor({
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 *:min-w-0 sm:grid-cols-4">
         <div>
           <label className={label} htmlFor={`monto-${tx.id}`}>
             Monto
@@ -224,7 +224,7 @@ function Editor({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 *:min-w-0">
         <div>
           <label className={label} htmlFor={`cat-${tx.id}`}>
             Categoria

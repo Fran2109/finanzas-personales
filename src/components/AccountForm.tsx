@@ -26,7 +26,7 @@ export function AccountForm() {
           className={field}
         />
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 *:min-w-0">
         <div>
           <label className={label} htmlFor="type">
             Tipo

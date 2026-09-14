@@ -295,7 +295,7 @@ function RowTable({
               className="shrink-0"
             />
             {readOnly ? (
-              <span className="w-44 shrink-0 text-right text-xs text-muted">
+              <span className="w-full text-xs text-muted sm:w-44 sm:shrink-0 sm:text-right">
                 {categories.find((c) => c.id === row.suggested_category_id)?.name ??
                   "Sin categoria"}
               </span>

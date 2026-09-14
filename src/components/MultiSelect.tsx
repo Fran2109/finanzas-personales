@@ -94,7 +94,7 @@ export function MultiSelect({
       </button>
 
       {abierto ? (
-        <div className="absolute left-0 z-20 mt-1 max-h-72 w-56 overflow-auto rounded-md border border-border bg-surface p-1 shadow-lg">
+        <div className="absolute left-0 z-20 mt-1 max-h-72 w-56 max-w-[calc(100vw-2rem)] overflow-auto rounded-md border border-border bg-surface p-1 shadow-lg">
           <button
             type="button"
             onClick={() => onChange([])}

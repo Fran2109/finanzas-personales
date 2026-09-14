@@ -24,9 +24,12 @@ export default async function SettingsPage() {
       .order("pattern"),
   ]);
 
+  // min-w-0 en las dos columnas: un item de grid no baja de su ancho de
+  // contenido, asi que sin esto un nombre largo ensancha la columna entera y
+  // desborda la pagina en un telefono.
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_20rem]">
-      <div className="space-y-8">
+      <div className="min-w-0 space-y-8">
         <section>
           <h1 className="mb-1 text-lg font-semibold">Ajustes</h1>
           <p className="text-sm text-muted">Sesion iniciada como {data.user?.email}.</p>
@@ -37,8 +40,8 @@ export default async function SettingsPage() {
           <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
             {categories.map((c) => (
               <li key={c.id} className="flex items-center gap-3 px-3 py-2 text-sm">
-                <span className="flex-1 truncate">{c.name}</span>
-                <span className="text-xs text-muted">
+                <span className="min-w-0 flex-1 truncate">{c.name}</span>
+                <span className="shrink-0 text-xs text-muted">
                   {CATEGORY_KIND_LABELS[c.kind] ?? c.kind}
                 </span>
                 <form action={deleteCategory}>
@@ -72,8 +75,8 @@ export default async function SettingsPage() {
             <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
               {(rules.data ?? []).map((r) => (
                 <li key={r.id} className="flex items-center gap-3 px-3 py-2 text-sm">
-                  <code className="flex-1 truncate text-xs">{r.pattern}</code>
-                  <span className="text-xs text-muted">
+                  <code className="min-w-0 flex-1 truncate text-xs">{r.pattern}</code>
+                  <span className="shrink-0 text-xs text-muted">
                     {categories.find((c) => c.id === r.category_id)?.name ?? "?"}
                   </span>
                 </li>
@@ -88,7 +91,7 @@ export default async function SettingsPage() {
         </section>
       </div>
 
-      <aside>
+      <aside className="min-w-0">
         <h2 className="mb-3 text-sm font-semibold">Nueva categoria</h2>
         <CategoryForm />
       </aside>

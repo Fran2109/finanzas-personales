@@ -73,7 +73,7 @@ export function TransactionForm({
         <p className="mt-2 text-xs leading-relaxed text-muted">{KIND_HELP[kind]}</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 *:min-w-0">
         <div>
           <label className={label} htmlFor="amount">
             Monto
@@ -106,7 +106,7 @@ export function TransactionForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 *:min-w-0">
         <div>
           <label className={label} htmlFor="occurred_on">
             Fecha
@@ -153,7 +153,7 @@ export function TransactionForm({
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 *:min-w-0">
         <div>
           <label className={label} htmlFor="category_id">
             Categoria

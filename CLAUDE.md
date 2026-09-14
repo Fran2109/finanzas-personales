@@ -337,6 +337,31 @@ eje—, los segmentos se separan con 2px del color de la superficie y no con un
 borde, y se etiquetan **algunas** columnas, no todas: un número sobre cada barra
 deja de leerse.
 
+## Responsive
+
+La app se usa en el teléfono tanto como en la compu, así que **nada puede
+desbordar a lo ancho**. Un solo elemento que no achica ensancha su columna y
+arrastra a todos sus hermanos: el síntoma es que los importes se van de la
+pantalla en una lista que no tiene nada de raro.
+
+La causa es casi siempre la misma regla de CSS: **un item de flex o de grid no
+baja de su ancho de contenido** (`min-width: auto`). Por eso:
+
+- Toda columna de `grid` que contenga texto largo lleva `min-w-0`, y los grids
+  de dos columnas de los formularios llevan `*:min-w-0` — un `<select>` mide lo
+  que mide su opción más larga y no achica solo.
+- Todo `truncate` necesita `min-w-0` en el item de flex que lo contiene, o no
+  trunca nada: se estira.
+- `shrink-0` con anchos fijos es la combinación peligrosa. Un bloque de
+  controles que suma ~400px fijos tiene que pasar a `w-full` en pantalla
+  angosta y recién volver a ser una pieza al lado desde `sm:`.
+
+**Verificar con el viewport real, no con un contenedor angosto.** Los
+breakpoints de Tailwind miran el viewport: achicar un `div` deja los `sm:` y
+`lg:` activos y la prueba miente. Chrome headless tampoco sirve directo —
+clampea la ventana en ~500px— así que el teléfono se mira metiendo la página en
+un `<iframe width="375">`, que sí crea su propio viewport.
+
 ## Plan por fases
 
 0. **Fundaciones** — scaffold, migración, seed, deploy vacío. Casi listo.

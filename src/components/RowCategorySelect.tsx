@@ -40,8 +40,15 @@ export function RowCategorySelect({
     [categories, kind],
   );
 
+  // En pantalla angosta ocupa su propia linea entera y los selects se reparten
+  // el ancho; recien desde sm vuelve a ser una pieza fija al lado del monto.
+  // Con shrink-0 y anchos fijos sumaba ~400px que no achicaban, y eso ensanchaba
+  // la fila y desbordaba la pagina entera en un telefono.
   return (
-    <form action={setRowCategory} className="flex shrink-0 flex-wrap items-center gap-2">
+    <form
+      action={setRowCategory}
+      className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0"
+    >
       <input type="hidden" name="row_id" value={rowId} />
       <input type="hidden" name="category_kind" value={CATEGORY_KIND_FOR[kind]} />
 
@@ -54,7 +61,7 @@ export function RowCategorySelect({
           setCreating(false);
         }}
         aria-label="Tipo de movimiento"
-        className="w-36 rounded-md border border-border bg-background px-2 py-1 text-xs"
+        className="min-w-28 flex-1 rounded-md border border-border bg-background px-2 py-1 text-xs sm:w-36 sm:flex-none"
       >
         {MANUAL_KINDS.map((k) => (
           <option key={k} value={k}>
@@ -70,7 +77,7 @@ export function RowCategorySelect({
           autoFocus
           placeholder="Seguros"
           aria-label="Nombre de la categoria nueva"
-          className="w-44 rounded-md border border-accent bg-background px-2 py-1 text-xs"
+          className="min-w-32 flex-1 rounded-md border border-accent bg-background px-2 py-1 text-xs sm:w-44 sm:flex-none"
         />
       ) : (
         <select
@@ -83,7 +90,7 @@ export function RowCategorySelect({
             if (e.target.value === "__nueva__") setCreating(true);
           }}
           aria-label="Categoria"
-          className="w-44 rounded-md border border-border bg-background px-2 py-1 text-xs"
+          className="min-w-32 flex-1 rounded-md border border-border bg-background px-2 py-1 text-xs sm:w-44 sm:flex-none"
         >
           <option value="">Sin categoria</option>
           {opciones.map((c) => (

@@ -25,9 +25,12 @@ export default async function AccountsPage({
   const activas = accounts.filter((a) => a.active);
   const archivadas = accounts.filter((a) => !a.active);
 
+  // min-w-0 en las dos columnas: un item de grid no baja de su ancho de
+  // contenido, asi que sin esto un nombre largo ensancha la columna entera y
+  // desborda la pagina en un telefono.
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_20rem]">
-      <section className="space-y-6">
+      <section className="min-w-0 space-y-6">
         <div>
           <h1 className="mb-3 text-lg font-semibold">Cuentas</h1>
 
@@ -83,7 +86,7 @@ export default async function AccountsPage({
         </p>
       </section>
 
-      <aside>
+      <aside className="min-w-0">
         <h2 className="mb-3 text-sm font-semibold">Nueva cuenta</h2>
         <AccountForm />
       </aside>
