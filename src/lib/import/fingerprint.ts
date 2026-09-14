@@ -39,6 +39,17 @@ export function fingerprintOf(row: Fingerprintable, seq: number): string {
   return createHash("sha256").update(keyOf(row).concat("|", String(seq))).digest("hex").slice(0, 32);
 }
 
+/**
+ * Los campos que definen la huella, como texto comparable.
+ *
+ * Se exporta para poder preguntar "¿esta edicion toca la huella?" sin repetir
+ * la lista en otro lado y que se desincronice. Editar la categoria o el tipo no
+ * la toca; editar el monto o la fecha si.
+ */
+export function fingerprintKey(row: Fingerprintable): string {
+  return keyOf(row);
+}
+
 function keyOf(row: Fingerprintable): string {
   return [
     row.accountId,

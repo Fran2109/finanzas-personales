@@ -36,6 +36,8 @@ export type Transaction = {
   description: string | null;
   card_last4: string | null;
   is_projected: boolean;
+  /** Solo los que vinieron de un resumen. Editarlos la invalida. */
+  fingerprint: string | null;
   statement_period: string | null;
   created_at: string;
   account: { id: string; name: string; is_liability: boolean } | null;
@@ -65,7 +67,7 @@ export async function getCategories(): Promise<Category[]> {
 }
 
 const TX_SELECT =
-  "id, occurred_on, amount, currency, kind, description, card_last4, is_projected," +
+  "id, occurred_on, amount, currency, kind, description, card_last4, is_projected, fingerprint," +
   " statement_period, created_at," +
   " account:accounts!inner(id, name, is_liability), category:categories(id, name)";
 

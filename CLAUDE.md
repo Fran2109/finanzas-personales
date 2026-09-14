@@ -130,6 +130,23 @@ consumo en dos tarjetas son dos movimientos reales. Se calcula sobre el monto
 ya normalizado, el mismo que queda guardado, para poder recomputarla desde la
 fila sin volver al PDF.
 
+**Los movimientos se editan en la vista del mes, y la huella los sigue.** Mirar
+el mes y corregir lo que está mal es el mismo gesto; mandar a otra pantalla en
+el medio es lo que hace que las correcciones no se hagan. La regla al editar es
+que **la huella siempre describe la fila guardada**: si la edición no toca
+ninguno de sus campos —categoría o tipo, que es la mayoría de las ediciones— la
+huella queda intacta, y por eso se puede recategorizar uno de dos movimientos
+idénticos sin que choque con su gemelo. Si toca alguno, se recalcula, porque una
+huella que describe algo que ya no está ahí no protege de nada. El costo es
+real: un movimiento editado deja de coincidir con su línea del resumen, así que
+reimportar ese resumen lo trae de nuevo. Es la consecuencia honesta de haberse
+apartado a propósito de lo que decía el PDF.
+
+Corregir una categoría **puede** escribir una `merchant_rule`, pero con una
+casilla apagada por defecto. Automático sería peor: corregir un movimiento no
+siempre quiere decir que el comercio entero esté mal clasificado, y reentrenar
+sin preguntar arruinaría el próximo resumen en silencio.
+
 **Montos en `numeric(18,2)`.** Nunca float. En el cliente, enteros en centavos.
 Todo pasa por `src/lib/money.ts`: parseo de lo que se tipea, string para la base
 armado con aritmética entera, y `centsFromDb` que redondea al centavo porque lo

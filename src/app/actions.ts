@@ -4,15 +4,25 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
-import { parseAmountToCents, centsToNumeric } from "@/lib/money";
+import { parseAmountToCents, centsToNumeric, centsFromDb } from "@/lib/money";
 import {
+  CATEGORY_KIND_FOR,
   isAccountType,
   isCurrency,
+  isExpenseKind,
   isKind,
   isPeriod,
   normalizeMerchant,
   periodOf,
+  type Currency,
+  type Kind,
 } from "@/lib/domain";
+import {
+  fingerprintKey,
+  fingerprintOf,
+  type Fingerprintable,
+} from "@/lib/import/fingerprint";
+import { suggestPattern } from "@/lib/import/categorize";
 
 export type FormState = { error?: string; ok?: string };
 
@@ -138,6 +148,157 @@ export async function createTransaction(
 
   revalidatePath("/", "layout");
   return { ok: "Guardado." };
+}
+
+/**
+ * Edita un movimiento ya cargado.
+ *
+ * Sirve para los dos origenes: los que se cargan a mano y los que vienen de un
+ * resumen. Los de resumen tienen `fingerprint`, que es la red anti-duplicados,
+ * y editarlos obliga a decidir que pasa con ella.
+ *
+ * La regla: **la huella siempre describe la fila guardada**. Si la edicion no
+ * toca ninguno de sus campos —cambiar la categoria o el tipo, que es el 90% de
+ * las ediciones— la huella queda intacta, y asi dos movimientos realmente
+ * identicos del mismo resumen no se pisan entre si. Si toca alguno, se
+ * recalcula, porque una huella que describe algo que ya no esta ahi no protege
+ * de nada y ademas rompe el invariante de poder recomputarla desde la fila.
+ *
+ * El costo de recalcular es real y vale decirlo: un movimiento editado deja de
+ * coincidir con su linea del resumen, asi que volver a importar ese mismo
+ * resumen lo trae de nuevo. Es la consecuencia honesta de haberse apartado a
+ * proposito de lo que decia el PDF.
+ */
+export async function updateTransaction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const { supabase } = await requireUser();
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) return fail("Falta el movimiento.");
+
+  const { data: actual } = await supabase
+    .from("transactions")
+    .select(
+      "id, account_id, occurred_on, amount, currency, kind, description, card_last4, cuota_number, fingerprint",
+    )
+    .eq("id", id)
+    .single();
+  if (!actual) return fail("No encontre ese movimiento.");
+
+  const amountRaw = String(formData.get("amount") ?? "");
+  const cents = parseAmountToCents(amountRaw);
+  if (cents === null) return fail(`No entiendo el monto "${amountRaw}".`);
+  if (cents === 0) return fail("El monto no puede ser cero.");
+
+  const accountId = String(formData.get("account_id") ?? "");
+  if (!accountId) return fail("Elegi una cuenta.");
+
+  const kind = String(formData.get("kind") ?? "");
+  // Solo los dos tipos de gasto: la app no registra otra cosa.
+  if (!isKind(kind) || !isExpenseKind(kind)) return fail("Tipo de movimiento invalido.");
+
+  const currency = String(formData.get("currency") ?? "ARS");
+  if (!isCurrency(currency)) return fail("Moneda invalida.");
+
+  const occurredOn = String(formData.get("occurred_on") ?? "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(occurredOn)) return fail("Fecha invalida.");
+
+  const description = String(formData.get("description") ?? "").trim();
+  const categoryId = String(formData.get("category_id") ?? "");
+  const cardLast4 = String(formData.get("card_last4") ?? "").trim();
+
+  if (cardLast4 && !/^\d{4}$/.test(cardLast4)) {
+    return fail("Los ultimos 4 de la tarjeta son 4 digitos.");
+  }
+
+  // La categoria tiene que pertenecer a la familia del tipo. El formulario ya
+  // filtra, pero una Server Action es alcanzable por POST directo.
+  if (categoryId) {
+    const { data: categoria } = await supabase
+      .from("categories")
+      .select("kind")
+      .eq("id", categoryId)
+      .single();
+    if (!categoria || categoria.kind !== CATEGORY_KIND_FOR[kind as Kind]) {
+      return fail("Esa categoria no corresponde a ese tipo de movimiento.");
+    }
+  }
+
+  // Un gasto que no es cuota no tiene numero de cuota.
+  const cuotaNumber = kind === "installment" ? actual.cuota_number : null;
+
+  const antes: Fingerprintable = {
+    accountId: actual.account_id,
+    occurredOn: actual.occurred_on,
+    amount: centsFromDb(actual.amount),
+    currency: actual.currency as Currency,
+    description: actual.description ?? "",
+    cardLast4: actual.card_last4,
+    cuotaCurrent: actual.cuota_number,
+  };
+  const despues: Fingerprintable = {
+    accountId,
+    occurredOn,
+    amount: cents,
+    currency,
+    description,
+    cardLast4: cardLast4 || null,
+    cuotaCurrent: cuotaNumber,
+  };
+
+  const fingerprint =
+    actual.fingerprint === null
+      ? null
+      : fingerprintKey(antes) === fingerprintKey(despues)
+        ? actual.fingerprint
+        : fingerprintOf(despues, 0);
+
+  const { error } = await supabase
+    .from("transactions")
+    .update({
+      account_id: accountId,
+      category_id: categoryId || null,
+      occurred_on: occurredOn,
+      amount: centsToNumeric(cents),
+      currency,
+      kind,
+      description: description || null,
+      merchant_normalized: description ? normalizeMerchant(description) : null,
+      card_last4: cardLast4 || null,
+      cuota_number: cuotaNumber,
+      fingerprint,
+    })
+    .eq("id", id);
+
+  if (error) {
+    return fail(
+      error.code === "23505"
+        ? "Con esos datos queda igual a otro movimiento que vino del mismo resumen, y la base no admite dos huellas iguales."
+        : `No se pudo guardar: ${error.message}`,
+    );
+  }
+
+  // Ensenar el comercio es opcional y apagado por defecto: corregir la
+  // categoria de UN movimiento no siempre quiere decir que el comercio entero
+  // este mal clasificado, y retrainear sin preguntar arruinaria el proximo
+  // resumen en silencio.
+  let aprendido = "";
+  if (formData.get("learn") === "on" && categoryId && description) {
+    const pattern = suggestPattern(description);
+    if (pattern.length >= 3) {
+      // Sin ignoreDuplicates: si ya habia una regla para ese comercio y es la
+      // que fallo, lo que se quiere es corregirla, no dejarla como estaba.
+      const { error: ruleError } = await supabase
+        .from("merchant_rules")
+        .upsert({ pattern, category_id: categoryId }, { onConflict: "user_id,pattern" });
+      if (!ruleError) aprendido = ` "${pattern}" se va a categorizar asi de ahora en mas.`;
+    }
+  }
+
+  revalidatePath("/", "layout");
+  return { ok: `Guardado.${aprendido}` };
 }
 
 export async function deleteTransaction(formData: FormData) {

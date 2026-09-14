@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { withFingerprints, type Fingerprintable } from "./fingerprint.ts";
+import { fingerprintKey, withFingerprints, type Fingerprintable } from "./fingerprint.ts";
 
 const base: Fingerprintable = {
   accountId: "cuenta-1",
@@ -57,4 +57,43 @@ test("cambiar fecha, monto, moneda o plastico cambia la huella", () => {
     const [otro] = withFingerprints([{ ...base, ...variante }]);
     assert.notEqual(otro.fingerprint, ref.fingerprint, JSON.stringify(variante));
   }
+});
+
+// La huella y la edicion de movimientos
+// ---------------------------------------------------------------------------
+// `updateTransaction` decide si recalcular la huella comparando estas claves.
+// Si la clave no cambia, la huella no se toca; eso es lo que permite editar la
+// categoria de uno de dos movimientos identicos sin que choque con su gemelo.
+
+test("editar lo que no esta en la huella no cambia la clave", () => {
+  // La categoria y el tipo no forman parte de la huella, asi que cambiarlos no
+  // puede invalidarla ni hacerla chocar con otra fila.
+  assert.equal(fingerprintKey(base), fingerprintKey({ ...base }));
+  assert.equal(fingerprintKey(base), fingerprintKey({ ...base, kind: "installment" }));
+});
+
+test("editar monto, fecha, descripcion, cuenta o plastico si cambia la clave", () => {
+  for (const cambio of [
+    { amount: 8810001 },
+    { occurredOn: "2026-06-27" },
+    { description: "OTRO COMERCIO" },
+    { accountId: "cuenta-2" },
+    { cardLast4: "5678" },
+    { currency: "USD" as const },
+  ]) {
+    assert.notEqual(
+      fingerprintKey(base),
+      fingerprintKey({ ...base, ...cambio }),
+      `${JSON.stringify(cambio)} tendria que cambiar la clave`,
+    );
+  }
+});
+
+test("la clave ignora mayusculas y signos de la descripcion", () => {
+  // Se normaliza igual que al importar, asi que corregir "mc donalds" a
+  // "McDonald's" no invalida la huella.
+  assert.equal(
+    fingerprintKey({ ...base, description: "comercio ejemplo" }),
+    fingerprintKey({ ...base, description: "COMERCIO*EJEMPLO" }),
+  );
 });

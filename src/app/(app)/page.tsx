@@ -3,18 +3,19 @@ import Link from "next/link";
 import { Amount } from "@/components/Amount";
 import { MonthFilters } from "@/components/MonthFilters";
 import { TransactionForm } from "@/components/TransactionForm";
-import { deleteTransaction } from "@/app/actions";
+import { TransactionRow } from "@/components/TransactionRow";
 import {
   getAccounts,
   getCategories,
   getTransactionsForPeriod,
   summarize,
+  type Account,
+  type Category,
   type Transaction,
 } from "@/lib/data";
 import {
   formatPeriod,
   isPeriod,
-  KIND_LABELS,
   periodOf,
   shiftPeriod,
   type Currency,
@@ -120,7 +121,12 @@ export default async function MonthPage({
             period={period}
             filters={filters}
           />
-          <TransactionList transactions={transactions} period={period} />
+          <TransactionList
+            transactions={transactions}
+            period={period}
+            accounts={accounts}
+            categories={categories}
+          />
         </div>
 
         <aside>
@@ -268,60 +274,33 @@ function CategoryBreakdown({
 function TransactionList({
   transactions,
   period,
+  accounts,
+  categories,
 }: {
   transactions: Transaction[];
   period: string;
+  accounts: Account[];
+  categories: Category[];
 }) {
   if (transactions.length === 0) return null;
 
   return (
     <section>
-      <h2 className="mb-3 text-sm font-semibold">
+      <h2 className="mb-1 text-sm font-semibold">
         Movimientos de {formatPeriod(period)}{" "}
         <span className="font-normal text-muted">({transactions.length})</span>
       </h2>
+      <p className="mb-3 text-xs text-muted">
+        Tocá cualquiera para corregirlo.
+      </p>
       <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
         {transactions.map((tx) => (
-          <li key={tx.id} className="flex items-center gap-3 px-3 py-2.5 text-sm">
-            <span className="tabular w-12 shrink-0 text-xs text-muted">
-              {tx.occurred_on.slice(8)}/{tx.occurred_on.slice(5, 7)}
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="truncate">
-                {tx.description || KIND_LABELS[tx.kind]}
-                {tx.is_projected ? (
-                  <span className="ml-2 rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
-                    provisorio
-                  </span>
-                ) : null}
-              </div>
-              <div className="truncate text-xs text-muted">
-                {[
-                  tx.category?.name,
-                  tx.account?.name,
-                  tx.card_last4 ? `*${tx.card_last4}` : null,
-                  tx.kind === "consumption" ? null : KIND_LABELS[tx.kind],
-                  // Explica por que una compra de junio aparece en agosto.
-                  tx.statement_period && tx.statement_period !== tx.occurred_on.slice(0, 7)
-                    ? `resumen ${tx.statement_period}`
-                    : null,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </div>
-            </div>
-            <Amount cents={tx.amount} currency={tx.currency} className="shrink-0" />
-            <form action={deleteTransaction}>
-              <input type="hidden" name="id" value={tx.id} />
-              <button
-                type="submit"
-                aria-label="Borrar movimiento"
-                className="text-muted transition hover:text-negative"
-              >
-                &times;
-              </button>
-            </form>
-          </li>
+          <TransactionRow
+            key={tx.id}
+            tx={tx}
+            accounts={accounts}
+            categories={categories}
+          />
         ))}
       </ul>
     </section>
