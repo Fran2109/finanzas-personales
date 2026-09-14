@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { Amount } from "@/components/Amount";
+import { MonthFilters } from "@/components/MonthFilters";
 import { TransactionForm } from "@/components/TransactionForm";
 import { deleteTransaction } from "@/app/actions";
 import {
@@ -20,24 +21,39 @@ import {
   type Currency,
   type Kind,
 } from "@/lib/domain";
+import {
+  applyFilters,
+  hasActiveFilters,
+  monthQuery,
+  readFilters,
+  type Filters,
+} from "@/lib/filters";
 import { formatCents, type Cents } from "@/lib/money";
 
 export default async function MonthPage({
   searchParams,
 }: {
-  searchParams: Promise<{ mes?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
-  const { mes } = await searchParams;
+  const params = await searchParams;
   const today = new Date();
-  const period = mes && isPeriod(mes) ? mes : periodOf(today);
+  const period = params.mes && isPeriod(params.mes) ? params.mes : periodOf(today);
+  const filters = readFilters(params);
 
-  const [transactions, categories, accounts] = await Promise.all([
+  const [todosLosMovimientos, categories, accounts] = await Promise.all([
     getTransactionsForPeriod(period),
     getCategories(),
     getAccounts(),
   ]);
 
+  // Los filtros se aplican sobre el mes ya traido: el volumen de un mes es
+  // chico y asi las opciones de plastico salen de lo que hay de verdad.
+  const transactions = applyFilters(todosLosMovimientos, filters);
   const summary = summarize(transactions);
+
+  const cards = [
+    ...new Set(todosLosMovimientos.map((t) => t.card_last4).filter((c): c is string => !!c)),
+  ].sort();
   const currencies = [...summary.totals.keys()].sort();
 
   // El form arranca en hoy si estamos mirando el mes corriente; si no, en el
@@ -49,11 +65,23 @@ export default async function MonthPage({
 
   return (
     <div className="space-y-8">
-      <MonthNav period={period} />
+      <MonthNav period={period} filters={filters} />
+
+      <MonthFilters
+        period={period}
+        filters={filters}
+        accounts={accounts.filter((a) => a.active)}
+        categories={categories}
+        cards={cards}
+        shown={transactions.length}
+        total={todosLosMovimientos.length}
+      />
 
       {currencies.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted">
-          No hay movimientos en {formatPeriod(period)}. Carga el primero abajo.
+          {hasActiveFilters(filters)
+            ? "Ningun movimiento coincide con esos filtros."
+            : `No hay movimientos en ${formatPeriod(period)}. Carga el primero abajo.`}
         </p>
       ) : (
         <div className="space-y-6">
@@ -69,7 +97,11 @@ export default async function MonthPage({
 
       <div className="grid gap-8 lg:grid-cols-[1fr_20rem]">
         <div className="space-y-8">
-          <CategoryBreakdown byCategory={summary.byCategory} />
+          <CategoryBreakdown
+            byCategory={summary.byCategory}
+            period={period}
+            filters={filters}
+          />
           <TransactionList
             transactions={transactions.filter((t) => countsInAnalysis(t.kind))}
             period={period}
@@ -93,18 +125,18 @@ export default async function MonthPage({
   );
 }
 
-function MonthNav({ period }: { period: string }) {
+function MonthNav({ period, filters }: { period: string; filters: Filters }) {
   return (
     <div className="flex items-center justify-between">
       <Link
-        href={`/?mes=${shiftPeriod(period, -1)}`}
+        href={`/?${monthQuery(shiftPeriod(period, -1), filters)}`}
         className="rounded-md border border-border px-2.5 py-1.5 text-sm text-muted transition hover:text-foreground"
       >
         &larr;
       </Link>
       <h1 className="text-lg font-semibold capitalize">{formatPeriod(period)}</h1>
       <Link
-        href={`/?mes=${shiftPeriod(period, 1)}`}
+        href={`/?${monthQuery(shiftPeriod(period, 1), filters)}`}
         className="rounded-md border border-border px-2.5 py-1.5 text-sm text-muted transition hover:text-foreground"
       >
         &rarr;
@@ -183,8 +215,12 @@ function Stat({
 
 function CategoryBreakdown({
   byCategory,
+  period,
+  filters,
 }: {
   byCategory: { id: string; name: string; currency: Currency; total: Cents }[];
+  period: string;
+  filters: Filters;
 }) {
   if (byCategory.length === 0) return null;
 
@@ -196,10 +232,15 @@ function CategoryBreakdown({
       <ul className="space-y-2">
         {byCategory.map((category) => (
           <li key={`${category.id}-${category.currency}`}>
-            <div className="flex items-baseline justify-between gap-3 text-sm">
+            {/* Clickear una categoria filtra por ella: es la pregunta que
+                sigue naturalmente a ver la barra mas larga. */}
+            <Link
+              href={`/?${monthQuery(period, { ...filters, categoria: category.id })}`}
+              className="flex items-baseline justify-between gap-3 text-sm hover:text-accent"
+            >
               <span>{category.name}</span>
               <Amount cents={category.total} currency={category.currency} />
-            </div>
+            </Link>
             <div className="mt-1 h-1 rounded-full bg-border">
               <div
                 className="h-1 rounded-full bg-accent"
