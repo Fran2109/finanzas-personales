@@ -22,6 +22,8 @@ export type CardSubtotal = {
 };
 
 export type ParsedStatement = {
+  /** "VISA", "MASTERCARD GOLD". Sale de la cabecera del resumen. */
+  brand: string | null;
   statementId: string | null;
   periodClose: string | null;
   previousBalanceArs: Cents;

@@ -8,7 +8,7 @@ import { withRetry } from "@/lib/retry";
 import { normalizeMerchant } from "@/lib/domain";
 import { centsToNumeric } from "@/lib/money";
 import { extractPdfText } from "@/lib/import/pdf";
-import { parseGaliciaVisa } from "@/lib/import/galicia-visa";
+import { parseGaliciaStatement } from "@/lib/import/galicia";
 import { reconcile } from "@/lib/import/reconcile";
 import { withFingerprints } from "@/lib/import/fingerprint";
 import type { ParsedRow } from "@/lib/import/types";
@@ -52,7 +52,7 @@ export async function uploadStatement(
     return { error: `No se pudo leer el PDF: ${e instanceof Error ? e.message : e}` };
   }
 
-  const statement = parseGaliciaVisa(text);
+  const statement = parseGaliciaStatement(text);
   const check = reconcile(statement);
 
   if (!check.ok) {

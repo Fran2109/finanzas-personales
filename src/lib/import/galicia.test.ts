@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseGaliciaVisa } from "./galicia-visa.ts";
+import { parseGaliciaStatement } from "./galicia.ts";
 import { reconcile } from "./reconcile.ts";
 
 /**
@@ -30,7 +30,7 @@ TOTAL A PAGAR 1.823,50 7,00
 `;
 
 test("lee la cabecera del resumen", () => {
-  const st = parseGaliciaVisa(RESUMEN);
+  const st = parseGaliciaStatement(RESUMEN);
   assert.equal(st.statementId, "VI00000000000000001");
   assert.equal(st.periodClose, "2026-08-20");
   assert.equal(st.previousBalanceArs, 100000);
@@ -40,13 +40,13 @@ test("lee la cabecera del resumen", () => {
 });
 
 test("transcribe todas las filas sin dejar ninguna sin leer", () => {
-  const st = parseGaliciaVisa(RESUMEN);
+  const st = parseGaliciaStatement(RESUMEN);
   assert.equal(st.rows.length, 8);
   assert.deepEqual(st.unparsedLines, []);
 });
 
 test("separa lo que no es consumo", () => {
-  const st = parseGaliciaVisa(RESUMEN);
+  const st = parseGaliciaStatement(RESUMEN);
   const kinds = st.rows.map((r) => r.kind);
   assert.equal(kinds.filter((k) => k === "payment").length, 2);
   assert.equal(kinds.filter((k) => k === "tax_fee").length, 2);
@@ -56,7 +56,7 @@ test("separa lo que no es consumo", () => {
 });
 
 test("el monto en dolares no se confunde con el de pesos", () => {
-  const st = parseGaliciaVisa(RESUMEN);
+  const st = parseGaliciaStatement(RESUMEN);
   const usd = st.rows.filter((r) => r.currency === "USD");
   assert.equal(usd.length, 2);
   const consumo = usd.find((r) => r.kind === "consumption")!;
@@ -65,7 +65,7 @@ test("el monto en dolares no se confunde con el de pesos", () => {
 });
 
 test("detecta cuotas", () => {
-  const st = parseGaliciaVisa(RESUMEN);
+  const st = parseGaliciaStatement(RESUMEN);
   const cuota = st.rows.find((r) => r.cuotaCurrent !== null)!;
   assert.equal(cuota.rawDescription, "COMERCIO DOS");
   assert.equal(cuota.cuotaCurrent, 2);
@@ -73,7 +73,7 @@ test("detecta cuotas", () => {
 });
 
 test("imputa cada consumo a su plastico, y el bloque consolidado a ninguno", () => {
-  const st = parseGaliciaVisa(RESUMEN);
+  const st = parseGaliciaStatement(RESUMEN);
   const conTarjeta = st.rows.filter((r) => r.cardLast4 === "1234");
   assert.equal(conTarjeta.length, 4);
   // Pagos e impuestos son del resumen, no de una tarjeta.
@@ -83,7 +83,7 @@ test("imputa cada consumo a su plastico, y el bloque consolidado a ninguno", () 
 });
 
 test("el gate pasa cuando el resumen cierra al centavo", () => {
-  const rec = reconcile(parseGaliciaVisa(RESUMEN));
+  const rec = reconcile(parseGaliciaStatement(RESUMEN));
   assert.equal(rec.ok, true);
   assert.deepEqual(rec.problems, []);
   assert.equal(rec.currencies.every((c) => c.difference === 0), true);
@@ -93,7 +93,7 @@ test("el gate pasa cuando el resumen cierra al centavo", () => {
 test("el gate rechaza si se pierde una fila", () => {
   // Una linea salteada es el modo de falla que este gate existe para atrapar.
   const mutilado = RESUMEN.replace("01-08-26 * COMERCIO UNO 000111 1.500,00\n", "");
-  const rec = reconcile(parseGaliciaVisa(mutilado));
+  const rec = reconcile(parseGaliciaStatement(mutilado));
   assert.equal(rec.ok, false);
   assert.match(rec.problems.join(" "), /ARS/);
   assert.equal(rec.currencies.find((c) => c.currency === "ARS")!.difference, -150000);
@@ -101,12 +101,12 @@ test("el gate rechaza si se pierde una fila", () => {
 
 test("el gate rechaza si un monto se lee mal", () => {
   const alterado = RESUMEN.replace("000111 1.500,00", "000111 1.500,10");
-  const rec = reconcile(parseGaliciaVisa(alterado));
+  const rec = reconcile(parseGaliciaStatement(alterado));
   assert.equal(rec.ok, false);
 });
 
 test("el gate rechaza un PDF que no es un resumen", () => {
-  const rec = reconcile(parseGaliciaVisa("una factura de luz cualquiera"));
+  const rec = reconcile(parseGaliciaStatement("una factura de luz cualquiera"));
   assert.equal(rec.ok, false);
   assert.match(rec.problems.join(" "), /ningun movimiento/);
 });
@@ -116,9 +116,92 @@ test("las refinanciaciones son servicio de deuda, no compras", () => {
     "01-08-26 * COMERCIO UNO 000111 1.500,00",
     "02-01-26 PLAN V CONSOLID 5-12 (TNA 37,00) 000111 1.500,00",
   );
-  const st = parseGaliciaVisa(conPlan);
+  const st = parseGaliciaStatement(conPlan);
   const plan = st.rows.find((r) => r.kind === "financing")!;
   assert.equal(plan.cuotaCurrent, 5);
   assert.equal(plan.cuotaTotal, 12);
   assert.equal(reconcile(st).ok, true);
+});
+
+/**
+ * El mismo banco emite MASTERCARD con otro layout: fecha "28-Jul-26" en vez de
+ * "28-07-26", dolares marcados "U$S" en vez de "USD", ajustes sin fecha, y sin
+ * subtotal por plastico. Inventado igual que el otro.
+ *
+ * ARS  5.000,00 - 5.000,00 - 500,00 + 1.200,00 = 700,00
+ * USD     10,00 -    10,00                     =   0,00
+ */
+const MASTERCARD = `
+Resumen N° 000000000000001
+Tarjeta Crédito MASTERCARD GOLD
+20260820000000001H
+23-Jul-26 03-Ago-26 20-Ago-26 01-Sep-26 24-Sep-26 05-Oct-26
+CONSOLIDADO PESOS DÓLARES
+SALDO ANTERIOR 5.000,00 10,00
+28-Jul-26 SU PAGO U$S -10,00 0,00 -10,00
+28-Jul-26 SU PAGO -5.000,00 -5.000,00
+DEV PER RG 4815 30% -500,00
+SALDO PENDIENTE 0,00 0,00
+TOTAL CONSUMOS DEL MES 1.200,00 0,00
+SUBTOTAL 700,00 0,00
+TOTAL A PAGAR 700,00 0,00
+DETALLE DEL CONSUMO
+FECHA REFERENCIA COMPROBANTE PESOS DÓLARES
+CUOTA DEL MES
+28-Ene-26 TIENDA ONLINE 07/12 04168 1.200,00
+SUBTOTAL 700,00 0,00
+TOTAL A PAGAR 700,00 0,00
+El monto de IVA discriminado no puede computarse como credito fiscal
+Costo Financiero Total de Tasa Efectiva Anual (CFT TEA) 205,62%
+Cuotas a vencer
+$ 1.200,00 $ 1.200,00 $ 1.200,00
+`;
+
+test("lee el formato MASTERCARD, con su fecha y su marca de dolares", () => {
+  const st = parseGaliciaStatement(MASTERCARD);
+  assert.equal(st.brand, "MASTERCARD GOLD");
+  assert.equal(st.periodClose, "2026-08-20");
+  assert.equal(st.rows.length, 4);
+  assert.deepEqual(st.unparsedLines, []);
+
+  const compra = st.rows.find((r) => r.kind === "consumption")!;
+  assert.equal(compra.occurredOn, "2026-01-28"); // "28-Ene-26"
+  assert.equal(compra.rawDescription, "TIENDA ONLINE");
+  assert.equal(compra.cuotaCurrent, 7);
+  assert.equal(compra.cuotaTotal, 12);
+
+  const enDolares = st.rows.filter((r) => r.currency === "USD");
+  assert.equal(enDolares.length, 1);
+  assert.equal(enDolares[0].amount, -1000);
+});
+
+test("un ajuste sin fecha se imputa al cierre del periodo", () => {
+  const st = parseGaliciaStatement(MASTERCARD);
+  const dev = st.rows.find((r) => r.rawDescription.startsWith("DEV PER"))!;
+  assert.equal(dev.occurredOn, "2026-08-20");
+  // Una devolucion de percepcion es un impuesto en negativo, no el reintegro
+  // de una compra: si fuera refund restaria del consumo del mes.
+  assert.equal(dev.kind, "tax_fee");
+  assert.equal(dev.amount, -50000);
+});
+
+test("la letra chica y los totales no se cuelan como movimientos", () => {
+  const st = parseGaliciaStatement(MASTERCARD);
+  const textos = st.rows.map((r) => r.rawDescription).join(" | ");
+  assert.doesNotMatch(textos, /SUBTOTAL|TOTAL|SALDO|CFT|Cuotas a vencer/i);
+  // El renglon de fechas de la cabecera tampoco es un movimiento.
+  assert.equal(st.rows.length, 4);
+});
+
+test("el gate pasa con el resumen MASTERCARD entero", () => {
+  const rec = reconcile(parseGaliciaStatement(MASTERCARD));
+  assert.equal(rec.ok, true, rec.problems.join(" / "));
+  assert.equal(rec.currencies.find((c) => c.currency === "ARS")!.declared, 70000);
+  // Este formato no trae subtotal por plastico: no hay control cruzado que hacer.
+  assert.equal(rec.cards.length, 0);
+});
+
+test("el gate rechaza el MASTERCARD si se pierde una fila", () => {
+  const mutilado = MASTERCARD.replace("DEV PER RG 4815 30% -500,00\n", "");
+  assert.equal(reconcile(parseGaliciaStatement(mutilado)).ok, false);
 });
