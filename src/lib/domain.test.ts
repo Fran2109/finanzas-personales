@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   balanceSign,
   CATEGORY_KIND_FOR,
+  countsInAnalysis,
   isKind,
   KINDS,
   KIND_LABELS,
@@ -85,4 +86,17 @@ test("el periodo del resumen sale de su fecha de cierre", () => {
   assert.equal(periodOfDate("2026-01-02"), "2026-01");
   assert.equal(periodOfDate("no es una fecha"), null);
   assert.equal(periodOfDate(""), null);
+});
+
+test("los pagos y transferencias no se contabilizan", () => {
+  // Mueven plata entre cuentas propias: el gasto que los origino ya se conto
+  // cuando se compro, asi que sumarlos seria contar la misma plata dos veces.
+  assert.equal(countsInAnalysis("payment"), false);
+  assert.equal(countsInAnalysis("transfer"), false);
+});
+
+test("todo lo que sale de verdad si se contabiliza", () => {
+  for (const kind of ["consumption", "installment", "refund", "tax_fee", "financing", "income"] as const) {
+    assert.equal(countsInAnalysis(kind), true, `${kind} deberia contar`);
+  }
 });

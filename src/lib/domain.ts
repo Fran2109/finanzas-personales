@@ -95,6 +95,22 @@ export const MANUAL_KINDS: readonly Kind[] = [
 ];
 
 /**
+ * Kinds que NO se contabilizan.
+ *
+ * Un pago de tarjeta y una transferencia mueven plata entre cuentas propias:
+ * no sale del patrimonio, y el gasto que la origino ya se conto cuando se
+ * compro. Contarlos seria sumar la misma plata dos veces.
+ *
+ * Se siguen guardando e importando: sirven para cuadrar el resumen y para
+ * saber que se pago. Simplemente no entran en ningun total ni en el desglose.
+ */
+export const NON_ACCOUNTED_KINDS: readonly Kind[] = ["payment", "transfer"];
+
+export function countsInAnalysis(kind: Kind): boolean {
+  return !NON_ACCOUNTED_KINDS.includes(kind);
+}
+
+/**
  * Los unicos kinds que son consumo. Todo reporte de "en que se me va la plata"
  * filtra por esto; si entra `payment` se duplica y si entra `tax_fee` se
  * distorsiona el analisis por categoria.

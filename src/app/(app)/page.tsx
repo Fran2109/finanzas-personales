@@ -4,13 +4,14 @@ import { Amount } from "@/components/Amount";
 import { TransactionForm } from "@/components/TransactionForm";
 import { deleteTransaction } from "@/app/actions";
 import {
-  getAccountBalances,
+  getAccounts,
   getCategories,
   getTransactionsForPeriod,
   summarize,
   type Transaction,
 } from "@/lib/data";
 import {
+  countsInAnalysis,
   formatPeriod,
   isPeriod,
   KIND_LABELS,
@@ -33,7 +34,7 @@ export default async function MonthPage({
   const [transactions, categories, accounts] = await Promise.all([
     getTransactionsForPeriod(period),
     getCategories(),
-    getAccountBalances(),
+    getAccounts(),
   ]);
 
   const summary = summarize(transactions);
@@ -69,10 +70,14 @@ export default async function MonthPage({
       <div className="grid gap-8 lg:grid-cols-[1fr_20rem]">
         <div className="space-y-8">
           <CategoryBreakdown byCategory={summary.byCategory} />
-          <TransactionList transactions={transactions} period={period} />
+          <TransactionList
+            transactions={transactions.filter((t) => countsInAnalysis(t.kind))}
+            period={period}
+          />
+          <PaymentList transactions={transactions.filter((t) => !countsInAnalysis(t.kind))} />
         </div>
 
-        <aside className="space-y-8">
+        <aside>
           <section>
             <h2 className="mb-3 text-sm font-semibold">Nuevo movimiento</h2>
             <TransactionForm
@@ -82,30 +87,6 @@ export default async function MonthPage({
             />
           </section>
 
-          <section>
-            <h2 className="mb-3 text-sm font-semibold">Saldo por cuenta</h2>
-            <ul className="space-y-2">
-              {accounts.map((account) => (
-                <li
-                  key={account.id}
-                  className="flex items-baseline justify-between gap-3 text-sm"
-                >
-                  <span className={account.active ? "" : "text-muted line-through"}>
-                    {account.name}
-                  </span>
-                  <Amount
-                    cents={account.balance}
-                    currency={account.currency}
-                    tone="auto"
-                  />
-                </li>
-              ))}
-            </ul>
-            <p className="mt-3 text-xs leading-relaxed text-muted">
-              Saldo de todo el historial, no del mes. En una tarjeta, negativo es
-              deuda.
-            </p>
-          </section>
         </aside>
       </div>
     </div>
@@ -171,12 +152,7 @@ function MonthTotals({
           de compras anteriores.
         </p>
       ) : null}
-      {totals.payments !== 0 ? (
-        <p className="mt-2 text-xs text-muted">
-          Ademas pagaste {formatCents(totals.payments, currency)} de tarjeta. No
-          entra en el consumo: ese gasto ya se conto cuando se hizo la compra.
-        </p>
-      ) : null}
+
     </section>
   );
 }
@@ -234,10 +210,9 @@ function CategoryBreakdown({
         ))}
       </ul>
       <p className="mt-3 text-xs leading-relaxed text-muted">
-        Entra todo: consumo, cuotas, impuestos, costos financieros y pagos. Ojo
-        con los pagos de tarjeta, que son una transferencia y no un gasto nuevo:
-        ese consumo ya esta contado en las categorias de arriba, asi que el
-        total de esta lista no es lo que gastaste.
+        Entra toda la plata que sale: consumo, cuotas, impuestos y costos
+        financieros. Los pagos de tarjeta no, porque mueven plata entre cuentas
+        propias y ese gasto ya se conto cuando se compro.
       </p>
     </section>
   );
@@ -300,6 +275,52 @@ function TransactionList({
                 type="submit"
                 aria-label="Borrar movimiento"
                 className="text-muted transition hover:text-negative"
+              >
+                &times;
+              </button>
+            </form>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/**
+ * Los pagos de tarjeta y las transferencias, aparte y como referencia.
+ *
+ * No se contabilizan en ningun total ni en el desglose: mueven plata entre
+ * cuentas propias y el gasto que los origino ya se conto cuando se compro.
+ * Se muestran igual porque sirven para saber que se pago y cuando.
+ */
+function PaymentList({ transactions }: { transactions: Transaction[] }) {
+  if (transactions.length === 0) return null;
+
+  return (
+    <section>
+      <h2 className="mb-1 text-sm font-semibold text-muted">
+        Pagos y transferencias ({transactions.length})
+      </h2>
+      <p className="mb-3 text-xs leading-relaxed text-muted">
+        No se cuentan como gasto: ese consumo ya esta contado arriba. Van aca
+        solo como referencia.
+      </p>
+      <ul className="divide-y divide-border rounded-lg border border-dashed border-border">
+        {transactions.map((tx) => (
+          <li key={tx.id} className="flex items-center gap-3 px-3 py-2 text-sm text-muted">
+            <span className="tabular w-12 shrink-0 text-xs">
+              {tx.occurred_on.slice(8)}/{tx.occurred_on.slice(5, 7)}
+            </span>
+            <span className="min-w-0 flex-1 truncate">
+              {tx.description || KIND_LABELS[tx.kind]}
+            </span>
+            <Amount cents={tx.amount} currency={tx.currency} className="shrink-0" />
+            <form action={deleteTransaction}>
+              <input type="hidden" name="id" value={tx.id} />
+              <button
+                type="submit"
+                aria-label="Borrar movimiento"
+                className="transition hover:text-negative"
               >
                 &times;
               </button>

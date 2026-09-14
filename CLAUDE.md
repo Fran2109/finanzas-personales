@@ -78,9 +78,19 @@ El número de plástico va en `transactions.card_last4`. Si fueran cuentas
 separadas, el pago del resumen no tendría a qué imputarse.
 
 **`kind` separa la semántica económica.** Valores: `consumption`, `installment`,
-`income`, `payment`, `refund`, `tax_fee`, `financing`, `transfer`. Los reportes
-de gasto filtran por `consumption`, `installment` y `refund`. Todo lo demás se
-excluye.
+`income`, `payment`, `refund`, `tax_fee`, `financing`, `transfer`.
+
+**La app registra salidas, no lleva balances.** Al análisis entra toda la plata
+que sale: `consumption`, `installment`, `refund`, `tax_fee` y `financing`. Los
+impuestos y los costos financieros no son consumo, pero son plata que se fue, y
+dejarlos afuera los hacía invisibles.
+
+`payment` y `transfer` **no se contabilizan nunca** (`NON_ACCOUNTED_KINDS`):
+mueven plata entre cuentas propias, no sale del patrimonio, y el gasto que las
+originó ya se contó cuando se compró. Se siguen guardando e importando —hacen
+falta para que el resumen reconcilie— pero se listan aparte, como referencia.
+Tampoco se muestran saldos por cuenta: `balanceSign` sigue documentado y
+testeado para cuando hagan falta, pero ninguna pantalla los usa.
 
 `installment` marca una compra financiada, pero **usa categorías de gasto
 comunes**, no una familia propia. El tipo dice que es en cuotas y la categoría

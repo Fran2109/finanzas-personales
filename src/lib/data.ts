@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { withRetry } from "@/lib/retry";
 import { centsFromDb, type Cents } from "@/lib/money";
 import {
-  balanceSign,
+  countsInAnalysis,
   isPeriod,
   periodRange,
   type Currency,
@@ -193,11 +193,11 @@ export function summarize(transactions: Transaction[]): MonthSummary {
 
     totals.set(tx.currency, bucket);
 
-    // Todo entra al desglose, no solo el consumo: impuestos y costos
-    // financieros son plata que sale igual y quedaban invisibles. Los pagos de
-    // tarjeta tambien aparecen, aunque sean una transferencia y no un gasto
-    // nuevo; la vista lo aclara para que no se lean como consumo.
-    {
+    // Al desglose entra toda la plata que sale: consumo, cuotas, impuestos y
+    // costos financieros. Los pagos de tarjeta y las transferencias no, porque
+    // mueven plata entre cuentas propias y ese gasto ya se conto cuando se
+    // compro.
+    if (countsInAnalysis(tx.kind)) {
       const key = `${tx.category?.id ?? "sin"}:${tx.currency}`;
       const entry =
         categories.get(key) ??
@@ -219,45 +219,33 @@ export function summarize(transactions: Transaction[]): MonthSummary {
   return { totals, byCategory, count: transactions.length };
 }
 
-export type AccountBalance = Account & { balance: Cents; movements: number };
+export type AccountActivity = Account & { movements: number };
 
 /**
- * Saldo por cuenta sobre todo el historial.
+ * Cuentas con cuantos movimientos tiene cada una.
  *
- * El saldo es con signo y desde el punto de vista de la cuenta: una tarjeta con
- * deuda da negativo. Las proyecciones de cuotas (`is_projected`) no entran, son
- * compromisos futuros y no plata ya movida.
+ * No devuelve saldo: la app registra salidas, no lleva balances. El calculo
+ * vive igual en `balanceSign`, documentado y testeado, para cuando haga falta.
  */
-export async function getAccountBalances(): Promise<AccountBalance[]> {
+export async function getAccountsWithActivity(): Promise<AccountActivity[]> {
   const supabase = await createClient();
 
   const [accounts, movements] = await Promise.all([
     getAccounts(),
-    withRetry(() =>
-      supabase.from("transactions").select("account_id, amount, kind").eq("is_projected", false),
-    ),
+    withRetry(() => supabase.from("transactions").select("account_id")),
   ]);
 
   if (movements.error) {
-    throw new Error(`No se pudieron leer los saldos: ${movements.error.message}`);
+    throw new Error(`No se pudieron contar los movimientos: ${movements.error.message}`);
   }
 
-  const byAccount = new Map(accounts.map((a) => [a.id, a]));
-  const balances = new Map<string, { balance: Cents; movements: number }>();
-
+  const porCuenta = new Map<string, number>();
   for (const row of movements.data ?? []) {
-    const account = byAccount.get(row.account_id);
-    if (!account) continue;
-    const entry = balances.get(row.account_id) ?? { balance: 0, movements: 0 };
-    entry.balance +=
-      balanceSign(row.kind as Kind, account.is_liability) * centsFromDb(row.amount);
-    entry.movements += 1;
-    balances.set(row.account_id, entry);
+    porCuenta.set(row.account_id, (porCuenta.get(row.account_id) ?? 0) + 1);
   }
 
   return accounts.map((account) => ({
     ...account,
-    balance: balances.get(account.id)?.balance ?? 0,
-    movements: balances.get(account.id)?.movements ?? 0,
+    movements: porCuenta.get(account.id) ?? 0,
   }));
 }

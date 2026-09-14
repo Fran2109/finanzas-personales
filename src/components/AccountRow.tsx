@@ -3,9 +3,8 @@
 import { useActionState, useState } from "react";
 
 import { deleteAccount, setAccountActive, updateAccount, type FormState } from "@/app/actions";
-import { Amount } from "@/components/Amount";
 import { SubmitButton } from "@/components/SubmitButton";
-import type { AccountBalance } from "@/lib/data";
+import type { AccountActivity } from "@/lib/data";
 
 export const ACCOUNT_TYPE_LABELS: Record<string, string> = {
   bank: "Banco",
@@ -29,7 +28,7 @@ export function AccountRow({
   account,
   importCount,
 }: {
-  account: AccountBalance;
+  account: AccountActivity;
   importCount: number;
 }) {
   const [editing, setEditing] = useState(false);
@@ -125,8 +124,6 @@ export function AccountRow({
             .join(" · ")}
         </div>
       </div>
-
-      <Amount cents={account.balance} currency={account.currency} tone="auto" />
 
       {confirming ? (
         <span className="flex items-center gap-2 text-xs">

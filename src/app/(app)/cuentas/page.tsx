@@ -1,6 +1,6 @@
 import { AccountForm } from "@/components/AccountForm";
 import { AccountRow } from "@/components/AccountRow";
-import { getAccountBalances } from "@/lib/data";
+import { getAccountsWithActivity } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function AccountsPage({
@@ -12,7 +12,7 @@ export default async function AccountsPage({
   const supabase = await createClient();
 
   const [accounts, imports] = await Promise.all([
-    getAccountBalances(),
+    getAccountsWithActivity(),
     supabase.from("imports").select("account_id"),
   ]);
 
@@ -78,6 +78,8 @@ export default async function AccountsPage({
           se pagan con un solo pago son una sola cuenta, y el numero de cada
           plastico va en el movimiento. Una cuenta con movimientos se archiva,
           no se borra: archivarla la saca del paso sin perder el historial.
+          La app registra salidas, no lleva saldos, asi que las cuentas no
+          muestran uno.
         </p>
       </section>
 
