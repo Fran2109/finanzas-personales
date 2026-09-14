@@ -95,6 +95,8 @@ export type CurrencyTotals = {
   taxFee: Cents;
   financing: Cents;
   payments: Cents;
+  /** Cuanto del consumo son cuotas. Es un subconjunto de `spent`. */
+  installments: Cents;
 };
 
 const EMPTY_TOTALS: CurrencyTotals = {
@@ -103,6 +105,7 @@ const EMPTY_TOTALS: CurrencyTotals = {
   taxFee: 0,
   financing: 0,
   payments: 0,
+  installments: 0,
 };
 
 export type CategoryTotal = {
@@ -128,6 +131,12 @@ export function summarize(transactions: Transaction[]): MonthSummary {
     switch (tx.kind) {
       case "consumption":
         bucket.spent += tx.amount;
+        break;
+      // Una cuota es consumo igual: la plata salio. Se suma al total y se
+      // guarda aparte solo para poder decir cuanto del mes ya estaba comprado.
+      case "installment":
+        bucket.spent += tx.amount;
+        bucket.installments += tx.amount;
         break;
       case "refund":
         // Un reintegro resta del consumo del mes, no suma como ingreso.

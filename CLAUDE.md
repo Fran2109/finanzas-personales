@@ -26,11 +26,13 @@ La key publishable va en `.env.local`, nunca commiteada. Usar la publishable
 - [x] Usuario creado en auth + seed corrido (1 cuenta, 24 categorías)
 - [x] Scaffold de Next.js 16 (App Router, Tailwind v4, `@supabase/ssr`)
 - [x] Fase 1 construida: alta manual, vista del mes, saldo por cuenta
+- [x] Importador de resúmenes Galicia (VISA y MASTERCARD) con gate de reconciliación
 - [ ] Fase 1 aceptada: una semana de gastos reales cargados sin que dé fastidio
 - [x] Deploy en Vercel: https://finanzas-personales-rouge-eta.vercel.app
 
-El esquema del remoto está versionado en `supabase/migrations/20260914112501_init.sql`.
-No se reaplica: el nombre coincide con la versión ya registrada.
+El esquema del remoto está versionado en `supabase/migrations/`. Los nombres de
+archivo coinciden con las versiones registradas (`20260914112501_init`,
+`20260914134533_add_installment_kind`), así que `db push` no los reaplica.
 
 ## Contexto de dominio: Argentina
 
@@ -67,9 +69,17 @@ distorsionan cualquier análisis por categoría.
 El número de plástico va en `transactions.card_last4`. Si fueran cuentas
 separadas, el pago del resumen no tendría a qué imputarse.
 
-**`kind` separa la semántica económica.** Valores: `consumption`, `income`,
-`payment`, `refund`, `tax_fee`, `financing`, `transfer`. Los reportes de gasto
-filtran por `consumption` y `refund`. Todo lo demás se excluye.
+**`kind` separa la semántica económica.** Valores: `consumption`, `installment`,
+`income`, `payment`, `refund`, `tax_fee`, `financing`, `transfer`. Los reportes
+de gasto filtran por `consumption`, `installment` y `refund`. Todo lo demás se
+excluye.
+
+`installment` marca una compra financiada, pero **usa categorías de gasto
+comunes**, no una familia propia. El tipo dice que es en cuotas y la categoría
+sigue diciendo qué se compró; si tuviera su propia familia, mandar todas las
+cuotas a "Cuotas" haría perder en qué se fue la plata. Cuenta como consumo en
+los totales, y la vista del mes aclara aparte cuánto de ese consumo son cuotas
+de compras anteriores.
 
 **`fingerprint` con índice único parcial** sobre `(user_id, fingerprint)` es la
 red anti-duplicados. Se calcula sobre fecha + monto + descripción normalizada.

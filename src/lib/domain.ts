@@ -15,6 +15,7 @@ export const KINDS = [
   "tax_fee",
   "financing",
   "transfer",
+  "installment",
 ] as const;
 
 export type Kind = (typeof KINDS)[number];
@@ -46,6 +47,7 @@ export const KIND_LABELS: Record<Kind, string> = {
   tax_fee: "Impuesto o comision",
   financing: "Costo financiero",
   transfer: "Transferencia",
+  installment: "Cuotas",
 };
 
 export const KIND_HELP: Record<Kind, string> = {
@@ -57,6 +59,8 @@ export const KIND_HELP: Record<Kind, string> = {
   tax_fee: "IVA, IIBB, percepciones. Es plata real, pero no es consumo.",
   financing: "Intereses y refinanciaciones. Servicio de deuda, no una compra.",
   transfer: "Movimiento entre cuentas propias. No cambia el patrimonio.",
+  installment:
+    "Una compra financiada. Cuenta como consumo igual, pero queda marcada: la categoria sigue diciendo que compraste.",
 };
 
 /**
@@ -67,6 +71,9 @@ export const KIND_HELP: Record<Kind, string> = {
  */
 export const CATEGORY_KIND_FOR: Record<Kind, string> = {
   consumption: "expense",
+  // Una cuota usa categorias de gasto comunes: el tipo dice que es financiada,
+  // la categoria sigue diciendo que se compro.
+  installment: "expense",
   refund: "expense",
   income: "income",
   tax_fee: "tax_fee",
@@ -79,6 +86,7 @@ export const CATEGORY_KIND_FOR: Record<Kind, string> = {
 /** Los kinds que tiene sentido cargar a mano en la fase 1. */
 export const MANUAL_KINDS: readonly Kind[] = [
   "consumption",
+  "installment",
   "income",
   "payment",
   "refund",
@@ -91,7 +99,7 @@ export const MANUAL_KINDS: readonly Kind[] = [
  * filtra por esto; si entra `payment` se duplica y si entra `tax_fee` se
  * distorsiona el analisis por categoria.
  */
-export const SPENDING_KINDS: readonly Kind[] = ["consumption", "refund"];
+export const SPENDING_KINDS: readonly Kind[] = ["consumption", "installment", "refund"];
 
 /**
  * Efecto de un movimiento sobre el saldo de la cuenta donde esta la fila.
@@ -110,6 +118,7 @@ export function balanceSign(kind: Kind, isLiability: boolean): -1 | 0 | 1 {
     case "refund":
       return 1;
     case "consumption":
+    case "installment":
     case "tax_fee":
     case "financing":
       return -1;

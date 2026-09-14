@@ -143,6 +143,7 @@ function MonthTotals({
     taxFee: Cents;
     financing: Cents;
     payments: Cents;
+    installments: Cents;
   };
 }) {
   const balance = totals.income - totals.spent - totals.taxFee - totals.financing;
@@ -164,6 +165,12 @@ function MonthTotals({
         />
         <Stat label="Balance" cents={balance} currency={currency} tone="auto" />
       </div>
+      {totals.installments !== 0 ? (
+        <p className="mt-2 text-xs text-muted">
+          De ese consumo, {formatCents(totals.installments, currency)} son cuotas
+          de compras anteriores.
+        </p>
+      ) : null}
       {totals.payments !== 0 ? (
         <p className="mt-2 text-xs text-muted">
           Ademas pagaste {formatCents(totals.payments, currency)} de tarjeta. No
