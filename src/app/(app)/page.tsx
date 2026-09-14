@@ -153,17 +153,14 @@ function MonthTotals({
           {currency}
         </h2>
       ) : null}
+      {/* "Total gastado" y no "Gastado": este numero es la suma de los otros
+          dos, y con nombres parecidos se leia uno por otro. Los dos de la
+          derecha se llaman igual que los dos tipos de la app. */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Stat label="Gastado" cents={totals.total} currency={currency} destacado />
-        <Stat label="Gastos" cents={totals.purchases} currency={currency} />
-        <Stat label="Cuotas" cents={totals.installments} currency={currency} />
+        <Stat label="Total gastado" cents={totals.total} currency={currency} destacado />
+        <Stat label="Gastos" cents={totals.purchases} currency={currency} hint="sin cuotas" />
+        <Stat label="Cuotas" cents={totals.installments} currency={currency} hint="de compras anteriores" />
       </div>
-      {totals.installments !== 0 ? (
-        <p className="mt-2 text-xs text-muted">
-          Las cuotas son de compras anteriores: ya estaban decididas antes de
-          este mes.
-        </p>
-      ) : null}
     </section>
   );
 }
@@ -173,11 +170,13 @@ function Stat({
   cents,
   currency,
   destacado = false,
+  hint,
 }: {
   label: string;
   cents: Cents;
   currency: Currency;
   destacado?: boolean;
+  hint?: string;
 }) {
   return (
     <div
@@ -185,7 +184,10 @@ function Stat({
         destacado ? "border-accent/40 bg-accent/5" : "border-border bg-surface"
       }`}
     >
-      <div className="text-xs text-muted">{label}</div>
+      <div className="text-xs text-muted">
+        {label}
+        {hint ? <span className="ml-1 opacity-70">({hint})</span> : null}
+      </div>
       {/* Todo lo que la app registra es plata que salio, asi que no hay signos
           que interpretar: el numero es cuanto se fue. */}
       <Amount
