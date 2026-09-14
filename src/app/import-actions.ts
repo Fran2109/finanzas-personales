@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import { withRetry } from "@/lib/retry";
-import { normalizeMerchant } from "@/lib/domain";
+import { isKind, normalizeMerchant } from "@/lib/domain";
 import { centsToNumeric } from "@/lib/money";
 import { extractPdfText } from "@/lib/import/pdf";
 import { parseGaliciaStatement } from "@/lib/import/galicia";
@@ -161,10 +161,15 @@ export async function setRowCategory(formData: FormData) {
     }
   }
 
+  // El tipo tambien se puede corregir: el parser acierta casi siempre, pero un
+  // impuesto leido como compra distorsiona el analisis por categoria.
+  const kind = String(formData.get("kind") ?? "");
+
   await supabase
     .from("import_rows")
     .update({
       suggested_category_id: categoryId || null,
+      ...(isKind(kind) ? { kind } : {}),
       needs_review: false,
       status: "pending",
     })

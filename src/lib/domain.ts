@@ -59,6 +59,23 @@ export const KIND_HELP: Record<Kind, string> = {
   transfer: "Movimiento entre cuentas propias. No cambia el patrimonio.",
 };
 
+/**
+ * Que familia de categorias corresponde a cada tipo de movimiento.
+ *
+ * Es lo que evita imputar una compra a "Sueldo". Si el tipo de un movimiento
+ * cambia, su categoria deja de ser valida y hay que elegir de nuevo.
+ */
+export const CATEGORY_KIND_FOR: Record<Kind, string> = {
+  consumption: "expense",
+  refund: "expense",
+  income: "income",
+  tax_fee: "tax_fee",
+  financing: "financing",
+  transfer: "transfer",
+  // Un pago de tarjeta mueve plata entre cuentas propias, no compra nada.
+  payment: "transfer",
+};
+
 /** Los kinds que tiene sentido cargar a mano en la fase 1. */
 export const MANUAL_KINDS: readonly Kind[] = [
   "consumption",

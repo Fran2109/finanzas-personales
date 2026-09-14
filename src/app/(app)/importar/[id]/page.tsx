@@ -10,17 +10,6 @@ import { getCategories } from "@/lib/data";
 import { KIND_LABELS, type Kind } from "@/lib/domain";
 import { centsFromDb } from "@/lib/money";
 
-/** Que categorias tienen sentido segun el tipo de movimiento. */
-const CATEGORY_KIND_FOR: Record<Kind, string> = {
-  consumption: "expense",
-  refund: "expense",
-  income: "income",
-  tax_fee: "tax_fee",
-  financing: "financing",
-  transfer: "transfer",
-  payment: "transfer",
-};
-
 export default async function ReviewImportPage({
   params,
   searchParams,
@@ -183,7 +172,6 @@ function RowTable({
     <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
       {rows.map((row) => {
         const kind = row.kind as Kind;
-        const opciones = categories.filter((c) => c.kind === CATEGORY_KIND_FOR[kind]);
         return (
           <li key={row.id} className="flex flex-wrap items-center gap-3 px-3 py-2.5 text-sm">
             <span className="tabular w-14 shrink-0 text-xs text-muted">
@@ -215,8 +203,8 @@ function RowTable({
             ) : (
               <RowCategorySelect
                 rowId={row.id}
-                categories={opciones}
-                categoryKind={CATEGORY_KIND_FOR[kind]}
+                categories={categories}
+                defaultKind={kind}
                 defaultValue={row.suggested_category_id ?? ""}
               />
             )}

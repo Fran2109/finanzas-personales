@@ -4,6 +4,7 @@ import { useActionState, useMemo, useState } from "react";
 import { createTransaction, type FormState } from "@/app/actions";
 import { SubmitButton } from "@/components/SubmitButton";
 import {
+  CATEGORY_KIND_FOR,
   KIND_HELP,
   KIND_LABELS,
   MANUAL_KINDS,
@@ -11,17 +12,6 @@ import {
   type Kind,
 } from "@/lib/domain";
 import type { Account, Category } from "@/lib/data";
-
-/** Que categorias tienen sentido para cada tipo de movimiento. */
-const CATEGORY_KIND_FOR: Record<Kind, string> = {
-  consumption: "expense",
-  refund: "expense",
-  income: "income",
-  tax_fee: "tax_fee",
-  financing: "financing",
-  transfer: "transfer",
-  payment: "transfer",
-};
 
 const field =
   "w-full rounded-md border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent";
