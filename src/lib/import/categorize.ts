@@ -1,8 +1,7 @@
-import { normalizeMerchant, type Kind } from "../domain.ts";
+import { normalizeMerchant } from "../domain.ts";
 import type { ParsedRow } from "./types.ts";
 
 export type Rule = { id: string; pattern: string; category_id: string };
-export type CategoryRef = { id: string; kind: Kind | string };
 
 /**
  * Categorizacion en dos niveles, primer nivel.
@@ -12,20 +11,10 @@ export type CategoryRef = { id: string; kind: Kind | string };
  * para la pantalla de revision, y cada correccion escribe una regla nueva, asi
  * el sistema se va callando con el tiempo.
  *
- * Impuestos y costos financieros no necesitan regla: su categoria se deduce del
- * `kind`, que ya viene del parser.
+ * No mira el kind: los dos tipos de gasto comparten las mismas categorias, y
+ * un comercio es el mismo comercio se pague al contado o en cuotas.
  */
-export function suggestCategory(
-  row: ParsedRow,
-  rules: Rule[],
-  categories: CategoryRef[],
-): string | null {
-  if (row.kind === "tax_fee" || row.kind === "financing") {
-    const byKind = categories.find((c) => c.kind === row.kind);
-    if (byKind) return byKind.id;
-  }
-  if (row.kind === "payment") return null;
-
+export function suggestCategory(row: ParsedRow, rules: Rule[]): string | null {
   const haystack = normalizeMerchant(row.rawDescription);
   // La regla mas larga gana: la mas especifica le gana a la generica cuando las
   // dos matchean la misma descripcion.

@@ -139,7 +139,7 @@ export async function uploadStatement(
     // devoluciones de percepcion) no se importa.
     const kind = row.tracked ? toExpenseKind(row.kind, row.cuotaCurrent) : null;
     const suggested = kind
-      ? suggestCategory(row, (rules.data ?? []) as Rule[], categories.data ?? [])
+      ? suggestCategory(row, (rules.data ?? []) as Rule[])
       : null;
     return {
       import_id: imported.id,
@@ -215,7 +215,7 @@ export async function setRowCategory(formData: FormData) {
   const enviado = String(formData.get("kind") ?? "");
   const { data: fila } = await supabase
     .from("import_rows")
-    .select("kind")
+    .select("kind, import_id, raw_description")
     .eq("id", rowId)
     .single();
 
@@ -258,6 +258,32 @@ export async function setRowCategory(formData: FormData) {
       status: esGasto ? "pending" : "discarded",
     })
     .eq("id", rowId);
+
+  // Un comercio suele aparecer varias veces en el mismo resumen. Categorizar
+  // uno alcanza a los demas que la regla resultante tambien tomaria el mes que
+  // viene: aplicar ahora lo mismo que se va a aplicar despues es lo predecible,
+  // y ahorra repetir el mismo click.
+  if (esGasto && categoryId && fila?.import_id) {
+    const patron = suggestPattern(String(fila.raw_description ?? ""));
+    if (patron.length >= 3) {
+      const { data: hermanas } = await supabase
+        .from("import_rows")
+        .select("id, raw_description")
+        .eq("import_id", fila.import_id)
+        .eq("needs_review", true);
+
+      const alcanzadas = (hermanas ?? [])
+        .filter((h) => normalizeMerchant(h.raw_description).includes(patron))
+        .map((h) => h.id);
+
+      if (alcanzadas.length > 0) {
+        await supabase
+          .from("import_rows")
+          .update({ suggested_category_id: categoryId, needs_review: false })
+          .in("id", alcanzadas);
+      }
+    }
+  }
 
   revalidatePath("/", "layout");
 }
@@ -360,10 +386,12 @@ export async function commitImport(formData: FormData): Promise<void> {
   }
 
   // Cada correccion se convierte en regla, asi el proximo resumen se mapea solo.
+  // Las cuotas tambien: antes quedaban afuera, y por eso una compra en cuotas
+  // volvia a pedir categoria todos los meses aunque ya se hubiera categorizado.
   const nuevasReglas = new Map<string, string>();
   for (const r of pending) {
     if (!r.suggested_category_id) continue;
-    if (r.kind !== "consumption" && r.kind !== "refund") continue;
+    if (!isExpenseKind(r.kind as Kind)) continue;
     const pattern = suggestPattern(r.raw_description);
     if (pattern.length >= 3) nuevasReglas.set(pattern, r.suggested_category_id);
   }
