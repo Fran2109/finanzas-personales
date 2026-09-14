@@ -1,8 +1,12 @@
 # Finanzas personales
 
-App web de control de finanzas personales de un solo usuario. Objetivo: registrar
-gastos e ingresos, entender en qué se va la plata, y poder importar resúmenes de
-tarjeta sin cargar todo a mano.
+App web de seguimiento de gastos, de un solo usuario. Objetivo: registrar todos
+los gastos —cargados a mano o importados de un resumen de tarjeta— y entender
+en qué se va la plata.
+
+**Esto no lleva balances.** No hay ingresos, ni saldos, ni patrimonio. Todo lo
+que llega a `transactions` es plata que salió. Es la restricción que mantiene la
+app simple: no hay que decidir si algo suma o resta, todo resta.
 
 ## Stack
 
@@ -23,9 +27,9 @@ La key publishable va en `.env.local`, nunca commiteada. Usar la publishable
 - [x] Proyecto Supabase creado, región sa-east-1
 - [x] Migración inicial aplicada (versión remota `20260914112501`)
 - [x] 9 tablas con RLS, 9 políticas, vista `v_transactions_ars`
-- [x] Usuario creado en auth + seed corrido (1 cuenta, 24 categorías)
+- [x] Usuario creado en auth + seed corrido (20 categorías, solo de gasto)
 - [x] Scaffold de Next.js 16 (App Router, Tailwind v4, `@supabase/ssr`)
-- [x] Fase 1 construida: alta manual, vista del mes, saldo por cuenta
+- [x] Fase 1 construida: alta manual, vista del mes, filtros
 - [x] Importador de resúmenes Galicia (VISA y MASTERCARD) con gate de reconciliación
 - [ ] Fase 1 aceptada: una semana de gastos reales cargados sin que dé fastidio
 - [x] Deploy en Vercel: https://finanzas-personales-rouge-eta.vercel.app
@@ -80,17 +84,22 @@ separadas, el pago del resumen no tendría a qué imputarse.
 **`kind` separa la semántica económica.** Valores: `consumption`, `installment`,
 `income`, `payment`, `refund`, `tax_fee`, `financing`, `transfer`.
 
-**La app registra salidas, no lleva balances.** Al análisis entra toda la plata
-que sale: `consumption`, `installment`, `refund`, `tax_fee` y `financing`. Los
-impuestos y los costos financieros no son consumo, pero son plata que se fue, y
-dejarlos afuera los hacía invisibles.
+**Solo se registran gastos** (`EXPENSE_KINDS`): `consumption`, `installment`,
+`tax_fee`, `financing` y `refund`. Los impuestos y los costos financieros no son
+consumo, pero son plata que se fue, así que cuentan; un reintegro resta.
 
-`payment` y `transfer` **no se contabilizan nunca** (`NON_ACCOUNTED_KINDS`):
-mueven plata entre cuentas propias, no sale del patrimonio, y el gasto que las
-originó ya se contó cuando se compró. Se siguen guardando e importando —hacen
-falta para que el resumen reconcilie— pero se listan aparte, como referencia.
-Tampoco se muestran saldos por cuenta: `balanceSign` sigue documentado y
-testeado para cuando hagan falta, pero ninguna pantalla los usa.
+`income`, `payment` y `transfer` siguen siendo valores válidos en la base porque
+**el importador los necesita para transcribir un resumen y que reconcilie**, pero
+nunca llegan a `transactions`: nacen con `status = 'discarded'` en el staging. Un
+pago de tarjeta no es un gasto nuevo —ese consumo ya se contó cuando se compró— y
+contarlo sería sumar la misma plata dos veces. La pantalla de revisión los lista
+aparte, para que se vea que la transcripción está completa.
+
+La línea es: **`import_rows` es transcripción fiel del resumen; `transactions` son
+solo gastos.**
+
+Tampoco se muestran saldos por cuenta. `balanceSign` sigue documentado y testeado
+porque es lo que ancla `normalizeAmountForKind`, pero ninguna pantalla lo usa.
 
 `installment` marca una compra financiada, pero **usa categorías de gasto
 comunes**, no una familia propia. El tipo dice que es en cuotas y la categoría
@@ -152,15 +161,15 @@ regla nueva, así el sistema se calla con el tiempo.
 **Nada llega a `transactions` sin pasar por `import_rows` y la pantalla de
 revisión.** Sin excepciones.
 
-Hay un fixture real en `fixtures/resumen-galicia-2026-08.json`: un resumen
-Galicia VISA de agosto/26, 50 filas, que reconcilia exacto en ARS (2.311.332,70)
-y USD (31,71). Sirve para testear el importador sin volver a parsear el PDF.
+**En el repo no va ningún dato de resúmenes**, solo la lógica de cómo leerlos.
+Los tests del parser usan resúmenes inventados con el formato real; `.gitignore`
+bloquea PDFs y JSON extraídos.
 
 ## Plan por fases
 
 0. **Fundaciones** — scaffold, migración, seed, deploy vacío. Casi listo.
-1. **El loop** — alta manual, vista del mes, saldo por cuenta. Criterio de
-   aceptación: una semana de gastos reales cargados sin que dé fastidio.
+1. **El loop** — alta manual, vista del mes. Criterio de aceptación: una semana
+   de gastos reales cargados sin que dé fastidio.
 2. **Multi-moneda y cuotas** — cron de cotizaciones, toggle de moneda, planes
    de cuotas, transferencias, calendario de compromisos.
 3. **Fricción de carga** — parser de texto libre (regex primero, LLM como

@@ -300,8 +300,10 @@ export async function createCategory(
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return fail("Ponele un nombre.");
 
+  // Solo las familias que un gasto puede usar: la app no registra ingresos ni
+  // transferencias, asi que una categoria de esas no tendria con que usarse.
   const kind = String(formData.get("kind") ?? "expense");
-  if (!["expense", "income", "tax_fee", "financing", "transfer"].includes(kind)) {
+  if (!["expense", "tax_fee", "financing"].includes(kind)) {
     return fail("Tipo de categoria invalido.");
   }
 

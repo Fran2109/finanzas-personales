@@ -3,14 +3,14 @@ import assert from "node:assert/strict";
 import {
   balanceSign,
   CATEGORY_KIND_FOR,
-  countsInAnalysis,
+  isExpenseKind,
   isKind,
   KINDS,
   KIND_LABELS,
   MANUAL_KINDS,
   normalizeAmountForKind,
   periodOfDate,
-  SPENDING_KINDS,
+  EXPENSE_KINDS,
 } from "./domain.ts";
 
 test("cada kind tiene etiqueta y familia de categoria", () => {
@@ -27,8 +27,8 @@ test("una cuota usa categorias de gasto, no una familia propia", () => {
   assert.equal(CATEGORY_KIND_FOR.consumption, "expense");
 });
 
-test("una cuota es consumo a los efectos del reporte", () => {
-  assert.ok(SPENDING_KINDS.includes("installment"));
+test("una cuota es un gasto como cualquier otro", () => {
+  assert.ok(EXPENSE_KINDS.includes("installment"));
   assert.ok(MANUAL_KINDS.includes("installment"));
   assert.ok(isKind("installment"));
 });
@@ -44,9 +44,13 @@ test("el pago de tarjeta es el unico que depende de la cuenta", () => {
   assert.equal(balanceSign("payment", true), 1);
 });
 
-test("lo que no es consumo queda fuera del reporte de gasto", () => {
-  for (const kind of ["payment", "tax_fee", "financing", "transfer", "income"] as const) {
-    assert.equal(SPENDING_KINDS.includes(kind), false, `${kind} no deberia contar`);
+test("la app solo registra gastos", () => {
+  // income, payment y transfer siguen siendo valores validos en la base porque
+  // el importador los necesita para transcribir un resumen, pero no se
+  // escriben en transactions ni se pueden cargar a mano.
+  for (const kind of ["payment", "transfer", "income"] as const) {
+    assert.equal(isExpenseKind(kind), false, `${kind} no es un gasto`);
+    assert.equal(MANUAL_KINDS.includes(kind), false, `${kind} no se carga a mano`);
   }
 });
 
@@ -88,15 +92,9 @@ test("el periodo del resumen sale de su fecha de cierre", () => {
   assert.equal(periodOfDate(""), null);
 });
 
-test("los pagos y transferencias no se contabilizan", () => {
-  // Mueven plata entre cuentas propias: el gasto que los origino ya se conto
-  // cuando se compro, asi que sumarlos seria contar la misma plata dos veces.
-  assert.equal(countsInAnalysis("payment"), false);
-  assert.equal(countsInAnalysis("transfer"), false);
-});
-
-test("todo lo que sale de verdad si se contabiliza", () => {
-  for (const kind of ["consumption", "installment", "refund", "tax_fee", "financing", "income"] as const) {
-    assert.equal(countsInAnalysis(kind), true, `${kind} deberia contar`);
+test("todo lo que la app registra es un gasto", () => {
+  for (const kind of EXPENSE_KINDS) {
+    assert.equal(isExpenseKind(kind), true);
+    assert.ok(CATEGORY_KIND_FOR[kind], `${kind} necesita familia de categoria`);
   }
 });

@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { withRetry } from "@/lib/retry";
 import {
   CATEGORY_KIND_FOR,
+  isExpenseKind,
   isKind,
   normalizeAmountForKind,
   normalizeMerchant,
@@ -100,7 +101,13 @@ export async function uploadStatement(
   // La huella se calcula recien al confirmar: import_rows no la guarda, y
   // depende del monto ya normalizado.
   const rows = statement.rows.map((row) => {
-    const suggested = suggestCategory(row, (rules.data ?? []) as Rule[], categories.data ?? []);
+    // La transcripcion es fiel: el pago del resumen y las transferencias se
+    // guardan en staging porque hacen falta para que reconcilie. Pero no son
+    // gastos, asi que nacen descartadas y nunca llegan a transactions.
+    const esGasto = isExpenseKind(row.kind);
+    const suggested = esGasto
+      ? suggestCategory(row, (rules.data ?? []) as Rule[], categories.data ?? [])
+      : null;
     return {
       import_id: imported.id,
       line_no: row.lineNo,
@@ -114,8 +121,8 @@ export async function uploadStatement(
       cuota_total: row.cuotaTotal,
       suggested_category_id: suggested,
       // Lo que ya sabemos categorizar no necesita revision manual.
-      needs_review: suggested === null && row.kind !== "payment",
-      status: "pending" as const,
+      needs_review: esGasto && suggested === null,
+      status: (esGasto ? "pending" : "discarded") as "pending" | "discarded",
     };
   });
 
@@ -205,14 +212,17 @@ export async function setRowCategory(formData: FormData) {
     }
   }
 
+  // Cambiar el tipo a uno que no es gasto saca la fila del import: la app solo
+  // registra gastos.
+  const esGasto = isExpenseKind(kind);
+
   await supabase
     .from("import_rows")
     .update({
-      suggested_category_id: categoryId || null,
+      suggested_category_id: esGasto ? categoryId || null : null,
       kind,
-      // Un pago de tarjeta no necesita categoria; el resto si.
-      needs_review: !categoryId && kind !== "payment",
-      status: "pending",
+      needs_review: esGasto && !categoryId,
+      status: esGasto ? "pending" : "discarded",
     })
     .eq("id", rowId);
 

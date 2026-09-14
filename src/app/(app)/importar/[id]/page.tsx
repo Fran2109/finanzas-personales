@@ -37,6 +37,9 @@ export default async function ReviewImportPage({
 
   const rows = rowsResult.data ?? [];
   const pending = rows.filter((r) => r.status === "pending");
+  // Lo que el resumen trae pero no es un gasto: el pago, las transferencias.
+  // Se muestran para que se vea que la transcripcion esta completa.
+  const descartadas = rows.filter((r) => r.status === "discarded");
   const porRevisar = pending.filter((r) => r.needs_review);
   const yaImportado = imported.data.status === "committed";
   const movimientosCreados = movimientos.count ?? 0;
@@ -47,7 +50,8 @@ export default async function ReviewImportPage({
         <div>
           <h1 className="text-lg font-semibold">{imported.data.filename}</h1>
           <p className="text-sm text-muted">
-            Cierre {imported.data.period_close ?? "?"} · {rows.length} filas ·{" "}
+            Cierre {imported.data.period_close ?? "?"} · {rows.length} filas leidas ·{" "}
+            {pending.length} gastos ·{" "}
             {yaImportado ? "ya importado" : `${porRevisar.length} por revisar`}
           </p>
         </div>
@@ -96,6 +100,40 @@ export default async function ReviewImportPage({
           readOnly={yaImportado}
         />
       </section>
+
+      {descartadas.length > 0 ? (
+        <section>
+          <h2 className="mb-1 text-sm font-semibold text-muted">
+            No se importan ({descartadas.length})
+          </h2>
+          <p className="mb-3 text-xs leading-relaxed text-muted">
+            El resumen las trae y hacen falta para que reconcilie, pero no son
+            gastos: el pago mueve plata entre cuentas propias y ese consumo ya
+            esta contado en las lineas de arriba.
+          </p>
+          <ul className="divide-y divide-border rounded-lg border border-dashed border-border">
+            {descartadas.map((row) => (
+              <li
+                key={row.id}
+                className="flex items-center gap-3 px-3 py-2 text-sm text-muted"
+              >
+                <span className="tabular w-14 shrink-0 text-xs">
+                  {row.occurred_on?.slice(5)}
+                </span>
+                <span className="min-w-0 flex-1 truncate">{row.raw_description}</span>
+                <span className="shrink-0 text-xs">
+                  {KIND_LABELS[row.kind as Kind]}
+                </span>
+                <Amount
+                  cents={centsFromDb(row.amount)}
+                  currency={row.currency}
+                  className="shrink-0"
+                />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {!yaImportado ? (
         <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">

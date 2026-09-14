@@ -12,14 +12,12 @@ import {
   type Transaction,
 } from "@/lib/data";
 import {
-  countsInAnalysis,
   formatPeriod,
   isPeriod,
   KIND_LABELS,
   periodOf,
   shiftPeriod,
   type Currency,
-  type Kind,
 } from "@/lib/domain";
 import {
   applyFilters,
@@ -102,11 +100,7 @@ export default async function MonthPage({
             period={period}
             filters={filters}
           />
-          <TransactionList
-            transactions={transactions.filter((t) => countsInAnalysis(t.kind))}
-            period={period}
-          />
-          <PaymentList transactions={transactions.filter((t) => !countsInAnalysis(t.kind))} />
+          <TransactionList transactions={transactions} period={period} />
         </div>
 
         <aside>
@@ -151,16 +145,12 @@ function MonthTotals({
 }: {
   currency: Currency;
   totals: {
-    spent: Cents;
-    income: Cents;
-    taxFee: Cents;
-    financing: Cents;
-    payments: Cents;
+    total: Cents;
+    purchases: Cents;
+    overhead: Cents;
     installments: Cents;
   };
 }) {
-  const balance = totals.income - totals.spent - totals.taxFee - totals.financing;
-
   return (
     <section>
       {currency !== "ARS" ? (
@@ -168,23 +158,21 @@ function MonthTotals({
           {currency}
         </h2>
       ) : null}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="Consumo" cents={totals.spent} currency={currency} tone="negative" />
-        <Stat label="Ingresos" cents={totals.income} currency={currency} tone="positive" />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Stat label="Gastado" cents={totals.total} currency={currency} destacado />
+        <Stat label="Compras" cents={totals.purchases} currency={currency} />
         <Stat
           label="Impuestos y financiacion"
-          cents={totals.taxFee + totals.financing}
+          cents={totals.overhead}
           currency={currency}
         />
-        <Stat label="Balance" cents={balance} currency={currency} tone="auto" />
       </div>
       {totals.installments !== 0 ? (
         <p className="mt-2 text-xs text-muted">
-          De ese consumo, {formatCents(totals.installments, currency)} son cuotas
+          De esas compras, {formatCents(totals.installments, currency)} son cuotas
           de compras anteriores.
         </p>
       ) : null}
-
     </section>
   );
 }
@@ -193,21 +181,26 @@ function Stat({
   label,
   cents,
   currency,
-  tone = "plain",
+  destacado = false,
 }: {
   label: string;
   cents: Cents;
   currency: Currency;
-  tone?: "auto" | "plain" | "negative" | "positive";
+  destacado?: boolean;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-surface px-3 py-2.5">
+    <div
+      className={`rounded-lg border px-3 py-2.5 ${
+        destacado ? "border-accent/40 bg-accent/5" : "border-border bg-surface"
+      }`}
+    >
       <div className="text-xs text-muted">{label}</div>
+      {/* Todo lo que la app registra es plata que salio, asi que no hay signos
+          que interpretar: el numero es cuanto se fue. */}
       <Amount
         cents={cents}
         currency={currency}
-        tone={cents === 0 ? "plain" : tone}
-        className="mt-0.5 block text-base font-medium"
+        className={`mt-0.5 block font-medium ${destacado ? "text-xl" : "text-base"}`}
       />
     </div>
   );
@@ -304,12 +297,7 @@ function TransactionList({
                   .join(" · ")}
               </div>
             </div>
-            <Amount
-              cents={tx.amount}
-              currency={tx.currency}
-              tone={signTone(tx.kind)}
-              className="shrink-0"
-            />
+            <Amount cents={tx.amount} currency={tx.currency} className="shrink-0" />
             <form action={deleteTransaction}>
               <input type="hidden" name="id" value={tx.id} />
               <button
@@ -327,54 +315,3 @@ function TransactionList({
   );
 }
 
-/**
- * Los pagos de tarjeta y las transferencias, aparte y como referencia.
- *
- * No se contabilizan en ningun total ni en el desglose: mueven plata entre
- * cuentas propias y el gasto que los origino ya se conto cuando se compro.
- * Se muestran igual porque sirven para saber que se pago y cuando.
- */
-function PaymentList({ transactions }: { transactions: Transaction[] }) {
-  if (transactions.length === 0) return null;
-
-  return (
-    <section>
-      <h2 className="mb-1 text-sm font-semibold text-muted">
-        Pagos y transferencias ({transactions.length})
-      </h2>
-      <p className="mb-3 text-xs leading-relaxed text-muted">
-        No se cuentan como gasto: ese consumo ya esta contado arriba. Van aca
-        solo como referencia.
-      </p>
-      <ul className="divide-y divide-border rounded-lg border border-dashed border-border">
-        {transactions.map((tx) => (
-          <li key={tx.id} className="flex items-center gap-3 px-3 py-2 text-sm text-muted">
-            <span className="tabular w-12 shrink-0 text-xs">
-              {tx.occurred_on.slice(8)}/{tx.occurred_on.slice(5, 7)}
-            </span>
-            <span className="min-w-0 flex-1 truncate">
-              {tx.description || KIND_LABELS[tx.kind]}
-            </span>
-            <Amount cents={tx.amount} currency={tx.currency} className="shrink-0" />
-            <form action={deleteTransaction}>
-              <input type="hidden" name="id" value={tx.id} />
-              <button
-                type="submit"
-                aria-label="Borrar movimiento"
-                className="transition hover:text-negative"
-              >
-                &times;
-              </button>
-            </form>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-function signTone(kind: Kind): "negative" | "positive" | "plain" {
-  if (kind === "income" || kind === "refund") return "positive";
-  if (kind === "payment" || kind === "transfer") return "plain";
-  return "negative";
-}

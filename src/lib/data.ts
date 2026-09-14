@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { withRetry } from "@/lib/retry";
 import { centsFromDb, type Cents } from "@/lib/money";
 import {
-  countsInAnalysis,
+  isExpenseKind,
   isPeriod,
   periodRange,
   type Currency,
@@ -121,21 +121,20 @@ export async function getTransactionsForPeriod(period: Period): Promise<Transact
 
 /** Totales del mes. Sin `fx_rates` cargadas no se pesifica nada: se separa. */
 export type CurrencyTotals = {
-  spent: Cents;
-  income: Cents;
-  taxFee: Cents;
-  financing: Cents;
-  payments: Cents;
-  /** Cuanto del consumo son cuotas. Es un subconjunto de `spent`. */
+  /** Todo lo que salio: compras, cuotas, impuestos y financiacion, neto de reintegros. */
+  total: Cents;
+  /** Compras y cuotas, neto de reintegros. */
+  purchases: Cents;
+  /** Impuestos, percepciones y costos financieros. Salieron, pero no son compras. */
+  overhead: Cents;
+  /** Cuanto de las compras son cuotas. Subconjunto de `purchases`. */
   installments: Cents;
 };
 
 const EMPTY_TOTALS: CurrencyTotals = {
-  spent: 0,
-  income: 0,
-  taxFee: 0,
-  financing: 0,
-  payments: 0,
+  total: 0,
+  purchases: 0,
+  overhead: 0,
   installments: 0,
 };
 
@@ -161,43 +160,33 @@ export function summarize(transactions: Transaction[]): MonthSummary {
 
     switch (tx.kind) {
       case "consumption":
-        bucket.spent += tx.amount;
+        bucket.purchases += tx.amount;
         break;
-      // Una cuota es consumo igual: la plata salio. Se suma al total y se
-      // guarda aparte solo para poder decir cuanto del mes ya estaba comprado.
+      // Una cuota salio igual que cualquier compra. Se guarda aparte solo para
+      // poder decir cuanto del mes ya estaba comprado de antes.
       case "installment":
-        bucket.spent += tx.amount;
+        bucket.purchases += tx.amount;
         bucket.installments += tx.amount;
         break;
       case "refund":
-        // Un reintegro resta del consumo del mes, no suma como ingreso.
-        bucket.spent -= tx.amount;
-        break;
-      case "income":
-        bucket.income += tx.amount;
+        // Una devolucion resta de lo gastado. No es un ingreso.
+        bucket.purchases -= tx.amount;
         break;
       case "tax_fee":
-        bucket.taxFee += tx.amount;
-        break;
       case "financing":
-        bucket.financing += tx.amount;
+        bucket.overhead += tx.amount;
         break;
-      case "payment":
-        // El pago de la tarjeta no es gasto nuevo: se muestra aparte para poder
-        // verlo sin que ensucie el consumo del mes.
-        bucket.payments += tx.amount;
-        break;
-      case "transfer":
+      default:
+        // income, payment y transfer no llegan a transactions: la app solo
+        // registra gastos. Si aparece uno viejo, no se cuenta.
         break;
     }
+    bucket.total = bucket.purchases + bucket.overhead;
 
     totals.set(tx.currency, bucket);
 
-    // Al desglose entra toda la plata que sale: consumo, cuotas, impuestos y
-    // costos financieros. Los pagos de tarjeta y las transferencias no, porque
-    // mueven plata entre cuentas propias y ese gasto ya se conto cuando se
-    // compro.
-    if (countsInAnalysis(tx.kind)) {
+    // Al desglose entra todo lo que la app registra, que es todo gasto.
+    if (isExpenseKind(tx.kind)) {
       const key = `${tx.category?.id ?? "sin"}:${tx.currency}`;
       const entry =
         categories.get(key) ??

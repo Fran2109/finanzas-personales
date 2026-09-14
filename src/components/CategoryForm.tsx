@@ -23,12 +23,12 @@ export function CategoryForm() {
         <label className={label} htmlFor="cat-kind">
           Tipo
         </label>
+        {/* Solo las familias que algun tipo de gasto puede usar. Una categoria
+            de ingreso o de transferencia no tendria con que usarse. */}
         <select id="cat-kind" name="kind" defaultValue="expense" className={field}>
           <option value="expense">Gasto</option>
-          <option value="income">Ingreso</option>
           <option value="tax_fee">Impuesto o comision</option>
           <option value="financing">Costo financiero</option>
-          <option value="transfer">Transferencia</option>
         </select>
       </div>
 

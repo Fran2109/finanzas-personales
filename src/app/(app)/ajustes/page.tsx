@@ -6,10 +6,11 @@ import { getCategories } from "@/lib/data";
 
 const CATEGORY_KIND_LABELS: Record<string, string> = {
   expense: "Gasto",
-  income: "Ingreso",
   tax_fee: "Impuesto o comision",
   financing: "Costo financiero",
-  transfer: "Transferencia",
+  // Pueden existir de antes; la app ya no las ofrece.
+  income: "Ingreso (sin uso)",
+  transfer: "Transferencia (sin uso)",
 };
 
 export default async function SettingsPage() {

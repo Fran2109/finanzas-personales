@@ -51,7 +51,7 @@ export const KIND_LABELS: Record<Kind, string> = {
 };
 
 export const KIND_HELP: Record<Kind, string> = {
-  consumption: "Una compra. Es lo unico que cuenta como consumo.",
+  consumption: "Una compra.",
   income: "Plata que entra: sueldo, freelance, intereses.",
   payment:
     "Plata que sale del banco para pagar el resumen. No es un gasto nuevo: el gasto ya se conto cuando se consumio.",
@@ -83,39 +83,39 @@ export const CATEGORY_KIND_FOR: Record<Kind, string> = {
   payment: "transfer",
 };
 
-/** Los kinds que tiene sentido cargar a mano en la fase 1. */
-export const MANUAL_KINDS: readonly Kind[] = [
+
+/**
+ * Lo que la app registra: gastos.
+ *
+ * Todo lo que llega a `transactions` es plata que salio. No hay ingresos ni
+ * saldos: esto no lleva balances, lleva la cuenta de en que se va la plata.
+ *
+ * - `consumption`  una compra
+ * - `installment`  una compra financiada, que sale igual pero queda marcada
+ * - `tax_fee`      IVA, IIBB, percepciones: no son consumo, pero se fueron
+ * - `financing`    intereses y refinanciaciones: servicio de deuda
+ * - `refund`       una devolucion, que resta de lo gastado
+ *
+ * `income`, `payment` y `transfer` siguen existiendo como valores validos en la
+ * base, porque el importador los necesita para transcribir un resumen y que
+ * reconcilie. Pero no se escriben en `transactions`: un pago de tarjeta no es
+ * un gasto nuevo, el gasto ya se conto cuando se compro.
+ */
+export const EXPENSE_KINDS: readonly Kind[] = [
   "consumption",
   "installment",
-  "income",
-  "payment",
-  "refund",
   "tax_fee",
   "financing",
+  "refund",
 ];
 
-/**
- * Kinds que NO se contabilizan.
- *
- * Un pago de tarjeta y una transferencia mueven plata entre cuentas propias:
- * no sale del patrimonio, y el gasto que la origino ya se conto cuando se
- * compro. Contarlos seria sumar la misma plata dos veces.
- *
- * Se siguen guardando e importando: sirven para cuadrar el resumen y para
- * saber que se pago. Simplemente no entran en ningun total ni en el desglose.
- */
-export const NON_ACCOUNTED_KINDS: readonly Kind[] = ["payment", "transfer"];
-
-export function countsInAnalysis(kind: Kind): boolean {
-  return !NON_ACCOUNTED_KINDS.includes(kind);
+export function isExpenseKind(kind: Kind): boolean {
+  return EXPENSE_KINDS.includes(kind);
 }
 
-/**
- * Los unicos kinds que son consumo. Todo reporte de "en que se me va la plata"
- * filtra por esto; si entra `payment` se duplica y si entra `tax_fee` se
- * distorsiona el analisis por categoria.
- */
-export const SPENDING_KINDS: readonly Kind[] = ["consumption", "installment", "refund"];
+/** Lo que se puede cargar a mano es exactamente lo que la app registra. */
+export const MANUAL_KINDS: readonly Kind[] = EXPENSE_KINDS;
+
 
 /**
  * Efecto de un movimiento sobre el saldo de la cuenta donde esta la fila.
