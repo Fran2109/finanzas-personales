@@ -23,9 +23,14 @@ La key publishable va en `.env.local`, nunca commiteada. Usar la publishable
 - [x] Proyecto Supabase creado, región sa-east-1
 - [x] Migración inicial aplicada (versión remota `20260914112501`)
 - [x] 9 tablas con RLS, 9 políticas, vista `v_transactions_ars`
-- [ ] Usuario creado en auth + seed corrido
-- [ ] Scaffold de Next.js
-- [ ] Fase 1: alta manual + vista del mes
+- [x] Usuario creado en auth + seed corrido (1 cuenta, 24 categorías)
+- [x] Scaffold de Next.js 16 (App Router, Tailwind v4, `@supabase/ssr`)
+- [x] Fase 1 construida: alta manual, vista del mes, saldo por cuenta
+- [ ] Fase 1 aceptada: una semana de gastos reales cargados sin que dé fastidio
+- [ ] Deploy en Vercel
+
+El esquema del remoto está versionado en `supabase/migrations/20260914112501_init.sql`.
+No se reaplica: el nombre coincide con la versión ya registrada.
 
 ## Contexto de dominio: Argentina
 
@@ -71,6 +76,20 @@ red anti-duplicados. Se calcula sobre fecha + monto + descripción normalizada.
 Si se sube el mismo resumen dos veces, la base lo rechaza.
 
 **Montos en `numeric(18,2)`.** Nunca float. En el cliente, enteros en centavos.
+Todo pasa por `src/lib/money.ts`: parseo de lo que se tipea, string para la base
+armado con aritmética entera, y `centsFromDb` que redondea al centavo porque lo
+que devuelve PostgREST para un `numeric` es un number de JSON y `2311332.70` no
+es exacto en binario.
+
+**`amount` se guarda siempre positivo; la dirección la da `kind`.** Es lo que
+permite que el importador compare la suma de las filas extraídas contra el total
+declarado del resumen sin traducir signos en el medio: el resumen lista consumos
+en positivo y así se transcriben. El efecto sobre el saldo lo resuelve
+`balanceSign(kind, isLiability)` en `src/lib/domain.ts`. El único kind que
+depende de la cuenta es `payment`: es una sola operación con dos patas, sale del
+banco y cancela deuda de la tarjeta. El saldo es con signo y desde el punto de
+vista de la cuenta, así que una tarjeta con deuda da negativo. `transfer` todavía
+no tiene dirección asignada; se define cuando la fase 2 modele el par de filas.
 
 ## Pipeline de importación de resúmenes
 

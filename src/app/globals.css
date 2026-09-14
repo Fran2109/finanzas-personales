@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+/* Paleta sobria: la plata ya es estresante, la interfaz no ayuda gritando. */
+:root {
+  --background: #f7f7f5;
+  --surface: #ffffff;
+  --border: #e3e2dd;
+  --foreground: #1c1b19;
+  --muted: #6f6d67;
+  --accent: #2f6f4e;
+  --negative: #a13c2f;
+  --positive: #2f6f4e;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #131313;
+    --surface: #1b1b1a;
+    --border: #2e2d2b;
+    --foreground: #ececea;
+    --muted: #9a9791;
+    --accent: #6fbf8f;
+    --negative: #e08573;
+    --positive: #6fbf8f;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-negative: var(--negative);
+  --color-positive: var(--positive);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
+
+/* Los montos se leen en columna: tabulares o no se pueden comparar de un vistazo. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+input,
+select,
+textarea {
+  color-scheme: light dark;
+}
