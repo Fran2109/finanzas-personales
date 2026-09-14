@@ -5,7 +5,13 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import { withRetry } from "@/lib/retry";
-import { CATEGORY_KIND_FOR, isKind, normalizeMerchant, type Kind } from "@/lib/domain";
+import {
+  CATEGORY_KIND_FOR,
+  isKind,
+  normalizeAmountForKind,
+  normalizeMerchant,
+  type Kind,
+} from "@/lib/domain";
 import { centsToNumeric } from "@/lib/money";
 import { extractPdfText } from "@/lib/import/pdf";
 import { parseGaliciaStatement } from "@/lib/import/galicia";
@@ -273,7 +279,12 @@ export async function commitImport(formData: FormData): Promise<void> {
       account_id: imported.account_id,
       category_id: r.suggested_category_id,
       occurred_on: r.occurred_on,
-      amount: r.amount,
+      // El resumen imprime pagos y devoluciones en negativo y el importador los
+      // transcribe asi para reconciliar. Al escribir en transactions se pasan a
+      // la convencion del saldo, o el signo se invertiria dos veces.
+      amount: centsToNumeric(
+        normalizeAmountForKind(Math.round(Number(r.amount) * 100), r.kind as Kind),
+      ),
       currency: r.currency,
       kind: r.kind,
       description: r.raw_description,

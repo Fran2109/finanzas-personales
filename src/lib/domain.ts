@@ -131,6 +131,27 @@ export function balanceSign(kind: Kind, isLiability: boolean): -1 | 0 | 1 {
   }
 }
 
+/**
+ * Kinds cuya direccion es "vuelve plata a esta cuenta". Se guardan en magnitud.
+ *
+ * El resumen imprime los pagos y las devoluciones en negativo, y el importador
+ * los transcribe asi para poder reconciliar contra el total declarado. Pero el
+ * saldo se calcula como balanceSign(kind) * amount, y esos kinds ya valen +1:
+ * dejar el monto negativo invertiria el signo dos veces y un pago de tarjeta
+ * terminaria sumando deuda en vez de cancelarla.
+ *
+ * Los kinds de salida (consumption, installment, tax_fee, financing) conservan
+ * su signo a proposito: ahi un negativo es una reversion (una devolucion de
+ * percepcion, una nota de credito) y al multiplicar por -1 se invierte solo,
+ * que es justo lo que corresponde.
+ */
+const MAGNITUDE_KINDS: readonly Kind[] = ["income", "refund", "payment"];
+
+/** Deja el monto en la convencion que espera `balanceSign`. */
+export function normalizeAmountForKind(amount: number, kind: Kind): number {
+  return MAGNITUDE_KINDS.includes(kind) ? Math.abs(amount) : amount;
+}
+
 /** "2026-09" */
 export type Period = string;
 

@@ -233,9 +233,11 @@ function CategoryBreakdown({
           </li>
         ))}
       </ul>
-      <p className="mt-3 text-xs text-muted">
-        Solo consumo y reintegros. Impuestos, financiacion y pagos de tarjeta
-        quedan afuera para no distorsionar el analisis.
+      <p className="mt-3 text-xs leading-relaxed text-muted">
+        Entra todo: consumo, cuotas, impuestos, costos financieros y pagos. Ojo
+        con los pagos de tarjeta, que son una transferencia y no un gasto nuevo:
+        ese consumo ya esta contado en las categorias de arriba, asi que el
+        total de esta lista no es lo que gastaste.
       </p>
     </section>
   );

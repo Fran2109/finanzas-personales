@@ -6,7 +6,6 @@ import { centsFromDb, type Cents } from "@/lib/money";
 import {
   balanceSign,
   periodRange,
-  SPENDING_KINDS,
   type Currency,
   type Kind,
   type Period,
@@ -162,7 +161,11 @@ export function summarize(transactions: Transaction[]): MonthSummary {
 
     totals.set(tx.currency, bucket);
 
-    if (SPENDING_KINDS.includes(tx.kind)) {
+    // Todo entra al desglose, no solo el consumo: impuestos y costos
+    // financieros son plata que sale igual y quedaban invisibles. Los pagos de
+    // tarjeta tambien aparecen, aunque sean una transferencia y no un gasto
+    // nuevo; la vista lo aclara para que no se lean como consumo.
+    {
       const key = `${tx.category?.id ?? "sin"}:${tx.currency}`;
       const entry =
         categories.get(key) ??
