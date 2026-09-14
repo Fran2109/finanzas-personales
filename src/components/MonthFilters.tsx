@@ -22,7 +22,6 @@ export function MonthFilters({
   filters,
   accounts,
   categories,
-  cards,
   shown,
   total,
 }: {
@@ -30,7 +29,6 @@ export function MonthFilters({
   filters: Filters;
   accounts: { id: string; name: string }[];
   categories: { id: string; name: string }[];
-  cards: string[];
   shown: number;
   total: number;
 }) {
@@ -111,22 +109,6 @@ export function MonthFilters({
             </option>
           ))}
         </select>
-
-        {cards.length > 1 ? (
-          <select
-            value={filters.plastico}
-            onChange={(e) => navigate({ plastico: e.target.value })}
-            aria-label="Plastico"
-            className={control}
-          >
-            <option value="">Todo plastico</option>
-            {cards.map((c) => (
-              <option key={c} value={c}>
-                *{c}
-              </option>
-            ))}
-          </select>
-        ) : null}
 
         <select
           value={filters.moneda}

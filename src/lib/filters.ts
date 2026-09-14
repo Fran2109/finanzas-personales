@@ -4,7 +4,6 @@ import { normalizeMerchant, type Currency, type Kind } from "./domain.ts";
 export type Filterable = {
   kind: Kind;
   currency: Currency;
-  card_last4: string | null;
   description: string | null;
   account: { id: string } | null;
   category: { id: string } | null;
@@ -20,7 +19,6 @@ export type Filters = {
   cuenta: string;
   categoria: string;
   tipo: string;
-  plastico: string;
   moneda: string;
   q: string;
 };
@@ -29,7 +27,6 @@ export const EMPTY_FILTERS: Filters = {
   cuenta: "",
   categoria: "",
   tipo: "",
-  plastico: "",
   moneda: "",
   q: "",
 };
@@ -58,7 +55,6 @@ export function applyFilters<T extends Filterable>(rows: T[], filters: Filters):
     if (filters.cuenta && row.account?.id !== filters.cuenta) return false;
     if (filters.tipo && row.kind !== filters.tipo) return false;
     if (filters.moneda && row.currency !== filters.moneda) return false;
-    if (filters.plastico && row.card_last4 !== filters.plastico) return false;
 
     if (filters.categoria) {
       const id = row.category?.id ?? SIN_CATEGORIA;

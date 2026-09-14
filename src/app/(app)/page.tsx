@@ -45,7 +45,7 @@ export default async function MonthPage({
   ]);
 
   // Los filtros se aplican sobre el mes ya traido: el volumen de un mes es
-  // chico y asi las opciones de plastico salen de lo que hay de verdad.
+  // chico y asi las opciones salen de lo que hay de verdad.
   const transactions = applyFilters(todosLosMovimientos, filters);
   const summary = summarize(transactions);
 
@@ -55,9 +55,6 @@ export default async function MonthPage({
   const provisorios = transactions.filter((t) => t.is_projected).length;
   const reemplazo = Number(params.reemplazo ?? 0);
 
-  const cards = [
-    ...new Set(todosLosMovimientos.map((t) => t.card_last4).filter((c): c is string => !!c)),
-  ].sort();
   const currencies = [...summary.totals.keys()].sort();
 
   // El form arranca en hoy si estamos mirando el mes corriente; si no, en el
@@ -76,7 +73,6 @@ export default async function MonthPage({
         filters={filters}
         accounts={accounts.filter((a) => a.active)}
         categories={categories}
-        cards={cards}
         shown={transactions.length}
         total={todosLosMovimientos.length}
       />
