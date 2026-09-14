@@ -71,3 +71,17 @@ test("una excepcion de red cuenta como intento fallido, no rompe", async () => {
   assert.equal(calls, 2);
   assert.equal(result.data, "listo");
 });
+
+test("el desfasaje de reloj del token es transitorio", () => {
+  // El token se emite con una marca apenas adelantada respecto del que lo
+  // valida; unos milisegundos despues ya sirve.
+  assert.equal(isTransient({ message: "JWT issued at future" }), true);
+  assert.equal(isTransient({ message: "token not yet valid" }), true);
+});
+
+test("un token vencido o invalido no se reintenta", () => {
+  // Esos no se arreglan esperando: reintentarlos solo demora el mismo error.
+  assert.equal(isTransient({ message: "JWT expired" }), false);
+  assert.equal(isTransient({ message: "invalid JWT signature" }), false);
+  assert.equal(isTransient({ message: "invalid claim: missing sub" }), false);
+});

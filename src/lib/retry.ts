@@ -9,8 +9,14 @@
  * Solo se reintenta lo que puede andar bien en el proximo intento. Un error de
  * permisos o una consulta mal formada fallan igual siempre: reintentarlos solo
  * agrega latencia antes del mismo error.
+ *
+ * "issued at future" entra en la lista porque es desfasaje de reloj: el token se
+ * emite con una marca de tiempo apenas adelantada respecto del que lo valida, y
+ * unos milisegundos despues ya es valido. Un token vencido o mal firmado NO
+ * entra: esos no se arreglan esperando.
  */
-const TRANSIENT = /gateway timeout|timeout|timed out|fetch failed|socket hang up|econnreset|network|503|504|temporarily unavailable/i;
+const TRANSIENT =
+  /gateway timeout|timeout|timed out|fetch failed|socket hang up|econnreset|network|503|504|temporarily unavailable|issued at future|not yet valid/i;
 
 export function isTransient(error: { message?: string; code?: string } | null): boolean {
   if (!error) return false;
