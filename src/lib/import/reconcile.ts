@@ -31,6 +31,19 @@ export type CardCheck = {
   ok: boolean;
 };
 
+/** Una fila tal como la leyo el parser, para poder mirarla cuando no cierra. */
+export type DiagnosticRow = {
+  lineNo: number;
+  occurredOn: string;
+  description: string;
+  amount: Cents;
+  currency: Currency;
+  kind: string;
+  tracked: boolean;
+  cuota: string | null;
+  cardLast4: string | null;
+};
+
 export type Reconciliation = {
   ok: boolean;
   currencies: CurrencyCheck[];
@@ -119,4 +132,24 @@ export function reconcile(statement: ParsedStatement): Reconciliation {
     unparsedLines: statement.unparsedLines,
     problems,
   };
+}
+
+/**
+ * La transcripcion completa, para mostrar cuando el resumen no cierra.
+ *
+ * Sin esto el gate dice "no reconcilia y difiere 22,88" y no hay forma de saber
+ * que renglon lo causo sin volver a abrir el PDF y sumar a mano.
+ */
+export function diagnosticRows(statement: ParsedStatement): DiagnosticRow[] {
+  return statement.rows.map((row) => ({
+    lineNo: row.lineNo,
+    occurredOn: row.occurredOn,
+    description: row.rawDescription,
+    amount: row.amount,
+    currency: row.currency,
+    kind: row.kind,
+    tracked: row.tracked,
+    cuota: row.cuotaCurrent ? `${row.cuotaCurrent}/${row.cuotaTotal ?? "?"}` : null,
+    cardLast4: row.cardLast4,
+  }));
 }

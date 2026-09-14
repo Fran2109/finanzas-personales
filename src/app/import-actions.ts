@@ -19,7 +19,12 @@ import {
 import { centsToNumeric } from "@/lib/money";
 import { extractPdfText } from "@/lib/import/pdf";
 import { parseGaliciaStatement } from "@/lib/import/galicia";
-import { reconcile } from "@/lib/import/reconcile";
+import {
+  diagnosticRows,
+  reconcile,
+  type DiagnosticRow,
+  type Reconciliation,
+} from "@/lib/import/reconcile";
 import { withFingerprints } from "@/lib/import/fingerprint";
 import { suggestCategory, suggestPattern, type Rule } from "@/lib/import/categorize";
 import type { FormState } from "@/app/actions";
@@ -36,15 +41,32 @@ async function requireUser() {
 const MAX_PDF_BYTES = 10 * 1024 * 1024;
 
 /**
+ * Lo que se muestra cuando un resumen no reconcilia.
+ *
+ * El gate rechaza el import entero, que es lo correcto, pero decir solo
+ * "difieren 22,88" deja a la persona con un PDF y una calculadora. Con la
+ * transcripcion al lado se ve cual es el renglon que el lector leyo mal.
+ */
+export type UploadState = FormState & {
+  diagnostico?: {
+    brand: string | null;
+    periodClose: string | null;
+    currencies: Reconciliation["currencies"];
+    unparsedLines: string[];
+    rows: DiagnosticRow[];
+  };
+};
+
+/**
  * Sube un resumen, lo lee y lo deja en staging.
  *
  * La reconciliacion es un gate, no un warning: si no cierra al centavo no se
  * escribe absolutamente nada y el import se rechaza entero.
  */
 export async function uploadStatement(
-  _prev: FormState,
+  _prev: UploadState,
   formData: FormData,
-): Promise<FormState> {
+): Promise<UploadState> {
   const { supabase } = await requireUser();
 
   const accountId = String(formData.get("account_id") ?? "");
@@ -65,11 +87,17 @@ export async function uploadStatement(
   const check = reconcile(statement);
 
   if (!check.ok) {
-    // Falla ruidosa a proposito. Nada llega a la base.
+    // Falla ruidosa a proposito: nada llega a la base. Pero se devuelve la
+    // transcripcion para poder ver que leyo mal.
     return {
-      error:
-        "El resumen no reconcilia, asi que no se importo nada:\n" +
-        check.problems.map((p) => `- ${p}`).join("\n"),
+      error: check.problems.join(" "),
+      diagnostico: {
+        brand: statement.brand,
+        periodClose: statement.periodClose,
+        currencies: check.currencies,
+        unparsedLines: check.unparsedLines,
+        rows: diagnosticRows(statement),
+      },
     };
   }
 

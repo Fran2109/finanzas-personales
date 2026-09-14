@@ -42,9 +42,16 @@ export default async function ImportsPage({
   const lista = imports.data ?? [];
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_20rem]">
+    <div className="space-y-8">
+      <h1 className="text-lg font-semibold">Importar</h1>
+
       <section>
-        <h1 className="mb-3 text-lg font-semibold">Resumenes importados</h1>
+        <h2 className="mb-3 text-sm font-semibold">Subir resumen</h2>
+        <UploadStatementForm accounts={accounts.filter((a) => a.active)} />
+      </section>
+
+      <section>
+        <h2 className="mb-3 text-sm font-semibold">Resumenes importados</h2>
 
         {error ? (
           <p className="mb-3 rounded-md border border-negative/40 bg-negative/10 px-3 py-2 text-sm text-negative">
@@ -96,10 +103,6 @@ export default async function ImportsPage({
         )}
       </section>
 
-      <aside>
-        <h2 className="mb-3 text-sm font-semibold">Subir resumen</h2>
-        <UploadStatementForm accounts={accounts.filter((a) => a.active)} />
-      </aside>
     </div>
   );
 }
