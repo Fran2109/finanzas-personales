@@ -12,7 +12,7 @@ export default async function LoginPage({
       <div className="w-full max-w-sm">
         <h1 className="text-lg font-semibold">Finanzas</h1>
         <p className="mt-1 mb-6 text-sm text-muted">
-          Control de gastos e ingresos.
+          En qué se va la plata.
         </p>
         <LoginForm next={next?.startsWith("/") ? next : "/"} />
       </div>
