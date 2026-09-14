@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
+import { supabaseEnv } from "@/lib/supabase/env";
+
 /**
  * Refresca la sesion en cada request y saca del paso a quien no esta logueado.
  *
@@ -9,32 +11,29 @@ import { createServerClient } from "@supabase/ssr";
  */
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
+  const { url: supabaseUrl, key: supabaseKey } = supabaseEnv();
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet, headers) {
-          for (const { name, value } of cookiesToSet) {
-            request.cookies.set(name, value);
-          }
-          response = NextResponse.next({ request });
-          for (const { name, value, options } of cookiesToSet) {
-            response.cookies.set(name, value, options);
-          }
-          // Una respuesta que setea cookies de sesion no puede quedar cacheada
-          // en un CDN: serviria el token de una persona a otra.
-          for (const [key, value] of Object.entries(headers)) {
-            response.headers.set(key, value);
-          }
-        },
+  const supabase = createServerClient(supabaseUrl, supabaseKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet, headers) {
+        for (const { name, value } of cookiesToSet) {
+          request.cookies.set(name, value);
+        }
+        response = NextResponse.next({ request });
+        for (const { name, value, options } of cookiesToSet) {
+          response.cookies.set(name, value, options);
+        }
+        // Una respuesta que setea cookies de sesion no puede quedar cacheada en
+        // un CDN: serviria el token de una persona a otra.
+        for (const [header, value] of Object.entries(headers)) {
+          response.headers.set(header, value);
+        }
       },
     },
-  );
+  });
 
   const {
     data: { user },
