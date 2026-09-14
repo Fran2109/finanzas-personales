@@ -173,7 +173,11 @@ create table if not exists public.budgets (
 -- La conversion a ARS es un problema de lectura, contra la cotizacion vigente
 -- a la fecha de la operacion.
 -- ---------------------------------------------------------------------------
-create or replace view public.v_transactions_ars as
+-- security_invoker no es opcional: sin eso la vista corre con los permisos de su
+-- dueno y le pasa por arriba al RLS de transactions, devolviendo filas de
+-- cualquier usuario a quien pueda leer la vista.
+create or replace view public.v_transactions_ars
+with (security_invoker = on) as
 select
   t.id,
   t.user_id,
