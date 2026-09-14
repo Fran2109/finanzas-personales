@@ -122,7 +122,7 @@ export function reconcile(statement: ParsedStatement): Reconciliation {
   }
 
   if (statement.rows.length === 0) {
-    problems.push("No se encontro ningun movimiento. ¿Es un resumen de tarjeta Galicia?");
+    problems.push("No se encontro ningun movimiento. ¿Es un resumen de tarjeta?");
   }
 
   return {

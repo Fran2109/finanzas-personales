@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseGaliciaStatement } from "./galicia.ts";
 import { reconcile } from "./reconcile.ts";
+import { detectBank } from "./detect.ts";
 
 /**
  * Resumen inventado, con el formato real pero sin datos de nadie.
@@ -295,4 +296,10 @@ test("sin reconocer la compra del exterior el resumen no cerraria", () => {
   assert.equal(rec.ok, true, rec.problems.join(" / "));
   assert.equal(rec.currencies.find((c) => c.currency === "USD")!.computed, 750);
   assert.equal(rec.currencies.find((c) => c.currency === "ARS")!.computed, 50000);
+});
+
+test("el despachador no confunde un resumen Galicia con uno de otro banco", () => {
+  assert.equal(detectBank(RESUMEN), "galicia");
+  assert.equal(detectBank(MASTERCARD), "galicia");
+  assert.equal(detectBank("una factura de luz cualquiera"), null);
 });

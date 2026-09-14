@@ -30,7 +30,8 @@ La key publishable va en `.env.local`, nunca commiteada. Usar la publishable
 - [x] Usuario creado en auth + seed corrido (20 categorías de gasto)
 - [x] Scaffold de Next.js 16 (App Router, Tailwind v4, `@supabase/ssr`)
 - [x] Fase 1 construida: alta manual, vista del mes, filtros
-- [x] Importador de resúmenes Galicia (VISA y MASTERCARD) con gate de reconciliación
+- [x] Importador de resúmenes Galicia y Supervielle (VISA y MASTERCARD) con gate
+      de reconciliación
 - [ ] Fase 1 aceptada: una semana de gastos reales cargados sin que dé fastidio
 - [x] Deploy en Vercel: https://finanzas-personales-rouge-eta.vercel.app
 
@@ -154,6 +155,23 @@ tiene que igualar el total declarado del resumen, al centavo, en cada moneda por
 separado. Si no cierra, el import se rechaza entero y no se escribe nada. Un LLM
 leyendo un PDF puede saltear una fila en silencio; esto convierte corrupción
 silenciosa en falla ruidosa.
+
+**Un lector por banco.** `detect.ts` reconoce el emisor por la estructura —cómo
+se llaman los totales— y no por el nombre del banco, que puede aparecer en la
+letra chica de cualquier resumen. Galicia y Supervielle no comparten casi nada:
+fechas `DD-MM-YY`/`DD-Mon-YY` contra ISO, `TOTAL A PAGAR` contra `SALDO ACTUAL`,
+comprobante después contra antes de la descripción. Meterlos en un solo parser
+deja una maraña donde tocar un banco rompe el otro.
+
+El PDF de Supervielle mete **un espacio después de cada `S`** (`IMPUES TO DE S
+ELLOS`). Es sistemático, así que se repara antes de parsear. El costo es que un
+nombre con una palabra terminada en S se pega a la siguiente; es cosmético y
+estable, y sin reparar el patrón de `MERPAGO*S OLUCIONES` queda en `MERPAGO S` y
+agrupa comercios distintos.
+
+Las filas de Supervielle traen **las dos columnas**, pesos y dólares, con una en
+cero: tomar el último monto de la línea —como se hace en Galicia— leería `0,00`
+en toda fila que traiga ambas.
 
 **Extracción y categorización son pasos distintos.** La extracción es
 transcripción y tiene que ser exacta. La categorización es criterio y un error

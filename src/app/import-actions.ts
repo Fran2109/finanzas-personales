@@ -18,7 +18,7 @@ import {
 } from "@/lib/domain";
 import { centsToNumeric } from "@/lib/money";
 import { extractPdfText } from "@/lib/import/pdf";
-import { parseGaliciaStatement } from "@/lib/import/galicia";
+import { BANK_LABELS, parseStatement } from "@/lib/import/detect";
 import {
   diagnosticRows,
   reconcile,
@@ -83,7 +83,16 @@ export async function uploadStatement(
     return { error: `No se pudo leer el PDF: ${e instanceof Error ? e.message : e}` };
   }
 
-  const statement = parseGaliciaStatement(text);
+  const leido = parseStatement(text);
+  if (!leido) {
+    return {
+      error:
+        "No reconozco el formato de este resumen. Por ahora se leen los de " +
+        `${Object.values(BANK_LABELS).join(" y ")}, VISA y MASTERCARD.`,
+    };
+  }
+
+  const { statement } = leido;
   const check = reconcile(statement);
 
   if (!check.ok) {
