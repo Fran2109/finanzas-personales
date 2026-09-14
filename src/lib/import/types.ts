@@ -12,6 +12,14 @@ export type ParsedRow = {
   cardLast4: string | null;
   cuotaCurrent: number | null;
   cuotaTotal: number | null;
+  /**
+   * Si la linea es algo que la app registra.
+   *
+   * Falso para lo que el resumen trae pero no es un gasto: el pago, las
+   * transferencias, las devoluciones de percepcion. Se transcriben igual
+   * porque la reconciliacion las necesita, pero no se importan.
+   */
+  tracked: boolean;
 };
 
 /** Subtotal declarado por plastico. Sirve de control cruzado independiente. */

@@ -54,6 +54,19 @@ const NOT_CONSUMPTION: ReadonlyArray<{ test: RegExp; kind: Kind }> = [
   { test: /\bDEV\.?\s?(IMP|PER)\b|\bDEVOLUCION\b/i, kind: "refund" },
 ];
 
+/**
+ * Lineas que el resumen trae pero la app no registra.
+ *
+ * El pago y las transferencias mueven plata entre cuentas propias. Las
+ * devoluciones de percepcion ("DEV.IMP. RG 5617", "DEV PER RG 4815") son el
+ * banco reintegrando un impuesto que cobro de mas en un resumen anterior: no
+ * es plata que se gaste, y contarla en negativo le restaria a un mes un
+ * impuesto que se pago en otro.
+ *
+ * Se transcriben igual: sin ellas el resumen no reconcilia.
+ */
+const NOT_TRACKED = /\bSU PAGO\b|\bPAGO MINIMO\b|\bDEV\.?\s?(IMP|PER)\b/i;
+
 function classify(description: string, amount: Cents): Kind {
   for (const { test, kind } of NOT_CONSUMPTION) {
     if (test.test(description)) return kind;
@@ -235,6 +248,7 @@ export function parseGaliciaStatement(text: string): ParsedStatement {
       // PDF la unica marca que sobrevive es el USD / U$S en la linea.
       currency: FOREIGN.test(rest) ? "USD" : "ARS",
       kind: classify(description, amount),
+      tracked: !NOT_TRACKED.test(description),
       cardLast4: null,
       cuotaCurrent: cuota.current,
       cuotaTotal: cuota.total,

@@ -213,3 +213,40 @@ test("el gate rechaza el MASTERCARD si se pierde una fila", () => {
   const mutilado = MASTERCARD.replace("DEV PER RG 4815 30% -500,00\n", "");
   assert.equal(reconcile(parseGaliciaStatement(mutilado)).ok, false);
 });
+
+test("lo que el resumen trae pero no se rastrea queda marcado", () => {
+  const st = parseGaliciaStatement(MASTERCARD);
+  const porDescripcion = new Map(st.rows.map((r) => [r.rawDescription, r]));
+
+  // El pago mueve plata entre cuentas propias.
+  assert.equal(porDescripcion.get("SU PAGO")!.tracked, false);
+  assert.equal(porDescripcion.get("SU PAGO U$S")!.tracked, false);
+
+  // La devolucion de percepcion es el banco reintegrando un impuesto cobrado
+  // de mas en un resumen anterior: no es plata que se gaste este mes.
+  assert.equal(porDescripcion.get("DEV PER RG 4815 30%")!.tracked, false);
+
+  // Una compra si se rastrea.
+  assert.equal(porDescripcion.get("TIENDA ONLINE")!.tracked, true);
+});
+
+test("la variante DEV.IMP de VISA se trata igual que DEV PER", () => {
+  // Son la misma linea con otro nombre segun la tarjeta: seria raro que una
+  // entre y la otra no.
+  const conDevImp = MASTERCARD.replace(
+    "DEV PER RG 4815 30% -500,00",
+    "DEV.IMP. RG 5617 30%( 1600,00) -500,00",
+  );
+  const st = parseGaliciaStatement(conDevImp);
+  const dev = st.rows.find((r) => r.rawDescription.startsWith("DEV.IMP"))!;
+  assert.equal(dev.tracked, false);
+  // Y sigue reconciliando: se transcribe igual, solo no se importa.
+  assert.equal(reconcile(st).ok, true);
+});
+
+test("no rastrear una linea no rompe la reconciliacion", () => {
+  const st = parseGaliciaStatement(MASTERCARD);
+  assert.equal(reconcile(st).ok, true);
+  // Las filas no rastreadas siguen sumando en el gate.
+  assert.ok(st.rows.some((r) => !r.tracked));
+});

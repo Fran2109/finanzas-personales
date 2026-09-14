@@ -107,8 +107,9 @@ export async function uploadStatement(
     // gastos, asi que nacen descartadas y nunca llegan a transactions.
     // El lector distingue impuestos, intereses y devoluciones porque los
     // necesita para clasificar bien el resumen; la app los colapsa a gasto o
-    // cuota. Lo que devuelve null no es un gasto y no se importa.
-    const kind = toExpenseKind(row.kind, row.cuotaCurrent);
+    // cuota. Lo que el lector marca como no rastreable (el pago, las
+    // devoluciones de percepcion) no se importa.
+    const kind = row.tracked ? toExpenseKind(row.kind, row.cuotaCurrent) : null;
     const suggested = kind
       ? suggestCategory(row, (rules.data ?? []) as Rule[], categories.data ?? [])
       : null;
