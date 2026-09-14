@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import { withRetry } from "@/lib/retry";
 import { centsFromDb, type Cents } from "@/lib/money";
 import {
   balanceSign,
@@ -41,22 +42,22 @@ export type Transaction = {
 
 export async function getAccounts(): Promise<Account[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("accounts")
-    .select("id, name, type, currency, is_liability, active")
-    .order("is_liability")
-    .order("name");
+  const { data, error } = await withRetry(() =>
+    supabase
+      .from("accounts")
+      .select("id, name, type, currency, is_liability, active")
+      .order("is_liability")
+      .order("name"),
+  );
   if (error) throw new Error(`No se pudieron leer las cuentas: ${error.message}`);
   return (data ?? []) as Account[];
 }
 
 export async function getCategories(): Promise<Category[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("categories")
-    .select("id, name, kind")
-    .order("kind")
-    .order("name");
+  const { data, error } = await withRetry(() =>
+    supabase.from("categories").select("id, name, kind").order("kind").order("name"),
+  );
   if (error) throw new Error(`No se pudieron leer las categorias: ${error.message}`);
   return (data ?? []) as Category[];
 }
@@ -74,13 +75,15 @@ function toTransaction(row: RawTransaction): Transaction {
 export async function getTransactionsForPeriod(period: Period): Promise<Transaction[]> {
   const { from, to } = periodRange(period);
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("transactions")
-    .select(TX_SELECT)
-    .gte("occurred_on", from)
-    .lte("occurred_on", to)
-    .order("occurred_on", { ascending: false })
-    .order("created_at", { ascending: false });
+  const { data, error } = await withRetry(() =>
+    supabase
+      .from("transactions")
+      .select(TX_SELECT)
+      .gte("occurred_on", from)
+      .lte("occurred_on", to)
+      .order("occurred_on", { ascending: false })
+      .order("created_at", { ascending: false }),
+  );
   if (error) throw new Error(`No se pudieron leer los movimientos: ${error.message}`);
   return (data as unknown as RawTransaction[]).map(toTransaction);
 }
@@ -186,10 +189,9 @@ export async function getAccountBalances(): Promise<AccountBalance[]> {
 
   const [accounts, movements] = await Promise.all([
     getAccounts(),
-    supabase
-      .from("transactions")
-      .select("account_id, amount, kind")
-      .eq("is_projected", false),
+    withRetry(() =>
+      supabase.from("transactions").select("account_id, amount, kind").eq("is_projected", false),
+    ),
   ]);
 
   if (movements.error) {
