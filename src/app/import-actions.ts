@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import { withRetry } from "@/lib/retry";
-import { isKind, normalizeMerchant } from "@/lib/domain";
+import { CATEGORY_KIND_FOR, isKind, normalizeMerchant, type Kind } from "@/lib/domain";
 import { centsToNumeric } from "@/lib/money";
 import { extractPdfText } from "@/lib/import/pdf";
 import { parseGaliciaStatement } from "@/lib/import/galicia";
@@ -163,14 +163,46 @@ export async function setRowCategory(formData: FormData) {
 
   // El tipo tambien se puede corregir: el parser acierta casi siempre, pero un
   // impuesto leido como compra distorsiona el analisis por categoria.
-  const kind = String(formData.get("kind") ?? "");
+  const enviado = String(formData.get("kind") ?? "");
+  const { data: fila } = await supabase
+    .from("import_rows")
+    .select("kind")
+    .eq("id", rowId)
+    .single();
+
+  const kind: Kind = isKind(enviado) ? enviado : ((fila?.kind ?? "consumption") as Kind);
+
+  // La categoria tiene que pertenecer a la familia del tipo. El formulario ya
+  // filtra, pero una accion es alcanzable por POST directo y ademas el
+  // formulario puede llegar con el tipo cambiado en la misma tanda: sin este
+  // chequeo quedaban filas con kind "consumption" y categoria de "transfer",
+  // que es un estado que no deberia poder existir.
+  if (categoryId) {
+    const { data: categoria } = await supabase
+      .from("categories")
+      .select("kind")
+      .eq("id", categoryId)
+      .single();
+
+    if (!categoria || categoria.kind !== CATEGORY_KIND_FOR[kind]) {
+      // Se guarda el tipo, pero la fila vuelve a pedir categoria en vez de
+      // quedar imputada a una que no le corresponde.
+      await supabase
+        .from("import_rows")
+        .update({ kind, suggested_category_id: null, needs_review: true })
+        .eq("id", rowId);
+      revalidatePath("/", "layout");
+      return;
+    }
+  }
 
   await supabase
     .from("import_rows")
     .update({
       suggested_category_id: categoryId || null,
-      ...(isKind(kind) ? { kind } : {}),
-      needs_review: false,
+      kind,
+      // Un pago de tarjeta no necesita categoria; el resto si.
+      needs_review: !categoryId && kind !== "payment",
       status: "pending",
     })
     .eq("id", rowId);

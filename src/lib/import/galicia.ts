@@ -98,9 +98,11 @@ function cleanDescription(rest: string, lastMoney: string): string {
     out = shorter;
   }
 
+  // El marcador de moneda NO se saca: es parte de como el banco escribe la
+  // linea. Sacarlo convertia "SU PAGO EN USD" en "SU PAGO EN", que ademas de
+  // quedar cortado deja de decir de que pago se trata.
   return out
-    .replace(/\s*(USD|U\$S)\s*$/i, "") // marcador de moneda que quedo suelto
-    .replace(/\b\d{2}\/\d{2}\b/, "")   // marca de cuota, se guarda aparte
+    .replace(/\b\d{2}\/\d{2}\b/, "") // marca de cuota, se guarda aparte
     .replace(/\s+/g, " ")
     .trim();
 }

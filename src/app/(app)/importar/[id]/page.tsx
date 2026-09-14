@@ -202,6 +202,10 @@ function RowTable({
               </span>
             ) : (
               <RowCategorySelect
+                // Remonta el selector cuando cambia lo guardado, asi despues de
+                // un save siempre muestra lo que quedo en la base y no la
+                // eleccion local que lo produjo.
+                key={`${row.kind}-${row.suggested_category_id ?? ""}`}
                 rowId={row.id}
                 categories={categories}
                 defaultKind={kind}

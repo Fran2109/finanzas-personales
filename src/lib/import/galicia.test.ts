@@ -61,7 +61,8 @@ test("el monto en dolares no se confunde con el de pesos", () => {
   assert.equal(usd.length, 2);
   const consumo = usd.find((r) => r.kind === "consumption")!;
   assert.equal(consumo.amount, 700);
-  assert.equal(consumo.rawDescription, "SERVICIO EXTERIOR");
+  // El marcador de moneda se conserva: es parte de la linea del banco.
+  assert.equal(consumo.rawDescription, "SERVICIO EXTERIOR USD");
 });
 
 test("detecta cuotas", () => {
@@ -173,6 +174,13 @@ test("lee el formato MASTERCARD, con su fecha y su marca de dolares", () => {
   const enDolares = st.rows.filter((r) => r.currency === "USD");
   assert.equal(enDolares.length, 1);
   assert.equal(enDolares[0].amount, -1000);
+});
+
+test("la descripcion no se come el marcador de moneda", () => {
+  const st = parseGaliciaStatement(MASTERCARD);
+  const pagoUsd = st.rows.find((r) => r.currency === "USD")!;
+  assert.equal(pagoUsd.rawDescription, "SU PAGO U$S");
+  assert.equal(pagoUsd.kind, "payment");
 });
 
 test("un ajuste sin fecha se imputa al cierre del periodo", () => {
