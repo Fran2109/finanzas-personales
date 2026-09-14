@@ -4,6 +4,7 @@ import {
   balanceSign,
   CATEGORY_KIND_FOR,
   isExpenseKind,
+  toExpenseKind,
   isKind,
   KINDS,
   KIND_LABELS,
@@ -20,11 +21,11 @@ test("cada kind tiene etiqueta y familia de categoria", () => {
   }
 });
 
-test("una cuota usa categorias de gasto, no una familia propia", () => {
-  // Si tuviera su propia familia, una compra en cuotas dejaria de decir en que
-  // se fue la plata: el tipo marca que es financiada, la categoria que se compro.
-  assert.equal(CATEGORY_KIND_FOR.installment, "expense");
+test("los dos tipos comparten las categorias de gasto", () => {
+  // Si la cuota tuviera familia propia, una compra financiada dejaria de decir
+  // en que se fue la plata.
   assert.equal(CATEGORY_KIND_FOR.consumption, "expense");
+  assert.equal(CATEGORY_KIND_FOR.installment, "expense");
 });
 
 test("una cuota es un gasto como cualquier otro", () => {
@@ -44,13 +45,31 @@ test("el pago de tarjeta es el unico que depende de la cuenta", () => {
   assert.equal(balanceSign("payment", true), 1);
 });
 
-test("la app solo registra gastos", () => {
-  // income, payment y transfer siguen siendo valores validos en la base porque
-  // el importador los necesita para transcribir un resumen, pero no se
-  // escriben en transactions ni se pueden cargar a mano.
+test("la app registra dos tipos de gasto y nada mas", () => {
+  assert.deepEqual([...EXPENSE_KINDS], ["consumption", "installment"]);
+  assert.deepEqual([...MANUAL_KINDS], ["consumption", "installment"]);
+});
+
+test("lo que no es cuota se pasa como gasto", () => {
+  // Impuestos, percepciones e intereses son plata que salio: son gastos. Una
+  // devolucion tambien, con monto negativo.
+  for (const kind of ["consumption", "tax_fee", "financing", "refund"] as const) {
+    assert.equal(toExpenseKind(kind, null), "consumption", kind);
+  }
+});
+
+test("lo que tiene marca de cuota se pasa como cuota", () => {
+  // Incluye las refinanciaciones: "PLAN V CONSOLID 5-12" es la cuota 5 de 12.
+  assert.equal(toExpenseKind("consumption", 2), "installment");
+  assert.equal(toExpenseKind("financing", 5), "installment");
+  assert.equal(toExpenseKind("installment", 1), "installment");
+});
+
+test("lo que no es un gasto no se importa", () => {
   for (const kind of ["payment", "transfer", "income"] as const) {
-    assert.equal(isExpenseKind(kind), false, `${kind} no es un gasto`);
-    assert.equal(MANUAL_KINDS.includes(kind), false, `${kind} no se carga a mano`);
+    assert.equal(toExpenseKind(kind, null), null, kind);
+    assert.equal(isExpenseKind(kind), false, kind);
+    assert.equal(MANUAL_KINDS.includes(kind), false, kind);
   }
 });
 

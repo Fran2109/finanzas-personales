@@ -51,7 +51,7 @@ export const KIND_LABELS: Record<Kind, string> = {
 };
 
 export const KIND_HELP: Record<Kind, string> = {
-  consumption: "Una compra.",
+  consumption: "Plata que gastaste.",
   income: "Plata que entra: sueldo, freelance, intereses.",
   payment:
     "Plata que sale del banco para pagar el resumen. No es un gasto nuevo: el gasto ya se conto cuando se consumio.",
@@ -60,7 +60,7 @@ export const KIND_HELP: Record<Kind, string> = {
   financing: "Intereses y refinanciaciones. Servicio de deuda, no una compra.",
   transfer: "Movimiento entre cuentas propias. No cambia el patrimonio.",
   installment:
-    "Una compra financiada. Cuenta como consumo igual, pero queda marcada: la categoria sigue diciendo que compraste.",
+    "Un gasto en cuotas. Cuenta igual que cualquier gasto, pero queda marcado.",
 };
 
 /**
@@ -71,46 +71,50 @@ export const KIND_HELP: Record<Kind, string> = {
  */
 export const CATEGORY_KIND_FOR: Record<Kind, string> = {
   consumption: "expense",
-  // Una cuota usa categorias de gasto comunes: el tipo dice que es financiada,
-  // la categoria sigue diciendo que se compro.
+  // Una cuota usa las mismas categorias que cualquier gasto: el tipo dice que
+  // es financiada, la categoria sigue diciendo que se compro.
   installment: "expense",
+  // Los que no se registran igual necesitan una familia para que el tipo
+  // compile; ninguna pantalla los ofrece.
   refund: "expense",
+  tax_fee: "expense",
+  financing: "expense",
   income: "income",
-  tax_fee: "tax_fee",
-  financing: "financing",
   transfer: "transfer",
-  // Un pago de tarjeta mueve plata entre cuentas propias, no compra nada.
   payment: "transfer",
 };
 
 
 /**
- * Lo que la app registra: gastos.
+ * Lo que la app registra: dos tipos de gasto y nada mas.
  *
- * Todo lo que llega a `transactions` es plata que salio. No hay ingresos ni
- * saldos: esto no lleva balances, lleva la cuenta de en que se va la plata.
+ * - `consumption`  un gasto
+ * - `installment`  un gasto en cuotas
  *
- * - `consumption`  una compra
- * - `installment`  una compra financiada, que sale igual pero queda marcada
- * - `tax_fee`      IVA, IIBB, percepciones: no son consumo, pero se fueron
- * - `financing`    intereses y refinanciaciones: servicio de deuda
- * - `refund`       una devolucion, que resta de lo gastado
+ * Todo lo demas se pasa a uno de los dos. Impuestos, percepciones e intereses
+ * son plata que salio: son gastos. Una devolucion es un gasto negativo. Meter
+ * una taxonomia mas fina obligaba a decidir en cada carga a que cajon va algo,
+ * y la respuesta casi siempre era "es plata que gaste".
  *
- * `income`, `payment` y `transfer` siguen existiendo como valores validos en la
- * base, porque el importador los necesita para transcribir un resumen y que
- * reconcilie. Pero no se escriben en `transactions`: un pago de tarjeta no es
- * un gasto nuevo, el gasto ya se conto cuando se compro.
+ * `income`, `payment` y `transfer` siguen siendo valores validos en la base
+ * porque el importador los necesita para transcribir un resumen y que
+ * reconcilie, pero no se escriben en `transactions`.
  */
-export const EXPENSE_KINDS: readonly Kind[] = [
-  "consumption",
-  "installment",
-  "tax_fee",
-  "financing",
-  "refund",
-];
+export const EXPENSE_KINDS: readonly Kind[] = ["consumption", "installment"];
 
 export function isExpenseKind(kind: Kind): boolean {
   return EXPENSE_KINDS.includes(kind);
+}
+
+/**
+ * Colapsa lo que clasifico el lector del resumen a los dos tipos de la app.
+ *
+ * Lo que tiene marca de cuota es cuota; todo el resto es gasto. Devuelve null
+ * para lo que no es un gasto y por lo tanto no se importa.
+ */
+export function toExpenseKind(kind: Kind, cuotaCurrent: number | null): Kind | null {
+  if (kind === "payment" || kind === "transfer" || kind === "income") return null;
+  return cuotaCurrent ? "installment" : "consumption";
 }
 
 /** Lo que se puede cargar a mano es exactamente lo que la app registra. */

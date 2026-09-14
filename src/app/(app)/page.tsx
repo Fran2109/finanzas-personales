@@ -26,7 +26,7 @@ import {
   readFilters,
   type Filters,
 } from "@/lib/filters";
-import { formatCents, type Cents } from "@/lib/money";
+import { type Cents } from "@/lib/money";
 
 export default async function MonthPage({
   searchParams,
@@ -144,12 +144,7 @@ function MonthTotals({
   totals,
 }: {
   currency: Currency;
-  totals: {
-    total: Cents;
-    purchases: Cents;
-    overhead: Cents;
-    installments: Cents;
-  };
+  totals: { total: Cents; purchases: Cents; installments: Cents };
 }) {
   return (
     <section>
@@ -160,17 +155,13 @@ function MonthTotals({
       ) : null}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Stat label="Gastado" cents={totals.total} currency={currency} destacado />
-        <Stat label="Compras" cents={totals.purchases} currency={currency} />
-        <Stat
-          label="Impuestos y financiacion"
-          cents={totals.overhead}
-          currency={currency}
-        />
+        <Stat label="Gastos" cents={totals.purchases} currency={currency} />
+        <Stat label="Cuotas" cents={totals.installments} currency={currency} />
       </div>
       {totals.installments !== 0 ? (
         <p className="mt-2 text-xs text-muted">
-          De esas compras, {formatCents(totals.installments, currency)} son cuotas
-          de compras anteriores.
+          Las cuotas son de compras anteriores: ya estaban decididas antes de
+          este mes.
         </p>
       ) : null}
     </section>

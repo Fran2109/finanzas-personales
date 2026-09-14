@@ -27,7 +27,7 @@ La key publishable va en `.env.local`, nunca commiteada. Usar la publishable
 - [x] Proyecto Supabase creado, región sa-east-1
 - [x] Migración inicial aplicada (versión remota `20260914112501`)
 - [x] 9 tablas con RLS, 9 políticas, vista `v_transactions_ars`
-- [x] Usuario creado en auth + seed corrido (20 categorías, solo de gasto)
+- [x] Usuario creado en auth + seed corrido (20 categorías de gasto)
 - [x] Scaffold de Next.js 16 (App Router, Tailwind v4, `@supabase/ssr`)
 - [x] Fase 1 construida: alta manual, vista del mes, filtros
 - [x] Importador de resúmenes Galicia (VISA y MASTERCARD) con gate de reconciliación
@@ -67,12 +67,13 @@ de la tarjeta es una transferencia desde el banco hacia la tarjeta. Si se cuenta
 el consumo del resumen Y el pago desde la cuenta bancaria, todo se duplica. Este
 es el bug más común del dominio.
 
-**Refinanciación.** Líneas tipo `PLAN V CONSOLID 5-12` son servicio de deuda,
-no compras. Van con `kind = 'financing'` y categoría "Costos financieros".
+**Refinanciación.** Líneas tipo `PLAN V CONSOLID 5-12` son servicio de deuda, no
+compras. El lector las marca `financing`, y como traen número de cuota entran
+como **Cuota** con categoría "Financiacion".
 
-**Impuestos.** IVA, IIBB, percepciones RG 4240 y RG 5617 son gastos reales pero
-no consumo. Van con `kind = 'tax_fee'`. Si se mezclan con las compras,
-distorsionan cualquier análisis por categoría.
+**Impuestos.** IVA, IIBB, percepciones RG 4240 y RG 5617 son gastos reales. El
+lector las marca `tax_fee` y entran como **Gasto** con categoría "Impuestos":
+siguen separadas de las compras por categoría, no por tipo.
 
 ## Decisiones de modelo (y por qué)
 
@@ -84,9 +85,21 @@ separadas, el pago del resumen no tendría a qué imputarse.
 **`kind` separa la semántica económica.** Valores: `consumption`, `installment`,
 `income`, `payment`, `refund`, `tax_fee`, `financing`, `transfer`.
 
-**Solo se registran gastos** (`EXPENSE_KINDS`): `consumption`, `installment`,
-`tax_fee`, `financing` y `refund`. Los impuestos y los costos financieros no son
-consumo, pero son plata que se fue, así que cuentan; un reintegro resta.
+**Dos tipos de gasto y nada más** (`EXPENSE_KINDS`): `consumption` (Gasto) e
+`installment` (Cuota). La regla es mecánica: **lo que tiene marca de cuota es
+cuota, todo lo demás es gasto** (`toExpenseKind`). Impuestos, percepciones e
+intereses son plata que salió, así que son gastos; una devolución es un gasto
+con monto negativo, que resta solo sin necesitar un tipo aparte.
+
+El lector de resúmenes *sí* distingue `tax_fee`, `financing` y `refund`, porque
+los necesita para clasificar bien cada línea y sobre todo para reconocer lo que
+**no** es un gasto. Esa clasificación se colapsa a los dos tipos al pasar a
+staging. Una taxonomía más fina obligaba a decidir en cada carga a qué cajón va
+algo, y la respuesta casi siempre era "es plata que gasté".
+
+Los dos tipos **comparten las mismas categorías** (todas de familia `expense`).
+Si la cuota tuviera familia propia, una compra financiada dejaría de decir en
+qué se fue la plata.
 
 `income`, `payment` y `transfer` siguen siendo valores válidos en la base porque
 **el importador los necesita para transcribir un resumen y que reconcilie**, pero
@@ -100,13 +113,6 @@ solo gastos.**
 
 Tampoco se muestran saldos por cuenta. `balanceSign` sigue documentado y testeado
 porque es lo que ancla `normalizeAmountForKind`, pero ninguna pantalla lo usa.
-
-`installment` marca una compra financiada, pero **usa categorías de gasto
-comunes**, no una familia propia. El tipo dice que es en cuotas y la categoría
-sigue diciendo qué se compró; si tuviera su propia familia, mandar todas las
-cuotas a "Cuotas" haría perder en qué se fue la plata. Cuenta como consumo en
-los totales, y la vista del mes aclara aparte cuánto de ese consumo son cuotas
-de compras anteriores.
 
 **`fingerprint` con índice único parcial** sobre `(user_id, fingerprint)` es la
 red anti-duplicados. Se calcula sobre cuenta + fecha + monto ya normalizado +

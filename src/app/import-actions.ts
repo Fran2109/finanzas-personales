@@ -9,6 +9,7 @@ import {
   CATEGORY_KIND_FOR,
   isExpenseKind,
   isKind,
+  toExpenseKind,
   normalizeAmountForKind,
   normalizeMerchant,
   periodOfDate,
@@ -104,8 +105,11 @@ export async function uploadStatement(
     // La transcripcion es fiel: el pago del resumen y las transferencias se
     // guardan en staging porque hacen falta para que reconcilie. Pero no son
     // gastos, asi que nacen descartadas y nunca llegan a transactions.
-    const esGasto = isExpenseKind(row.kind);
-    const suggested = esGasto
+    // El lector distingue impuestos, intereses y devoluciones porque los
+    // necesita para clasificar bien el resumen; la app los colapsa a gasto o
+    // cuota. Lo que devuelve null no es un gasto y no se importa.
+    const kind = toExpenseKind(row.kind, row.cuotaCurrent);
+    const suggested = kind
       ? suggestCategory(row, (rules.data ?? []) as Rule[], categories.data ?? [])
       : null;
     return {
@@ -115,14 +119,14 @@ export async function uploadStatement(
       raw_description: row.rawDescription,
       amount: centsToNumeric(row.amount),
       currency: row.currency,
-      kind: row.kind,
+      kind: kind ?? row.kind,
       card_last4: row.cardLast4,
       cuota_current: row.cuotaCurrent,
       cuota_total: row.cuotaTotal,
       suggested_category_id: suggested,
       // Lo que ya sabemos categorizar no necesita revision manual.
-      needs_review: esGasto && suggested === null,
-      status: (esGasto ? "pending" : "discarded") as "pending" | "discarded",
+      needs_review: kind !== null && suggested === null,
+      status: (kind ? "pending" : "discarded") as "pending" | "discarded",
     };
   });
 

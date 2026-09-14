@@ -121,20 +121,17 @@ export async function getTransactionsForPeriod(period: Period): Promise<Transact
 
 /** Totales del mes. Sin `fx_rates` cargadas no se pesifica nada: se separa. */
 export type CurrencyTotals = {
-  /** Todo lo que salio: compras, cuotas, impuestos y financiacion, neto de reintegros. */
+  /** Todo lo que salio. Un monto negativo (una devolucion) resta solo. */
   total: Cents;
-  /** Compras y cuotas, neto de reintegros. */
+  /** Gastos sueltos. */
   purchases: Cents;
-  /** Impuestos, percepciones y costos financieros. Salieron, pero no son compras. */
-  overhead: Cents;
-  /** Cuanto de las compras son cuotas. Subconjunto de `purchases`. */
+  /** Gastos en cuotas. */
   installments: Cents;
 };
 
 const EMPTY_TOTALS: CurrencyTotals = {
   total: 0,
   purchases: 0,
-  overhead: 0,
   installments: 0,
 };
 
@@ -158,30 +155,14 @@ export function summarize(transactions: Transaction[]): MonthSummary {
   for (const tx of transactions) {
     const bucket = totals.get(tx.currency) ?? { ...EMPTY_TOTALS };
 
-    switch (tx.kind) {
-      case "consumption":
-        bucket.purchases += tx.amount;
-        break;
-      // Una cuota salio igual que cualquier compra. Se guarda aparte solo para
-      // poder decir cuanto del mes ya estaba comprado de antes.
-      case "installment":
-        bucket.purchases += tx.amount;
-        bucket.installments += tx.amount;
-        break;
-      case "refund":
-        // Una devolucion resta de lo gastado. No es un ingreso.
-        bucket.purchases -= tx.amount;
-        break;
-      case "tax_fee":
-      case "financing":
-        bucket.overhead += tx.amount;
-        break;
-      default:
-        // income, payment y transfer no llegan a transactions: la app solo
-        // registra gastos. Si aparece uno viejo, no se cuenta.
-        break;
+    // Dos tipos y nada mas. Los montos negativos (una devolucion, un ajuste a
+    // favor) restan solos, sin necesitar un kind aparte.
+    if (tx.kind === "installment") {
+      bucket.installments += tx.amount;
+    } else {
+      bucket.purchases += tx.amount;
     }
-    bucket.total = bucket.purchases + bucket.overhead;
+    bucket.total = bucket.purchases + bucket.installments;
 
     totals.set(tx.currency, bucket);
 
