@@ -18,10 +18,32 @@
 const TRANSIENT =
   /gateway timeout|timeout|timed out|fetch failed|socket hang up|econnreset|network|503|504|temporarily unavailable|issued at future|not yet valid/i;
 
+/**
+ * Desfasaje de reloj, que se reintenta distinto que el resto.
+ *
+ * Un 504 se arregla reintentando ya mismo. Este no: el token vale recien cuando
+ * el reloj del que lo valida alcanza al `iat`, y eso se mide en segundos.
+ * Reintentar a los 150ms garantiza exactamente el mismo error tres veces.
+ *
+ * Pedir un token nuevo tampoco sirve, al contrario: vendria con un `iat` mas
+ * adelantado todavia. Lo unico que lo arregla es esperar.
+ */
+const CLOCK_SKEW = /issued at future|not yet valid/i;
+
 export function isTransient(error: { message?: string; code?: string } | null): boolean {
   if (!error) return false;
   if (error.code && /^(PGRST|22|23|42)/.test(error.code)) return false;
   return TRANSIENT.test(error.message ?? "");
+}
+
+/** Cuanto esperar antes del proximo intento, segun que fallo. */
+export function retryDelayMs(
+  error: { message?: string } | null,
+  attempt: number,
+  baseDelayMs: number,
+): number {
+  const base = CLOCK_SKEW.test(error?.message ?? "") ? 1000 : baseDelayMs;
+  return base * 2 ** attempt;
 }
 
 export type Result<T> = { data: T | null; error: { message: string; code?: string } | null };
@@ -50,7 +72,8 @@ export async function withRetry<T>(
     if (!last.error || !isTransient(last.error)) return last;
 
     if (attempt < attempts - 1) {
-      await new Promise((resolve) => setTimeout(resolve, baseDelayMs * 2 ** attempt));
+      const espera = retryDelayMs(last.error, attempt, baseDelayMs);
+      await new Promise((resolve) => setTimeout(resolve, espera));
     }
   }
 
