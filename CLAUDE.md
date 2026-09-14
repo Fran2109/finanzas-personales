@@ -199,7 +199,31 @@ Una tabla pegada tampoco dice de qué banco es: adentro del home banking ya se
 sabe. Por eso `StatementIdentity.bank` admite `null`, y ahí la cuenta se infiere
 sólo por el plástico. El nombre no se usa sin banco: "Visa" sola matchearía la de
 Galicia y la de Supervielle por igual, y elegir cualquiera de las dos es justo el
-error que la inferencia existe para evitar.
+error que la inferencia existe para evitar. Y hay tablas que no traen ni
+plástico: ahí no hay nada que inferir y se pide elegir la cuenta, diciendo eso y
+no "no encontré una cuenta que corresponda a *sin marca*".
+
+**Un solo lector para las tablas pegadas, al revés que con los PDF.** Los
+resúmenes cerrados no comparten casi nada y por eso tienen un lector cada uno.
+Las tablas pegadas sí comparten la forma: **un movimiento es un grupo de celdas
+que termina en su importe**. Lo que cambia entre bancos es el *orden* de los
+campos —uno pone la fecha primero y el otro la descripción, uno el `Total` al
+final y el otro arriba de todo, uno la cuota en su propia celda y el otro pegada
+a la fecha— y a ese modelo el orden no le importa. Un lector por banco sería
+duplicar todo para distinguir algo que no hace falta distinguir.
+
+Dos reglas sostienen el modelo. Los totales se leen **hasta la primera línea que
+no es un monto**, así el `Total` de arriba no se come el primer movimiento. Y una
+**segunda fecha dentro del mismo bloque** lo corta: significa que al anterior le
+faltó el importe, y cortarlo ahí lo deja sin monto y termina en
+`unparsedLines` en vez de fundirse con el siguiente, que es la fila perdida en
+silencio que el lector existe para evitar.
+
+**Dos líneas `Total` se rechazan en vez de sumarse.** Serían dos tablas pegadas
+una atrás de la otra, pero sumarlas también dejaría pasar el pegado repetido por
+accidente: las filas se duplican, el total se duplica, el gate cierra igual y el
+mes queda contado dos veces. El `seq` de la huella no salva ahí, porque está
+hecho justamente para permitir dos movimientos idénticos de verdad.
 
 **Un lector por banco.** `detect.ts` reconoce el emisor por la estructura —cómo
 se llaman los totales— y no por el nombre del banco, que puede aparecer en la

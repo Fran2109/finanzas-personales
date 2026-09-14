@@ -14,6 +14,15 @@
  * pago queda afuera. Por eso el pago va a `outsideTotal`: se transcribe, se
  * muestra en la revision, pero no entra en la suma que el gate compara.
  *
+ * **Un solo lector para las dos tablas, al reves que con los PDF.** Los
+ * resumenes cerrados de cada banco no comparten casi nada y por eso tienen un
+ * lector cada uno. Las tablas pegadas si comparten la forma: un movimiento es
+ * un grupo de celdas que **termina en su importe**. Lo que cambia entre bancos
+ * es el ORDEN de los campos —uno pone la fecha primero y el otro la
+ * descripcion, uno el Total al final y el otro al principio— y a este modelo el
+ * orden no le importa. Meterle un lector por banco seria duplicar todo para
+ * distinguir algo que no hace falta distinguir.
+ *
  * Como todo lector de este proyecto: transcribe, no interpreta. Aca no hay
  * ningun comercio hardcodeado, solo la estructura de la tabla.
  */
@@ -34,9 +43,12 @@ const HEADERS = new Set([
   "movimientos",
 ]);
 
-const DATE = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+// La fecha arranca la linea; lo que le sigue puede traer la cuota pegada
+// ("07/09/2026 Cuota 1/3") o no traer nada ("10/09/2026").
+const DATE = /^(\d{1,2})\/(\d{1,2})\/(\d{4})\b\s*(.*)$/;
 const CARD = /^(VISA|MASTERCARD|MASTER|AMEX)\s*[-–—]?\s*(\d{4})$/i;
-const CUOTA = /^(\d{1,2})\s*(?:de|\/)\s*(\d{1,3})$/i;
+const CUOTA = /^(?:cuota\s*)?(\d{1,2})\s*(?:de|\/)\s*(\d{1,3})$/i;
+const CUOTA_INLINE = /(?:cuota\s*)?\b(\d{1,2})\s*(?:de|\/)\s*(\d{1,3})\b/i;
 const AMOUNT = /^(-?)\s*(USD|U\$S|US\$|ARS|\$)\s*(-?)\s*([\d.,]+)$/i;
 const TOTAL = /^total(?:\s+(?:general|del\s+periodo|de\s+consumos))?$/i;
 
@@ -99,28 +111,30 @@ function readAmount(line: string): { amount: Cents; currency: Currency } | null 
   return { amount: negative ? -cents : cents, currency };
 }
 
-/** Un bloque de la tabla: todo lo que viene despues de una fecha. */
+/**
+ * Un movimiento en crudo: las celdas que se juntaron hasta su importe.
+ *
+ * No sabe en que orden vienen. Un banco pone la fecha primero y la descripcion
+ * despues, el otro al reves; aca todo eso es `textLines` y se ordena al cerrar.
+ */
 type Bloque = {
   lineNo: number;
-  occurredOn: string;
-  parts: string[];
+  textLines: string[];
   amounts: { amount: Cents; currency: Currency }[];
-  cardLast4: string | null;
-  network: string | null;
-  cuotaCurrent: number | null;
-  cuotaTotal: number | null;
 };
 
-function bloqueVacio(lineNo: number, occurredOn: string): Bloque {
+function bloqueVacio(lineNo: number): Bloque {
+  return { lineNo, textLines: [], amounts: [] };
+}
+
+/** Si la linea abre con una fecha. Es lo unico que puede partir dos bloques. */
+function fechaDe(line: string): { iso: string; resto: string } | null {
+  const m = line.match(DATE);
+  if (!m) return null;
+  const [, dd, mm, yyyy, resto] = m;
   return {
-    lineNo,
-    occurredOn,
-    parts: [],
-    amounts: [],
-    cardLast4: null,
-    network: null,
-    cuotaCurrent: null,
-    cuotaTotal: null,
+    iso: `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`,
+    resto: resto ?? "",
   };
 }
 
@@ -136,81 +150,134 @@ export function parsePastedStatement(text: string): ParsedStatement {
   const unparsedLines: string[] = [];
   let declaredTotalArs: Cents = 0;
   let declaredTotalUsd: Cents = 0;
-  let sawTotal = false;
+  let totales = 0;
 
-  let current: Bloque | null = null;
-  let inFooter = false;
+  let actual = bloqueVacio(1);
+  let enTotales = false;
+
+  const cerrar = () => {
+    if (actual.textLines.length > 0 || actual.amounts.length > 0) bloques.push(actual);
+  };
 
   lines.forEach((line, i) => {
-    if (inFooter) {
-      const monto = readAmount(line);
-      if (monto) {
-        if (monto.currency === "ARS") declaredTotalArs = monto.amount;
-        else declaredTotalUsd = monto.amount;
-      }
-      return;
-    }
-
     if (TOTAL.test(line)) {
-      inFooter = true;
-      sawTotal = true;
-      return;
-    }
-
-    const fecha = line.match(DATE);
-    if (fecha) {
-      if (current) bloques.push(current);
-      const [, dd, mm, yyyy] = fecha;
-      current = bloqueVacio(i + 1, `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`);
-      return;
-    }
-
-    if (!current) {
-      // Antes de la primera fecha solo hay encabezado. Lo que no se reconoce
-      // igual se ignora: es el cromo de la pagina, no movimientos, y el gate
-      // sobre el total es lo que protege de perder una fila de verdad.
-      return;
-    }
-
-    const card = line.match(CARD);
-    if (card) {
-      current.network = card[1].toUpperCase();
-      current.cardLast4 = card[2];
-      return;
-    }
-
-    const cuota = line.match(CUOTA);
-    if (cuota) {
-      current.cuotaCurrent = Number(cuota[1]);
-      current.cuotaTotal = Number(cuota[2]);
+      cerrar();
+      actual = bloqueVacio(i + 2);
+      totales += 1;
+      enTotales = true;
       return;
     }
 
     const monto = readAmount(line);
+
+    // Despues de "Total" vienen los totales declarados, hasta la primera linea
+    // que no sea un monto. Un banco los pone al final de la tabla y el otro
+    // arriba de todo, y asi los dos caen en el mismo lugar.
+    if (enTotales) {
+      if (monto) {
+        if (monto.currency === "ARS") declaredTotalArs = monto.amount;
+        else declaredTotalUsd = monto.amount;
+        return;
+      }
+      enTotales = false;
+    }
+
     if (monto) {
-      current.amounts.push(monto);
+      actual.amounts.push(monto);
       return;
     }
 
-    // Cualquier otra cosa dentro del bloque es la descripcion. Un comercio
-    // puede venir partido en varias lineas y se pega de nuevo.
-    if (!HEADERS.has(normalizeHeader(line))) current.parts.push(line);
+    // Una linea que no es monto cierra el bloque anterior si ese ya tenia su
+    // importe: el importe es lo ultimo de cada movimiento en las dos tablas.
+    if (actual.amounts.length > 0) {
+      cerrar();
+      actual = bloqueVacio(i + 1);
+    }
+
+    const fecha = fechaDe(line);
+    // Dos fechas en el mismo bloque significa que al anterior le falto el
+    // importe. Cerrarlo ahi lo deja sin monto y termina en unparsedLines, que
+    // es exactamente lo que tiene que pasar: una fila perdida en silencio es el
+    // modo de falla que este lector existe para evitar.
+    if (fecha && actual.textLines.some((t) => fechaDe(t))) {
+      cerrar();
+      actual = bloqueVacio(i + 1);
+    }
+
+    if (!HEADERS.has(normalizeHeader(line))) actual.textLines.push(line);
   });
 
-  if (current) bloques.push(current);
+  cerrar();
+
+  if (totales === 0) {
+    unparsedLines.push(
+      "Falta la linea 'Total': sin ella no hay contra que verificar la suma.",
+    );
+  } else if (totales > 1) {
+    // Dos totales serian dos tablas pegadas una atras de la otra. Sumarlas
+    // dejaria pasar el pegado repetido por accidente, que duplica el mes
+    // entero sin que nada lo note.
+    unparsedLines.push(
+      `Hay ${totales} lineas 'Total'. Pega una sola lista por vez.`,
+    );
+  }
 
   const rows: ParsedRow[] = [];
   const outsideTotal: ParsedRow[] = [];
+  const plasticos: string[] = [];
 
   for (const bloque of bloques) {
-    const rawDescription = bloque.parts.join(" ").replace(/\s+/g, " ").trim();
+    let occurredOn: string | null = null;
+    let cardLast4: string | null = null;
+    let cuotaCurrent: number | null = null;
+    let cuotaTotal: number | null = null;
+    const parts: string[] = [];
+
+    for (const line of bloque.textLines) {
+      const fecha = fechaDe(line);
+      if (fecha) {
+        occurredOn = fecha.iso;
+        // Un banco pega la cuota a la fecha ("07/09/2026 Cuota 1/3") y el otro
+        // le da su propia celda. Las dos formas terminan aca.
+        const inline = fecha.resto.match(CUOTA_INLINE);
+        if (inline) {
+          cuotaCurrent = Number(inline[1]);
+          cuotaTotal = Number(inline[2]);
+        } else if (fecha.resto.trim()) {
+          parts.push(fecha.resto.trim());
+        }
+        continue;
+      }
+
+      const card = line.match(CARD);
+      if (card) {
+        plasticos.push(card[1].toUpperCase());
+        cardLast4 = card[2];
+        continue;
+      }
+
+      const cuota = line.match(CUOTA);
+      if (cuota) {
+        cuotaCurrent = Number(cuota[1]);
+        cuotaTotal = Number(cuota[2]);
+        continue;
+      }
+
+      parts.push(line);
+    }
+
+    const rawDescription = parts.join(" ").replace(/\s+/g, " ").trim();
 
     // Las dos columnas vienen en la misma fila con una en cero. Tomar la
     // primera leeria 0,00 en toda fila que traiga las dos.
     const conMonto = bloque.amounts.filter((a) => a.amount !== 0);
-    if (rawDescription === "" || conMonto.length !== 1) {
+
+    if (rawDescription === "" || occurredOn === null || conMonto.length !== 1) {
       unparsedLines.push(
-        `${bloque.occurredOn} ${rawDescription || "(sin descripcion)"}`.trim(),
+        [occurredOn ?? "", rawDescription || "(sin descripcion)"]
+          .filter(Boolean)
+          .join(" ")
+          .trim() || "(monto suelto, sin movimiento)",
       );
       continue;
     }
@@ -220,14 +287,14 @@ export function parsePastedStatement(text: string): ParsedStatement {
 
     const row: ParsedRow = {
       lineNo: bloque.lineNo,
-      occurredOn: bloque.occurredOn,
+      occurredOn,
       rawDescription,
       amount,
       currency,
       kind,
-      cardLast4: bloque.cardLast4,
-      cuotaCurrent: bloque.cuotaCurrent,
-      cuotaTotal: bloque.cuotaTotal,
+      cardLast4,
+      cuotaCurrent,
+      cuotaTotal,
       tracked: !NOT_TRACKED.test(rawDescription) && kind !== "payment",
     };
 
@@ -235,15 +302,10 @@ export function parsePastedStatement(text: string): ParsedStatement {
     else rows.push(row);
   }
 
-  if (!sawTotal) {
-    unparsedLines.push(
-      "Falta la linea 'Total': sin ella no hay contra que verificar la suma.",
-    );
-  }
-
-  // La marca sale de los plasticos, que es lo unico que la tabla dice de la
-  // tarjeta. El banco no aparece: adentro del home banking ya se sabe cual es.
-  const networks = [...new Set(bloques.map((b) => b.network).filter(Boolean))];
+  // La marca sale de los plasticos, que es lo unico que una de las dos tablas
+  // dice de la tarjeta. La otra no nombra ni la marca ni el banco: adentro del
+  // home banking ya se sabe cual es.
+  const networks = [...new Set(plasticos)];
 
   return {
     brand: networks.length === 1 ? networks[0] : null,

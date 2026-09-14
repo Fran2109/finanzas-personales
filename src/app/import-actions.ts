@@ -232,12 +232,19 @@ async function stage(
   const accountId = elegida || inferida.accountId;
 
   if (!accountId) {
+    // Una tabla pegada puede no traer ninguna pista: ni banco, ni marca, ni
+    // plastico. Decir "no encontre una cuenta que corresponda a sin marca" es
+    // cierto y no sirve para nada; lo que hay que decir es que no hay de donde
+    // sacarlo y que la elija.
+    const sinPistas =
+      !identity.bank && !identity.brand && identity.cardsLast4.length === 0;
     return {
-      error:
-        `Es un resumen ${inferida.label}, pero ` +
-        (inferida.reason === "ambigua"
-          ? "mas de una cuenta puede serlo. Elegila a mano."
-          : "no encontre una cuenta que le corresponda. Elegila a mano o crea una en Cuentas."),
+      error: sinPistas
+        ? "Esta lista no dice de que tarjeta es: no trae banco, ni marca, ni numero de plastico. Elegi la cuenta a mano."
+        : `Es un resumen ${inferida.label}, pero ` +
+          (inferida.reason === "ambigua"
+            ? "mas de una cuenta puede serlo. Elegila a mano."
+            : "no encontre una cuenta que le corresponda. Elegila a mano o crea una en Cuentas."),
     };
   }
 

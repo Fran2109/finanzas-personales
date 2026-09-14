@@ -281,3 +281,110 @@ $ 600
   assert.equal(st.rows[1].amount, -40000);
   assert.equal(reconcile(st).ok, true);
 });
+
+// La otra tabla: el Total arriba de todo, la descripcion antes que la fecha, la
+// cuota pegada a la fecha y ninguna columna de plastico. Mismo lector.
+const PEGADO_AL_REVES = `
+Total
+$ 519.327,04
+US$ 0,00
+Comercio*uno
+07/09/2026  Cuota 1/3
+$66.166,68
+Comercio*dos
+01/09/2026  Cuota 1/3
+$109.509,62
+Comercio*tres
+12/08/2026  Cuota 2/3
+$14.633,33
+Comercio*dos
+23/07/2026  Cuota 3/3
+$287.015,00
+Comercio*dos
+11/05/2026  Cuota 5/12
+$42.002,41
+`;
+
+test("lee la tabla con el Total arriba y la fecha despues de la descripcion", () => {
+  const st = parsePastedStatement(PEGADO_AL_REVES);
+  assert.equal(st.rows.length, 5);
+  assert.deepEqual(st.unparsedLines, []);
+  assert.equal(st.declaredTotalArs, 51932704);
+  assert.equal(st.declaredTotalUsd, 0);
+  assert.equal(reconcile(st).ok, true);
+});
+
+test("el Total de arriba no se come el primer movimiento", () => {
+  // Los totales se leen hasta la primera linea que no es un monto. Si no
+  // cortara ahi, la descripcion del primer movimiento quedaria adentro del
+  // encabezado y el movimiento se perderia entero.
+  const st = parsePastedStatement(PEGADO_AL_REVES);
+  assert.equal(st.rows[0].rawDescription, "Comercio*uno");
+  assert.equal(st.rows[0].occurredOn, "2026-09-07");
+});
+
+test("la cuota pegada a la fecha se separa igual que en su propia celda", () => {
+  const st = parsePastedStatement(PEGADO_AL_REVES);
+  assert.deepEqual(
+    st.rows.map((r) => `${r.cuotaCurrent}/${r.cuotaTotal}`),
+    ["1/3", "1/3", "2/3", "3/3", "5/12"],
+  );
+  // Y no se cuela en la descripcion.
+  assert.ok(!st.rows.some((r) => /cuota/i.test(r.rawDescription)));
+});
+
+test("sin columna de plastico no se inventa una marca", () => {
+  const st = parsePastedStatement(PEGADO_AL_REVES);
+  assert.equal(st.brand, null);
+  assert.ok(st.rows.every((r) => r.cardLast4 === null));
+});
+
+test("en este orden tambien se nota la fila sin importe", () => {
+  // Con la descripcion antes que la fecha, una fila sin importe deja su
+  // descripcion huerfana entre dos movimientos y no hay forma de saber a cual
+  // de los dos pertenece. Asi que no se reparte: los dos bloques quedan sin
+  // leer. Que el reparto sea ambiguo no importa; lo que importa es que nada
+  // pase en silencio, y el gate rechaza el pegado entero.
+  const st = parsePastedStatement(`
+Total
+
+$ 1.000
+
+COMERCIO SIN IMPORTE
+
+09/09/2026
+
+COMERCIO UNO
+
+01/09/2026
+
+$ 1.000
+`);
+  assert.equal(st.rows.length, 0);
+  assert.equal(st.unparsedLines.length, 2);
+  assert.match(st.unparsedLines.join(" "), /COMERCIO SIN IMPORTE/);
+  assert.equal(reconcile(st).ok, false);
+});
+
+test("dos tablas pegadas juntas se rechazan en vez de sumarse", () => {
+  // Sumar los dos totales dejaria pasar el pegado repetido por accidente, que
+  // duplica el mes entero sin que nada lo note.
+  const st = parsePastedStatement(PEGADO_AL_REVES + PEGADO_AL_REVES);
+  assert.match(st.unparsedLines.join(" "), /2 lineas 'Total'/);
+  assert.equal(reconcile(st).ok, false);
+});
+
+test("un movimiento sin fecha no pasa", () => {
+  const st = parsePastedStatement(`
+Total
+
+$ 1.000
+
+COMERCIO SIN FECHA
+
+$ 1.000
+`);
+  assert.equal(st.rows.length, 0);
+  assert.equal(st.unparsedLines.length, 1);
+  assert.equal(reconcile(st).ok, false);
+});
