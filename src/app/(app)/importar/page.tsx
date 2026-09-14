@@ -25,7 +25,9 @@ export default async function ImportsPage({
     getAccounts(),
     supabase
       .from("imports")
-      .select("id, filename, period_close, status, declared_total_ars, created_at")
+      .select(
+        "id, filename, period_close, status, declared_total_ars, declared_total_usd, created_at",
+      )
       .order("created_at", { ascending: false }),
     supabase.from("transactions").select("import_id").not("import_id", "is", null),
   ]);
@@ -74,8 +76,17 @@ export default async function ImportsPage({
                         .join(" · ")}
                     </div>
                   </div>
-                  <span className="tabular shrink-0">
-                    {formatCents(centsFromDb(imp.declared_total_ars))}
+                  <span className="tabular shrink-0 text-right">
+                    <span className="block">
+                      {formatCents(centsFromDb(imp.declared_total_ars))}
+                    </span>
+                    {/* Sin fx_rates cargadas no hay cotizacion honesta: los
+                        dolares se muestran aparte, nunca pesificados. */}
+                    {centsFromDb(imp.declared_total_usd) !== 0 ? (
+                      <span className="block text-xs text-muted">
+                        {formatCents(centsFromDb(imp.declared_total_usd), "USD")}
+                      </span>
+                    ) : null}
                   </span>
                   <DeleteImportButton importId={imp.id} transactionCount={count} />
                 </li>
