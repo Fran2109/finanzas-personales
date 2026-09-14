@@ -70,6 +70,11 @@ export default async function MonthPage({
       <MonthNav period={period} filters={filters} />
 
       <MonthFilters
+        // El texto de busqueda es lo unico del filtro que vive en el
+        // componente (se tipea antes de navegar). Remontarlo cuando cambia en
+        // la URL lo vuelve a sincronizar: sin esto, volver al inicio limpio
+        // dejaba la URL sin `q` pero el texto todavia escrito en la caja.
+        key={filters.q}
         period={period}
         filters={filters}
         accounts={accounts.filter((a) => a.active)}
