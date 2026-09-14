@@ -67,7 +67,9 @@ export default async function ReviewImportPage({
           <p className="text-sm text-muted">
             {[
               identity ? statementLabel(identity) : null,
-              `Cierre ${imported.data.period_close ?? "?"}`,
+              imported.data.provisional
+                ? `Periodo ${(imported.data.period_close ?? "").slice(0, 7)}`
+                : `Cierre ${imported.data.period_close ?? "?"}`,
               `${rows.length} filas leidas`,
               `${pending.length} gastos`,
               yaImportado ? "ya importado" : `${porRevisar.length} por revisar`,
@@ -93,6 +95,17 @@ export default async function ReviewImportPage({
           La suma de las filas da el total declarado, al centavo, en cada moneda.
         </span>
       </div>
+
+      {imported.data.provisional ? (
+        <div className="rounded-lg border border-accent/40 bg-accent/10 px-3 py-2 text-sm">
+          <strong className="text-accent">Provisorio.</strong>{" "}
+          <span className="text-muted">
+            Sale de la lista del home banking, de un resumen que todavía no
+            cerró. Los movimientos quedan marcados como provisorios y el PDF
+            real los reemplaza cuando lo subas.
+          </span>
+        </div>
+      ) : null}
 
       {/* La cuenta se deduce del resumen, asi que se muestra donde todavia se
           puede corregir: despues de confirmar forma parte de la huella de cada
@@ -190,7 +203,9 @@ export default async function ReviewImportPage({
               disabled={porRevisar.length > 0}
               className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-background disabled:opacity-40"
             >
-              Confirmar e importar {pending.length} movimientos
+              {imported.data.provisional
+                ? `Cargar ${pending.length} movimientos provisorios`
+                : `Confirmar e importar ${pending.length} movimientos`}
             </button>
           </form>
           {porRevisar.length > 0 ? (

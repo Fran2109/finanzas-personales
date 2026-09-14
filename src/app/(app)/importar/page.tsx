@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { UploadStatementForm } from "@/components/UploadStatementForm";
+import { PasteStatementForm } from "@/components/PasteStatementForm";
 import { DeleteImportButton } from "@/components/DeleteImportButton";
 import { getAccounts } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
@@ -26,7 +27,7 @@ export default async function ImportsPage({
     supabase
       .from("imports")
       .select(
-        "id, filename, period_close, status, declared_total_ars, declared_total_usd, created_at, account:accounts(name)",
+        "id, filename, period_close, status, provisional, declared_total_ars, declared_total_usd, created_at, account:accounts(name)",
       )
       .order("created_at", { ascending: false }),
     supabase.from("transactions").select("import_id").not("import_id", "is", null),
@@ -46,8 +47,26 @@ export default async function ImportsPage({
       <h1 className="text-lg font-semibold">Importar</h1>
 
       <section>
-        <h2 className="mb-3 text-sm font-semibold">Subir resumen</h2>
+        <h2 className="mb-1 text-sm font-semibold">Subir resumen cerrado</h2>
+        <p className="mb-3 text-xs text-muted">
+          El PDF que manda el banco. Es el dato definitivo.
+        </p>
         <UploadStatementForm accounts={accounts.filter((a) => a.active)} />
+      </section>
+
+      <section className="rounded-lg border border-dashed border-border p-4">
+        <h2 className="mb-1 text-sm font-semibold">
+          Adelantar el mes en curso{" "}
+          <span className="ml-1 rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent align-middle">
+            provisorio
+          </span>
+        </h2>
+        <p className="mb-3 text-xs leading-relaxed text-muted">
+          El resumen todavía no cerró y no hay PDF, pero los consumos ya están en
+          el home banking. Pegá la tabla y mirá cómo viene el mes. Cuando llegue
+          el PDF real, lo que cargues acá se reemplaza solo.
+        </p>
+        <PasteStatementForm accounts={accounts.filter((a) => a.active)} />
       </section>
 
       <section>
@@ -73,6 +92,11 @@ export default async function ImportsPage({
                     <Link href={`/importar/${imp.id}`} className="truncate hover:underline">
                       {imp.filename}
                     </Link>
+                    {imp.provisional ? (
+                      <span className="ml-2 rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
+                        provisorio
+                      </span>
+                    ) : null}
                     <div className="text-xs text-muted">
                       {[
                         (imp.account as unknown as { name: string } | null)?.name,

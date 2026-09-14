@@ -39,6 +39,18 @@ export type ParsedStatement = {
   declaredTotalArs: Cents;
   declaredTotalUsd: Cents;
   rows: ParsedRow[];
+  /**
+   * Filas transcriptas que el total declarado NO cubre.
+   *
+   * Un resumen cerrado declara un saldo a pagar, y el pago del mes anterior
+   * esta adentro de ese numero: va en `rows`. La lista de consumos del home
+   * banking declara otra cosa —el total de lo consumido— y ahi el pago queda
+   * afuera. Sumarlo haria fallar el gate por el monto del pago.
+   *
+   * Se transcriben igual, porque que el pago aparezca en la pantalla de
+   * revision es la prueba de que la transcripcion esta completa.
+   */
+  outsideTotal: ParsedRow[];
   cardSubtotals: CardSubtotal[];
   /** Lineas con fecha que el parser no supo leer. Si hay alguna, no se confia. */
   unparsedLines: string[];

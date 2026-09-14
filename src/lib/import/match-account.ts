@@ -56,7 +56,15 @@ export function bankOf(text: string | null | undefined): Bank | null {
 
 /** Lo que el resumen dice de si mismo, que es todo con lo que se cuenta. */
 export type StatementIdentity = {
-  bank: Bank;
+  /**
+   * Null cuando la fuente no dice de que banco es.
+   *
+   * Es el caso de una lista pegada del home banking: adentro ya se sabe en que
+   * banco se esta, asi que la tabla no lo repite. Sin banco el nombre de la
+   * cuenta no alcanza —"Visa" sola no distingue entre dos bancos—, y la
+   * inferencia queda a cargo del plastico.
+   */
+  bank: Bank | null;
   /** Cabecera del resumen: "VISA", "MASTERCARD GOLD", "SUPERVIELLE VISA". */
   brand: string | null;
   /** Los plasticos que aparecen en el resumen. */
@@ -82,7 +90,8 @@ export type AccountMatch = {
 /** "Galicia VISA" / "Supervielle MASTERCARD" / "Galicia". */
 export function statementLabel(identity: StatementIdentity): string {
   const network = networkOf(identity.brand);
-  return [BANK_LABELS[identity.bank], network].filter(Boolean).join(" ");
+  const banco = identity.bank ? BANK_LABELS[identity.bank] : null;
+  return [banco, network].filter(Boolean).join(" ") || "sin marca";
 }
 
 export function matchAccount(
@@ -110,7 +119,11 @@ export function matchAccount(
   }
   if (porHistorial.size > 1) return { ...base, reason: "ambigua" };
 
-  // 2. El nombre: banco y marca tienen que coincidir los dos.
+  // 2. El nombre: banco y marca tienen que coincidir los dos. Sin banco no se
+  //    usa: "Visa" sola matchearia la de Galicia y la de Supervielle por igual,
+  //    y elegir cualquiera de las dos es justo el error que esto evita.
+  if (!identity.bank) return { ...base, reason: "sin-candidatas" };
+
   const network = networkOf(identity.brand);
   const mismoBanco = accounts.filter((a) => bankOf(a.name) === identity.bank);
 
@@ -140,7 +153,7 @@ export function accountConflict(
   accountName: string,
 ): string | null {
   const banco = bankOf(accountName);
-  if (banco && banco !== identity.bank) {
+  if (identity.bank && banco && banco !== identity.bank) {
     return `El resumen es de ${BANK_LABELS[identity.bank]} y la cuenta es de ${BANK_LABELS[banco]}.`;
   }
 

@@ -49,6 +49,12 @@ export default async function MonthPage({
   const transactions = applyFilters(todosLosMovimientos, filters);
   const summary = summarize(transactions);
 
+  // Lo provisorio cuenta en los totales —para eso se carga, para ver como viene
+  // el mes— pero se dice cuanto es: un total que mezcla lo cerrado con lo que
+  // todavia puede cambiar y no lo aclara es un numero que engania.
+  const provisorios = transactions.filter((t) => t.is_projected).length;
+  const reemplazo = Number(params.reemplazo ?? 0);
+
   const cards = [
     ...new Set(todosLosMovimientos.map((t) => t.card_last4).filter((c): c is string => !!c)),
   ].sort();
@@ -74,6 +80,24 @@ export default async function MonthPage({
         shown={transactions.length}
         total={todosLosMovimientos.length}
       />
+
+      {reemplazo > 0 ? (
+        <p className="rounded-md border border-positive/40 bg-positive/10 px-3 py-2 text-sm">
+          Llegó el resumen cerrado: reemplazó {reemplazo} movimiento
+          {reemplazo === 1 ? "" : "s"} provisorio{reemplazo === 1 ? "" : "s"} de
+          este mes.
+        </p>
+      ) : null}
+
+      {provisorios > 0 ? (
+        <p className="rounded-md border border-accent/40 bg-accent/10 px-3 py-2 text-sm text-muted">
+          <strong className="text-accent">
+            {provisorios} de {transactions.length} movimientos son provisorios
+          </strong>
+          : salen de la lista del home banking, de un resumen que todavía no
+          cerró. Cuando subas el PDF se reemplazan por lo definitivo.
+        </p>
+      ) : null}
 
       {currencies.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted">
@@ -270,8 +294,8 @@ function TransactionList({
               <div className="truncate">
                 {tx.description || KIND_LABELS[tx.kind]}
                 {tx.is_projected ? (
-                  <span className="ml-2 rounded bg-border px-1.5 py-0.5 text-xs text-muted">
-                    proyectado
+                  <span className="ml-2 rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
+                    provisorio
                   </span>
                 ) : null}
               </div>

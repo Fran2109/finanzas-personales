@@ -290,6 +290,9 @@ export function parseGaliciaStatement(text: string): ParsedStatement {
     declaredTotalArs,
     declaredTotalUsd,
     rows,
+    // Un resumen cerrado declara un saldo: el pago del mes anterior esta
+    // adentro de ese numero, asi que no hay filas fuera del total.
+    outsideTotal: [],
     cardSubtotals,
     unparsedLines,
   };

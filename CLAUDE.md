@@ -32,12 +32,14 @@ La key publishable va en `.env.local`, nunca commiteada. Usar la publishable
 - [x] Fase 1 construida: alta manual, vista del mes, filtros
 - [x] Importador de resúmenes Galicia y Supervielle (VISA y MASTERCARD) con gate
       de reconciliación, con la cuenta inferida del propio resumen
+- [x] Carga provisoria del mes en curso pegando la lista del home banking
 - [ ] Fase 1 aceptada: una semana de gastos reales cargados sin que dé fastidio
 - [x] Deploy en Vercel: https://finanzas-personales-rouge-eta.vercel.app
 
 El esquema del remoto está versionado en `supabase/migrations/`. Los nombres de
 archivo coinciden con las versiones registradas (`20260914112501_init`,
-`20260914134533_add_installment_kind`, `20260914140347_add_statement_period`), así que `db push` no los reaplica.
+`20260914134533_add_installment_kind`, `20260914140347_add_statement_period`,
+`20260914170801_add_provisional_imports`), así que `db push` no los reaplica.
 
 ## Contexto de dominio: Argentina
 
@@ -171,6 +173,33 @@ cuenta ya es parte de la huella de cada movimiento. Si la cuenta que quedó
 contradice al resumen (nombra otro banco u otra marca) la revisión avisa; el
 silencio por ausencia no es contradicción, una cuenta llamada "Tarjeta principal"
 no contradice nada.
+
+**El mes en curso se adelanta pegando, y es provisorio.** El resumen del mes
+corriente no cerró, así que no hay PDF, pero los consumos ya están en el home
+banking. `pegado.ts` lee esa tabla copiada y la mete por el mismo pipeline:
+mismo gate, mismo staging, misma pantalla de revisión. Lo que entra así queda
+con `is_projected = true` y el import con `provisional = true`, y **al confirmar
+un import se borra primero todo lo provisorio de esa cuenta y ese período**: el
+PDF real pisa lo pegado, y un pegado nuevo a mitad de mes pisa al anterior. El
+borrado va antes del insert porque las filas repetidas comparten huella y la
+base rechazaría el import entero por duplicado en vez de reemplazarlo. La vista
+del mes cuenta lo provisorio en los totales —para eso se carga— pero dice
+cuántos son: un total que mezcla lo cerrado con lo que todavía puede cambiar y
+no lo aclara es un número que engaña.
+
+Lo que cambia respecto de un PDF es **qué total declara la fuente**. Un resumen
+cerrado declara un saldo a pagar y el pago del mes anterior está adentro de ese
+número. El home banking declara el total consumido del período y deja el pago
+afuera. Por eso `ParsedStatement.outsideTotal`: el pago se transcribe y se
+muestra en la revisión —que aparezca es la prueba de que la transcripción está
+completa— pero no entra en la suma que el gate compara. Sumarlo haría fallar el
+gate por el monto del pago, que es enorme al lado de cualquier compra.
+
+Una tabla pegada tampoco dice de qué banco es: adentro del home banking ya se
+sabe. Por eso `StatementIdentity.bank` admite `null`, y ahí la cuenta se infiere
+sólo por el plástico. El nombre no se usa sin banco: "Visa" sola matchearía la de
+Galicia y la de Supervielle por igual, y elegir cualquiera de las dos es justo el
+error que la inferencia existe para evitar.
 
 **Un lector por banco.** `detect.ts` reconoce el emisor por la estructura —cómo
 se llaman los totales— y no por el nombre del banco, que puede aparecer en la

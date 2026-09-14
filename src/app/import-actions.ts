@@ -9,16 +9,20 @@ import {
   CATEGORY_KIND_FOR,
   isExpenseKind,
   isKind,
+  isPeriod,
   toExpenseKind,
   normalizeAmountForKind,
   normalizeMerchant,
   periodOfDate,
+  periodRange,
   type Currency,
   type Kind,
 } from "@/lib/domain";
 import { centsToNumeric } from "@/lib/money";
 import { extractPdfText } from "@/lib/import/pdf";
 import { BANK_LABELS, parseStatement } from "@/lib/import/detect";
+import { parsePastedStatement } from "@/lib/import/pegado";
+import type { ParsedStatement } from "@/lib/import/types";
 import { matchAccount, type KnownCard, type StatementIdentity } from "@/lib/import/match-account";
 import {
   diagnosticRows,
@@ -118,6 +122,90 @@ export async function uploadStatement(
     };
   }
 
+  return stage(supabase, {
+    statement,
+    identity,
+    elegida,
+    filename: file.name,
+    periodClose: statement.periodClose,
+    provisional: false,
+  });
+}
+
+/**
+ * Sube una lista de consumos pegada del home banking.
+ *
+ * Es el mismo pipeline que un PDF —mismo gate, mismo staging, misma pantalla de
+ * revision— con dos diferencias: el periodo lo elige la persona porque la lista
+ * no dice a que resumen pertenece, y lo que se carga queda marcado como
+ * provisorio para que el PDF real lo reemplace despues.
+ */
+export async function uploadPastedStatement(
+  _prev: UploadState,
+  formData: FormData,
+): Promise<UploadState> {
+  const { supabase } = await requireUser();
+
+  const elegida = String(formData.get("account_id") ?? "");
+  const texto = String(formData.get("texto") ?? "");
+  const periodo = String(formData.get("periodo") ?? "");
+
+  if (texto.trim().length === 0) return { error: "Pega la lista de consumos." };
+  if (!isPeriod(periodo)) return { error: "Elegi a que mes corresponde." };
+
+  const statement = parsePastedStatement(texto);
+  const check = reconcile(statement);
+
+  if (!check.ok) {
+    return {
+      error: check.problems.join(" "),
+      diagnostico: {
+        brand: statement.brand,
+        periodClose: null,
+        currencies: check.currencies,
+        unparsedLines: check.unparsedLines,
+        rows: diagnosticRows(statement),
+      },
+    };
+  }
+
+  return stage(supabase, {
+    statement,
+    // El home banking no dice de que banco es: adentro ya se sabe. La cuenta
+    // se infiere por el plastico, que es la senal que no necesita el banco.
+    identity: {
+      bank: null,
+      brand: statement.brand,
+      cardsLast4: [...new Set(statement.rows.map((r) => r.cardLast4).filter((c): c is string => !!c))],
+    },
+    elegida,
+    filename: `Pegado ${periodo}`,
+    // Una lista del mes en curso no tiene cierre. Se guarda el ultimo dia del
+    // periodo elegido para que caiga en el mes que corresponde; la pantalla lo
+    // muestra como periodo, no como fecha de cierre, porque no lo es.
+    periodClose: periodRange(periodo).to,
+    provisional: true,
+  });
+}
+
+type StageInput = {
+  statement: ParsedStatement;
+  identity: StatementIdentity;
+  elegida: string;
+  filename: string;
+  periodClose: string | null;
+  provisional: boolean;
+};
+
+/**
+ * Lo comun entre un PDF y un pegado, una vez que el gate ya dio ok: inferir la
+ * cuenta, crear el import y dejar cada fila en staging con su categoria
+ * sugerida.
+ */
+async function stage(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  { statement, identity, elegida, filename, periodClose, provisional }: StageInput,
+): Promise<UploadState> {
   const [rules, categories, cuentas, plasticos] = await Promise.all([
     withRetry(() => supabase.from("merchant_rules").select("id, pattern, category_id")),
     withRetry(() => supabase.from("categories").select("id, kind")),
@@ -157,13 +245,14 @@ export async function uploadStatement(
     .from("imports")
     .insert({
       account_id: accountId,
-      filename: file.name,
-      period_close: statement.periodClose,
+      filename,
+      period_close: periodClose,
       declared_total_ars: centsToNumeric(statement.declaredTotalArs),
       declared_total_usd: centsToNumeric(statement.declaredTotalUsd),
       computed_total_ars: centsToNumeric(statement.declaredTotalArs),
       computed_total_usd: centsToNumeric(statement.declaredTotalUsd),
       status: "reconciled",
+      provisional,
       // Lo que el resumen dice de si mismo. Queda guardado para poder avisar en
       // la pantalla de revision si la cuenta que quedo no le corresponde.
       raw_extraction: { identity, inferred: inferida.accountId, via: inferida.via },
@@ -177,7 +266,11 @@ export async function uploadStatement(
 
   // La huella se calcula recien al confirmar: import_rows no la guarda, y
   // depende del monto ya normalizado.
-  const rows = statement.rows.map((row) => {
+  //
+  // `outsideTotal` son filas que el total declarado no cubre (el pago en una
+  // lista de consumos). Se transcriben igual, descartadas: que aparezcan en la
+  // revision es la prueba de que la transcripcion esta completa.
+  const rows = [...statement.rows, ...statement.outsideTotal].map((row) => {
     // La transcripcion es fiel: el pago del resumen y las transferencias se
     // guardan en staging porque hacen falta para que reconcilie. Pero no son
     // gastos, asi que nacen descartadas y nunca llegan a transactions.
@@ -395,7 +488,7 @@ export async function commitImport(formData: FormData): Promise<void> {
 
   const { data: imported } = await supabase
     .from("imports")
-    .select("id, account_id, status, period_close, accounts!inner(is_liability)")
+    .select("id, account_id, status, period_close, provisional, accounts!inner(is_liability)")
     .eq("id", importId)
     .single();
   if (!imported || imported.status === "committed") return;
@@ -417,6 +510,35 @@ export async function commitImport(formData: FormData): Promise<void> {
 
   const pending = (rows ?? []).sort((a, b) => (a.line_no ?? 0) - (b.line_no ?? 0));
   if (pending.some((r) => r.needs_review)) return;
+
+  // Lo provisorio de ese mes se reemplaza, no se acumula.
+  //
+  // Vale para los dos casos: el PDF real que llega y pisa lo que se habia
+  // pegado, y un pegado nuevo a mitad de mes que pisa al anterior. Va antes del
+  // insert a proposito: las filas que se repiten tienen la misma huella, y la
+  // base rechazaria el import entero por duplicado en vez de reemplazarlo.
+  let reemplazados = 0;
+  if (statementPeriod) {
+    const { count } = await supabase
+      .from("transactions")
+      .delete({ count: "exact" })
+      .eq("account_id", imported.account_id)
+      .eq("statement_period", statementPeriod)
+      .eq("is_projected", true);
+    reemplazados = count ?? 0;
+
+    // Y el import provisorio que los dejo, para que la lista no se llene de
+    // borradores del mismo mes. Sus import_rows caen por cascada.
+    const { from, to } = periodRange(statementPeriod);
+    await supabase
+      .from("imports")
+      .delete()
+      .eq("account_id", imported.account_id)
+      .eq("provisional", true)
+      .neq("id", importId)
+      .gte("period_close", from)
+      .lte("period_close", to);
+  }
 
   // Se arma primero la fila final (monto ya normalizado) y recien despues la
   // huella, para que se pueda recomputar desde lo guardado sin volver al PDF.
@@ -452,6 +574,8 @@ export async function commitImport(formData: FormData): Promise<void> {
       cuota_number: r.cuotaCurrent,
       import_id: importId,
       statement_period: statementPeriod,
+      // Lo pegado del home banking es provisorio hasta que llegue el PDF.
+      is_projected: imported.provisional,
       fingerprint: r.fingerprint,
     })),
   );
@@ -489,7 +613,13 @@ export async function commitImport(formData: FormData): Promise<void> {
   await supabase.from("imports").update({ status: "committed" }).eq("id", importId);
 
   revalidatePath("/", "layout");
-  redirect("/");
+  // Si se piso lo provisorio, se vuelve al mes que cambio y se dice cuanto se
+  // reemplazo: borrar movimientos en silencio es justo lo que no hay que hacer.
+  redirect(
+    reemplazados > 0
+      ? `/?mes=${statementPeriod}&reemplazo=${reemplazados}`
+      : "/",
+  );
 }
 
 /**
