@@ -19,6 +19,7 @@ import {
 import { centsToNumeric } from "@/lib/money";
 import { extractPdfText } from "@/lib/import/pdf";
 import { BANK_LABELS, parseStatement } from "@/lib/import/detect";
+import { matchAccount, type KnownCard, type StatementIdentity } from "@/lib/import/match-account";
 import {
   diagnosticRows,
   reconcile,
@@ -69,8 +70,9 @@ export async function uploadStatement(
 ): Promise<UploadState> {
   const { supabase } = await requireUser();
 
-  const accountId = String(formData.get("account_id") ?? "");
-  if (!accountId) return { error: "Elegi a que cuenta corresponde el resumen." };
+  // Vacio quiere decir "inferilo del resumen", que es el caso normal. Elegir
+  // una cuenta a mano es el override.
+  const elegida = String(formData.get("account_id") ?? "");
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) return { error: "Subi el PDF del resumen." };
@@ -92,7 +94,13 @@ export async function uploadStatement(
     };
   }
 
-  const { statement } = leido;
+  const { bank, statement } = leido;
+  const identity: StatementIdentity = {
+    bank,
+    brand: statement.brand,
+    cardsLast4: statement.cardSubtotals.map((c) => c.cardLast4),
+  };
+
   const check = reconcile(statement);
 
   if (!check.ok) {
@@ -110,12 +118,40 @@ export async function uploadStatement(
     };
   }
 
-  const [rules, categories] = await Promise.all([
+  const [rules, categories, cuentas, plasticos] = await Promise.all([
     withRetry(() => supabase.from("merchant_rules").select("id, pattern, category_id")),
     withRetry(() => supabase.from("categories").select("id, kind")),
+    withRetry(() => supabase.from("accounts").select("id, name").eq("active", true)),
+    // De que cuenta vino cada plastico que ya se importo. Es la senal mas
+    // fuerte para saber a quien pertenece este resumen.
+    withRetry(() =>
+      supabase
+        .from("transactions")
+        .select("account_id, card_last4")
+        .not("card_last4", "is", null),
+    ),
   ]);
   if (rules.error) return { error: `No se pudieron leer las reglas: ${rules.error.message}` };
   if (categories.error) return { error: `No se pudieron leer las categorias: ${categories.error.message}` };
+  if (cuentas.error) return { error: `No se pudieron leer las cuentas: ${cuentas.error.message}` };
+
+  const knownCards: KnownCard[] = ((plasticos.data ?? []) as {
+    account_id: string;
+    card_last4: string;
+  }[]).map((t) => ({ cardLast4: t.card_last4, accountId: t.account_id }));
+
+  const inferida = matchAccount(identity, cuentas.data ?? [], knownCards);
+  const accountId = elegida || inferida.accountId;
+
+  if (!accountId) {
+    return {
+      error:
+        `Es un resumen ${inferida.label}, pero ` +
+        (inferida.reason === "ambigua"
+          ? "mas de una cuenta puede serlo. Elegila a mano."
+          : "no encontre una cuenta que le corresponda. Elegila a mano o crea una en Cuentas."),
+    };
+  }
 
   const { data: imported, error: importError } = await supabase
     .from("imports")
@@ -128,6 +164,9 @@ export async function uploadStatement(
       computed_total_ars: centsToNumeric(statement.declaredTotalArs),
       computed_total_usd: centsToNumeric(statement.declaredTotalUsd),
       status: "reconciled",
+      // Lo que el resumen dice de si mismo. Queda guardado para poder avisar en
+      // la pantalla de revision si la cuenta que quedo no le corresponde.
+      raw_extraction: { identity, inferred: inferida.accountId, via: inferida.via },
     })
     .select("id")
     .single();
@@ -175,6 +214,37 @@ export async function uploadStatement(
   }
 
   redirect(`/importar/${imported.id}`);
+}
+
+/**
+ * Cambia a que cuenta corresponde un resumen.
+ *
+ * Es la otra mitad de inferir: la inferencia se puede corregir, y este es el
+ * momento en que corregirla todavia es barato. Despues de confirmar ya no: los
+ * movimientos estan escritos con su huella, y la cuenta es parte de la huella.
+ */
+export async function setImportAccount(formData: FormData) {
+  const { supabase } = await requireUser();
+  const importId = String(formData.get("import_id") ?? "");
+  const accountId = String(formData.get("account_id") ?? "");
+  if (!importId || !accountId) return;
+
+  // La cuenta tiene que existir y ser tuya. El select pasa por RLS, asi que un
+  // id ajeno no devuelve nada; la FK sola no alcanzaria para impedirlo.
+  const { data: cuenta } = await supabase
+    .from("accounts")
+    .select("id")
+    .eq("id", accountId)
+    .single();
+  if (!cuenta) return;
+
+  await supabase
+    .from("imports")
+    .update({ account_id: accountId })
+    .eq("id", importId)
+    .neq("status", "committed");
+
+  revalidatePath(`/importar/${importId}`);
 }
 
 /**

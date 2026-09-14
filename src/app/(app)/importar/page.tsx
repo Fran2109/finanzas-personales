@@ -26,7 +26,7 @@ export default async function ImportsPage({
     supabase
       .from("imports")
       .select(
-        "id, filename, period_close, status, declared_total_ars, declared_total_usd, created_at",
+        "id, filename, period_close, status, declared_total_ars, declared_total_usd, created_at, account:accounts(name)",
       )
       .order("created_at", { ascending: false }),
     supabase.from("transactions").select("import_id").not("import_id", "is", null),
@@ -75,6 +75,7 @@ export default async function ImportsPage({
                     </Link>
                     <div className="text-xs text-muted">
                       {[
+                        (imp.account as unknown as { name: string } | null)?.name,
                         imp.period_close,
                         STATUS_LABELS[imp.status] ?? imp.status,
                         count > 0 ? `${count} movimientos` : null,

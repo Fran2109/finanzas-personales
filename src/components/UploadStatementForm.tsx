@@ -35,7 +35,11 @@ export function UploadStatementForm({ accounts }: { accounts: Account[] }) {
           <label className={label} htmlFor="account_id">
             Cuenta
           </label>
-          <select id="account_id" name="account_id" className={field}>
+          {/* Por defecto se infiere del propio resumen: el banco, la marca y
+              los plasticos ya alcanzan para saber cual es. Elegir una a mano es
+              el override, y despues se puede cambiar en la revision. */}
+          <select id="account_id" name="account_id" className={field} defaultValue="">
+            <option value="">Inferir del resumen</option>
             {accounts.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.name}
@@ -72,7 +76,8 @@ export function UploadStatementForm({ accounts }: { accounts: Account[] }) {
       {!state.error ? (
         <p className="text-xs leading-relaxed text-muted">
           La suma de las filas tiene que dar el total declarado del resumen, al
-          centavo y en cada moneda. Si no cierra, no se importa nada.
+          centavo y en cada moneda. Si no cierra, no se importa nada. La cuenta
+          se deduce del resumen y se puede corregir antes de confirmar.
         </p>
       ) : null}
     </div>

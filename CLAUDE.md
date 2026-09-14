@@ -31,7 +31,7 @@ La key publishable va en `.env.local`, nunca commiteada. Usar la publishable
 - [x] Scaffold de Next.js 16 (App Router, Tailwind v4, `@supabase/ssr`)
 - [x] Fase 1 construida: alta manual, vista del mes, filtros
 - [x] Importador de resúmenes Galicia y Supervielle (VISA y MASTERCARD) con gate
-      de reconciliación
+      de reconciliación, con la cuenta inferida del propio resumen
 - [ ] Fase 1 aceptada: una semana de gastos reales cargados sin que dé fastidio
 - [x] Deploy en Vercel: https://finanzas-personales-rouge-eta.vercel.app
 
@@ -155,6 +155,22 @@ tiene que igualar el total declarado del resumen, al centavo, en cada moneda por
 separado. Si no cierra, el import se rechaza entero y no se escribe nada. Un LLM
 leyendo un PDF puede saltear una fila en silencio; esto convierte corrupción
 silenciosa en falla ruidosa.
+
+**La cuenta se infiere, no se elige.** Elegirla a mano en cada carga es un paso
+que se hace en automático hasta el día que se equivoca, y un resumen imputado a
+la cuenta que no es no falla: el gate compara la suma del PDF contra el total
+del propio PDF, no contra la cuenta. Sólo ensucia totales y huellas en silencio.
+`match-account.ts` decide con dos señales, en ese orden: el **plástico** (si un
+plástico ya dejó movimientos en una cuenta, el resumen que la trae es de esa
+cuenta: es un hecho observado y funciona con cualquier nombre) y el **nombre**
+(banco + marca contra el nombre normalizado de la cuenta, que es lo único que hay
+para el primer resumen de una tarjeta). Si ninguna decide sola —empate o ninguna
+candidata— no se adivina: se pide elegirla. La inferencia se corrige en la
+pantalla de revisión, que es mientras todavía es barato: después de confirmar, la
+cuenta ya es parte de la huella de cada movimiento. Si la cuenta que quedó
+contradice al resumen (nombra otro banco u otra marca) la revisión avisa; el
+silencio por ausencia no es contradicción, una cuenta llamada "Tarjeta principal"
+no contradice nada.
 
 **Un lector por banco.** `detect.ts` reconoce el emisor por la estructura —cómo
 se llaman los totales— y no por el nombre del banco, que puede aparecer en la

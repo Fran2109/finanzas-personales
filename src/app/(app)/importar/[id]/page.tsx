@@ -4,9 +4,15 @@ import { notFound } from "next/navigation";
 import { Amount } from "@/components/Amount";
 import { commitImport, discardRow } from "@/app/import-actions";
 import { RowCategorySelect } from "@/components/RowCategorySelect";
+import { ImportAccountSelect } from "@/components/ImportAccountSelect";
 import { DeleteImportButton } from "@/components/DeleteImportButton";
 import { createClient } from "@/lib/supabase/server";
-import { getCategories } from "@/lib/data";
+import { getAccounts, getCategories } from "@/lib/data";
+import {
+  accountConflict,
+  statementLabel,
+  type StatementIdentity,
+} from "@/lib/import/match-account";
 import { KIND_LABELS, type Kind } from "@/lib/domain";
 import { centsFromDb } from "@/lib/money";
 
@@ -21,10 +27,11 @@ export default async function ReviewImportPage({
   const { error } = await searchParams;
 
   const supabase = await createClient();
-  const [imported, rowsResult, categories, movimientos] = await Promise.all([
+  const [imported, rowsResult, categories, accounts, movimientos] = await Promise.all([
     supabase.from("imports").select("*").eq("id", id).single(),
     supabase.from("import_rows").select("*").eq("import_id", id).order("line_no"),
     getCategories(),
+    getAccounts(),
     // Una vez confirmado, las filas de staging pasan a "accepted": lo que este
     // resumen dejo en las cuentas hay que contarlo en transactions.
     supabase
@@ -44,15 +51,29 @@ export default async function ReviewImportPage({
   const yaImportado = imported.data.status === "committed";
   const movimientosCreados = movimientos.count ?? 0;
 
+  const cuenta = accounts.find((a) => a.id === imported.data.account_id);
+  // Lo que el resumen dijo de si mismo al subirlo. Los resumenes viejos no lo
+  // tienen, y entonces no hay con que contradecir a la cuenta.
+  const identity = (imported.data.raw_extraction as { identity?: StatementIdentity } | null)
+    ?.identity;
+  const conflicto =
+    identity && cuenta ? accountConflict(identity, cuenta.name) : null;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold">{imported.data.filename}</h1>
           <p className="text-sm text-muted">
-            Cierre {imported.data.period_close ?? "?"} · {rows.length} filas leidas ·{" "}
-            {pending.length} gastos ·{" "}
-            {yaImportado ? "ya importado" : `${porRevisar.length} por revisar`}
+            {[
+              identity ? statementLabel(identity) : null,
+              `Cierre ${imported.data.period_close ?? "?"}`,
+              `${rows.length} filas leidas`,
+              `${pending.length} gastos`,
+              yaImportado ? "ya importado" : `${porRevisar.length} por revisar`,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           </p>
         </div>
         <Link href="/importar" className="text-sm text-muted hover:text-foreground">
@@ -71,6 +92,31 @@ export default async function ReviewImportPage({
         <span className="text-muted">
           La suma de las filas da el total declarado, al centavo, en cada moneda.
         </span>
+      </div>
+
+      {/* La cuenta se deduce del resumen, asi que se muestra donde todavia se
+          puede corregir: despues de confirmar forma parte de la huella de cada
+          movimiento y ya no se cambia. */}
+      <div
+        className={`flex flex-wrap items-center gap-3 rounded-lg border px-3 py-2 text-sm ${
+          conflicto ? "border-negative/40 bg-negative/10" : "border-border bg-surface"
+        }`}
+      >
+        <span className="text-muted">Cuenta</span>
+        {yaImportado ? (
+          <strong>{cuenta?.name ?? "?"}</strong>
+        ) : (
+          <ImportAccountSelect
+            importId={id}
+            accounts={accounts.filter((a) => a.active || a.id === imported.data.account_id)}
+            current={imported.data.account_id}
+          />
+        )}
+        {conflicto ? (
+          <span className="text-xs text-negative">
+            {conflicto} Si no es la que corresponde, cambiala antes de confirmar.
+          </span>
+        ) : null}
       </div>
 
       {porRevisar.length > 0 ? (
