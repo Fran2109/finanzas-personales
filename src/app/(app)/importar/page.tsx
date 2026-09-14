@@ -1,9 +1,10 @@
 import Link from "next/link";
 
 import { UploadStatementForm } from "@/components/UploadStatementForm";
+import { DeleteImportButton } from "@/components/DeleteImportButton";
 import { getAccounts } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
-import { formatCents } from "@/lib/money";
+import { centsFromDb, formatCents } from "@/lib/money";
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Sin reconciliar",
@@ -12,43 +13,74 @@ const STATUS_LABELS: Record<string, string> = {
   committed: "Importado",
 };
 
-export default async function ImportsPage() {
+export default async function ImportsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
   const supabase = await createClient();
-  const [accounts, imports] = await Promise.all([
+
+  const [accounts, imports, movimientos] = await Promise.all([
     getAccounts(),
     supabase
       .from("imports")
       .select("id, filename, period_close, status, declared_total_ars, created_at")
       .order("created_at", { ascending: false }),
+    supabase.from("transactions").select("import_id").not("import_id", "is", null),
   ]);
+
+  // Cuantos movimientos dejo cada resumen: es lo que se pierde al borrarlo.
+  const porImport = new Map<string, number>();
+  for (const row of movimientos.data ?? []) {
+    if (!row.import_id) continue;
+    porImport.set(row.import_id, (porImport.get(row.import_id) ?? 0) + 1);
+  }
+
+  const lista = imports.data ?? [];
 
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_20rem]">
       <section>
         <h1 className="mb-3 text-lg font-semibold">Resumenes importados</h1>
-        {(imports.data ?? []).length === 0 ? (
+
+        {error ? (
+          <p className="mb-3 rounded-md border border-negative/40 bg-negative/10 px-3 py-2 text-sm text-negative">
+            {error}
+          </p>
+        ) : null}
+
+        {lista.length === 0 ? (
           <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted">
             Todavia no subiste ningun resumen.
           </p>
         ) : (
           <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
-            {(imports.data ?? []).map((imp) => (
-              <li key={imp.id} className="flex items-center gap-3 px-3 py-3 text-sm">
-                <div className="min-w-0 flex-1">
-                  <Link href={`/importar/${imp.id}`} className="truncate hover:underline">
-                    {imp.filename}
-                  </Link>
-                  <div className="text-xs text-muted">
-                    {[imp.period_close, STATUS_LABELS[imp.status] ?? imp.status]
-                      .filter(Boolean)
-                      .join(" · ")}
+            {lista.map((imp) => {
+              const count = porImport.get(imp.id) ?? 0;
+              return (
+                <li key={imp.id} className="flex flex-wrap items-center gap-3 px-3 py-3 text-sm">
+                  <div className="min-w-0 flex-1">
+                    <Link href={`/importar/${imp.id}`} className="truncate hover:underline">
+                      {imp.filename}
+                    </Link>
+                    <div className="text-xs text-muted">
+                      {[
+                        imp.period_close,
+                        STATUS_LABELS[imp.status] ?? imp.status,
+                        count > 0 ? `${count} movimientos` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </div>
                   </div>
-                </div>
-                <span className="tabular text-sm">
-                  {formatCents(Math.round(Number(imp.declared_total_ars ?? 0) * 100))}
-                </span>
-              </li>
-            ))}
+                  <span className="tabular shrink-0">
+                    {formatCents(centsFromDb(imp.declared_total_ars))}
+                  </span>
+                  <DeleteImportButton importId={imp.id} transactionCount={count} />
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

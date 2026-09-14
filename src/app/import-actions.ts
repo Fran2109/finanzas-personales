@@ -248,12 +248,41 @@ export async function commitImport(formData: FormData): Promise<void> {
   redirect("/");
 }
 
-/** Borra un import que todavia no se confirmo. */
+/**
+ * Borra un resumen y todo lo que genero: sus filas de staging y los
+ * movimientos que se hayan confirmado a partir de el.
+ *
+ * Los movimientos se borran primero a proposito. La FK de transactions.import_id
+ * es ON DELETE SET NULL, asi que borrar el import antes no los elimina: los
+ * deja sueltos, sin forma de saber de donde salieron ni de volver a borrarlos.
+ *
+ * Las merchant_rules aprendidas NO se tocan. No son datos del resumen sino lo
+ * que el sistema aprendio de tus correcciones, y perderlas obligaria a
+ * recategorizar todo de nuevo.
+ */
 export async function deleteImport(formData: FormData) {
   const { supabase } = await requireUser();
   const importId = String(formData.get("import_id") ?? "");
   if (!importId) return;
-  await supabase.from("imports").delete().eq("id", importId).neq("status", "committed");
-  revalidatePath("/importar");
+
+  const { error: txError } = await supabase
+    .from("transactions")
+    .delete()
+    .eq("import_id", importId);
+  if (txError) {
+    redirect(`/importar?error=${encodeURIComponent(
+      `No se pudieron borrar los movimientos: ${txError.message}`,
+    )}`);
+  }
+
+  // import_rows cae solo: su FK al import es ON DELETE CASCADE.
+  const { error } = await supabase.from("imports").delete().eq("id", importId);
+  if (error) {
+    redirect(`/importar?error=${encodeURIComponent(
+      `No se pudo borrar el resumen: ${error.message}`,
+    )}`);
+  }
+
+  revalidatePath("/", "layout");
   redirect("/importar");
 }

@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { Amount } from "@/components/Amount";
-import { commitImport, deleteImport, discardRow, setRowCategory } from "@/app/import-actions";
+import { commitImport, discardRow, setRowCategory } from "@/app/import-actions";
+import { DeleteImportButton } from "@/components/DeleteImportButton";
 import { createClient } from "@/lib/supabase/server";
 import { getCategories } from "@/lib/data";
 import { KIND_LABELS, type Kind } from "@/lib/domain";
@@ -30,10 +31,16 @@ export default async function ReviewImportPage({
   const { error } = await searchParams;
 
   const supabase = await createClient();
-  const [imported, rowsResult, categories] = await Promise.all([
+  const [imported, rowsResult, categories, movimientos] = await Promise.all([
     supabase.from("imports").select("*").eq("id", id).single(),
     supabase.from("import_rows").select("*").eq("import_id", id).order("line_no"),
     getCategories(),
+    // Una vez confirmado, las filas de staging pasan a "accepted": lo que este
+    // resumen dejo en las cuentas hay que contarlo en transactions.
+    supabase
+      .from("transactions")
+      .select("id", { count: "exact", head: true })
+      .eq("import_id", id),
   ]);
 
   if (imported.error || !imported.data) notFound();
@@ -42,6 +49,7 @@ export default async function ReviewImportPage({
   const pending = rows.filter((r) => r.status === "pending");
   const porRevisar = pending.filter((r) => r.needs_review);
   const yaImportado = imported.data.status === "committed";
+  const movimientosCreados = movimientos.count ?? 0;
 
   return (
     <div className="space-y-6">
@@ -87,10 +95,12 @@ export default async function ReviewImportPage({
       <section>
         <h2 className="mb-3 text-sm font-semibold">
           {porRevisar.length > 0 ? "Ya mapeadas" : "Movimientos"} (
-          {pending.length - porRevisar.length})
+          {yaImportado ? movimientosCreados : pending.length - porRevisar.length})
         </h2>
         <RowTable
-          rows={pending.filter((r) => !r.needs_review)}
+          rows={(yaImportado ? rows.filter((r) => r.status === "accepted") : pending).filter(
+            (r) => !r.needs_review,
+          )}
           categories={categories}
           importId={id}
           readOnly={yaImportado}
@@ -114,14 +124,28 @@ export default async function ReviewImportPage({
               Falta categorizar {porRevisar.length}.
             </span>
           ) : null}
-          <form action={deleteImport} className="ml-auto">
-            <input type="hidden" name="import_id" value={id} />
-            <button type="submit" className="text-sm text-muted hover:text-negative">
-              Descartar import
-            </button>
-          </form>
+          <div className="ml-auto">
+            <DeleteImportButton
+              importId={id}
+              transactionCount={0}
+              label="Descartar resumen"
+            />
+          </div>
         </div>
-      ) : null}
+      ) : (
+        <div className="flex items-center gap-3 border-t border-border pt-4">
+          <span className="text-sm text-muted">
+            Ya importado: {movimientosCreados} movimientos en tus cuentas.
+          </span>
+          <div className="ml-auto">
+            <DeleteImportButton
+              importId={id}
+              transactionCount={movimientosCreados}
+              label="Borrar resumen y sus movimientos"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
