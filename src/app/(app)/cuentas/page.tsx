@@ -1,55 +1,83 @@
-import { Amount } from "@/components/Amount";
 import { AccountForm } from "@/components/AccountForm";
-import { setAccountActive } from "@/app/actions";
+import { AccountRow } from "@/components/AccountRow";
 import { getAccountBalances } from "@/lib/data";
+import { createClient } from "@/lib/supabase/server";
 
-const TYPE_LABELS: Record<string, string> = {
-  bank: "Banco",
-  cash: "Efectivo",
-  credit_card: "Tarjeta de credito",
-  investment: "Inversion",
-};
+export default async function AccountsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
+  const supabase = await createClient();
 
-export default async function AccountsPage() {
-  const accounts = await getAccountBalances();
+  const [accounts, imports] = await Promise.all([
+    getAccountBalances(),
+    supabase.from("imports").select("account_id"),
+  ]);
+
+  // Los resumenes caen con la cuenta (FK en cascada): hay que avisar cuantos.
+  const importsPorCuenta = new Map<string, number>();
+  for (const row of imports.data ?? []) {
+    importsPorCuenta.set(row.account_id, (importsPorCuenta.get(row.account_id) ?? 0) + 1);
+  }
+
+  const activas = accounts.filter((a) => a.active);
+  const archivadas = accounts.filter((a) => !a.active);
 
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_20rem]">
-      <section>
-        <h1 className="mb-3 text-lg font-semibold">Cuentas</h1>
-        <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
-          {accounts.map((account) => (
-            <li key={account.id} className="flex items-center gap-3 px-3 py-3 text-sm">
-              <div className="min-w-0 flex-1">
-                <div className={account.active ? "" : "text-muted line-through"}>
-                  {account.name}
-                </div>
-                <div className="text-xs text-muted">
-                  {[
-                    TYPE_LABELS[account.type] ?? account.type,
-                    account.currency,
-                    `${account.movements} movimientos`,
-                  ].join(" · ")}
-                </div>
-              </div>
-              <Amount cents={account.balance} currency={account.currency} tone="auto" />
-              <form action={setAccountActive}>
-                <input type="hidden" name="id" value={account.id} />
-                <input type="hidden" name="active" value={String(!account.active)} />
-                <button
-                  type="submit"
-                  className="text-xs text-muted transition hover:text-foreground"
-                >
-                  {account.active ? "Archivar" : "Reactivar"}
-                </button>
-              </form>
-            </li>
-          ))}
-        </ul>
-        <p className="mt-3 text-xs leading-relaxed text-muted">
-          La tarjeta se modela a nivel resumen, no por plastico: si dos tarjetas se
-          pagan con un solo pago son una sola cuenta, y el numero de cada plastico
-          va en el movimiento.
+      <section className="space-y-6">
+        <div>
+          <h1 className="mb-3 text-lg font-semibold">Cuentas</h1>
+
+          {error ? (
+            <p className="mb-3 rounded-md border border-negative/40 bg-negative/10 px-3 py-2 text-sm text-negative">
+              {error}
+            </p>
+          ) : null}
+
+          {activas.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted">
+              No tenes ninguna cuenta activa.
+            </p>
+          ) : (
+            <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
+              {activas.map((account) => (
+                <AccountRow
+                  // Remonta la fila cuando el guardado cambio algo, y asi el
+                  // editor en linea vuelve solo al modo lectura.
+                  key={`${account.id}-${account.name}-${account.type}-${account.currency}`}
+                  account={account}
+                  importCount={importsPorCuenta.get(account.id) ?? 0}
+                />
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {archivadas.length > 0 ? (
+          <div>
+            <h2 className="mb-3 text-sm font-semibold text-muted">
+              Archivadas ({archivadas.length})
+            </h2>
+            <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
+              {archivadas.map((account) => (
+                <AccountRow
+                  key={`${account.id}-${account.name}-${account.type}-${account.currency}`}
+                  account={account}
+                  importCount={importsPorCuenta.get(account.id) ?? 0}
+                />
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        <p className="text-xs leading-relaxed text-muted">
+          La tarjeta se modela a nivel resumen, no por plastico: si dos tarjetas
+          se pagan con un solo pago son una sola cuenta, y el numero de cada
+          plastico va en el movimiento. Una cuenta con movimientos se archiva,
+          no se borra: archivarla la saca del paso sin perder el historial.
         </p>
       </section>
 

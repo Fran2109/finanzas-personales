@@ -187,6 +187,87 @@ export async function createAccount(
   return { ok: `Cuenta "${name}" creada.` };
 }
 
+export async function updateAccount(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const { supabase } = await requireUser();
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) return fail("Falta la cuenta.");
+
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) return fail("Ponele un nombre.");
+
+  const type = String(formData.get("type") ?? "");
+  if (!isAccountType(type)) return fail("Tipo de cuenta invalido.");
+
+  const currency = String(formData.get("currency") ?? "ARS");
+  if (!isCurrency(currency)) return fail("Moneda invalida.");
+
+  const { error } = await supabase
+    .from("accounts")
+    .update({
+      name,
+      type,
+      currency,
+      // Se deriva del tipo y no se edita aparte: es lo que decide el signo de
+      // cada movimiento sobre el saldo, y un valor incoherente con el tipo
+      // daria saldos al reves.
+      is_liability: type === "credit_card",
+    })
+    .eq("id", id);
+
+  if (error) {
+    return fail(
+      error.code === "23505"
+        ? `Ya existe una cuenta que se llama "${name}".`
+        : `No se pudo guardar: ${error.message}`,
+    );
+  }
+
+  revalidatePath("/", "layout");
+  return { ok: "Cuenta actualizada." };
+}
+
+/**
+ * Baja de una cuenta.
+ *
+ * Una cuenta con movimientos no se borra: la FK de transactions es
+ * ON DELETE RESTRICT justamente para que el historial no se evapore por un
+ * click. Para eso esta archivar, que la saca del paso sin perder nada.
+ *
+ * Los resumenes importados si caen con la cuenta (FK en cascada), asi que se
+ * avisa cuantos son antes de confirmar.
+ */
+export async function deleteAccount(formData: FormData) {
+  const { supabase } = await requireUser();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const { count } = await supabase
+    .from("transactions")
+    .select("id", { count: "exact", head: true })
+    .eq("account_id", id);
+
+  if ((count ?? 0) > 0) {
+    redirect(
+      `/cuentas?error=${encodeURIComponent(
+        `Esa cuenta tiene ${count} movimientos. Archivala en vez de borrarla: ` +
+          `borrarla se llevaria el historial.`,
+      )}`,
+    );
+  }
+
+  const { error } = await supabase.from("accounts").delete().eq("id", id);
+  if (error) {
+    redirect(`/cuentas?error=${encodeURIComponent(`No se pudo borrar: ${error.message}`)}`);
+  }
+
+  revalidatePath("/", "layout");
+  redirect("/cuentas");
+}
+
 export async function setAccountActive(formData: FormData) {
   const { supabase } = await requireUser();
   const id = String(formData.get("id") ?? "");
