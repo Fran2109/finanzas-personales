@@ -30,8 +30,17 @@ const MONTHS: Record<string, string> = {
   jul: "07", ago: "08", sep: "09", set: "09", oct: "10", nov: "11", dic: "12",
 };
 
-/** Marcador de moneda extranjera. VISA escribe USD, MASTERCARD U$S. */
-const FOREIGN = /USD|U\$S/i;
+/**
+ * Marcador de que el monto de la linea esta en moneda extranjera.
+ *
+ * VISA lo escribe "USD" y MASTERCARD "U$S". Pero una compra en el exterior no
+ * trae ninguno de los dos: se marca con el pais y la moneda de origen entre
+ * parentesis, como "COMERCIO (LUX,EUR, 19,99)", y el monto de la linea es lo
+ * liquidado en dolares. Sin esa tercera forma, una compra en euros se leia como
+ * pesos y el resumen no cerraba: la diferencia aparecia igual y opuesta en las
+ * dos monedas.
+ */
+const FOREIGN = /USD|U\$S|\([A-Z]{2,3}\s*,\s*[A-Z]{3}\s*,/i;
 
 /**
  * Lineas de estructura y totales. Tienen montos pero no son movimientos: si se

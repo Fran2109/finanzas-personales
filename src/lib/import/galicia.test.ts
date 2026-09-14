@@ -250,3 +250,49 @@ test("no rastrear una linea no rompe la reconciliacion", () => {
   // Las filas no rastreadas siguen sumando en el gate.
   assert.ok(st.rows.some((r) => !r.tracked));
 });
+
+/**
+ * Una compra en el exterior no dice "USD" ni "U$S": se marca con el pais y la
+ * moneda de origen entre parentesis, y el monto de la linea es lo liquidado en
+ * dolares. Inventado, con el formato real.
+ *
+ * ARS  1.000,00 - 1.000,00 + 500,00 = 500,00
+ * USD          0,00        +   7,50 =   7,50
+ */
+const CON_COMPRA_EXTERIOR = `
+Resumen N° 000000000000002
+Tarjeta Crédito MASTERCARD GOLD
+20260720000000002H
+CONSOLIDADO PESOS DÓLARES
+SALDO ANTERIOR 1.000,00 0,00
+03-Jul-26 SU PAGO -1.000,00 -1.000,00
+DETALLE DEL CONSUMO
+FECHA REFERENCIA COMPROBANTE PESOS DÓLARES
+COMPRAS DEL MES
+02-Jul-26 TIENDA EXTERIOR (LUX,EUR, 6,50) 00843 7,50
+05-Jul-26 COMERCIO LOCAL 00111 500,00
+SUBTOTAL 500,00 7,50
+TOTAL A PAGAR 500,00 7,50
+`;
+
+test("una compra en el exterior se lee en dolares, no en pesos", () => {
+  const st = parseGaliciaStatement(CON_COMPRA_EXTERIOR);
+  const exterior = st.rows.find((r) => r.rawDescription.startsWith("TIENDA EXTERIOR"))!;
+  // El monto de la linea es lo liquidado en dolares; los 6,50 son la moneda de
+  // origen y quedan en la descripcion, no son el monto.
+  assert.equal(exterior.currency, "USD");
+  assert.equal(exterior.amount, 750);
+
+  const local = st.rows.find((r) => r.rawDescription === "COMERCIO LOCAL")!;
+  assert.equal(local.currency, "ARS");
+  assert.equal(local.amount, 50000);
+});
+
+test("sin reconocer la compra del exterior el resumen no cerraria", () => {
+  // Este es el modo de falla que el gate atrapo: el mismo monto sumaba de mas
+  // en pesos y de menos en dolares.
+  const rec = reconcile(parseGaliciaStatement(CON_COMPRA_EXTERIOR));
+  assert.equal(rec.ok, true, rec.problems.join(" / "));
+  assert.equal(rec.currencies.find((c) => c.currency === "USD")!.computed, 750);
+  assert.equal(rec.currencies.find((c) => c.currency === "ARS")!.computed, 50000);
+});
