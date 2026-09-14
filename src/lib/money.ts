@@ -120,6 +120,37 @@ export function formatCents(cents: Cents, currency = "ARS"): string {
   return formatter(currency).format(cents / 100);
 }
 
+/**
+ * Corto, para etiquetas de grafico: "1,0 M", "900 k", "$ 1,0 M".
+ *
+ * En un eje o en la punta de una barra no entra "1.002.524,03" y ademas no
+ * aporta: ahi se lee el orden de magnitud, y el numero exacto esta en la lista
+ * de abajo y en el tooltip.
+ */
+export function formatCompact(cents: Cents, currency?: string): string {
+  const pesos = cents / 100;
+  const abs = Math.abs(pesos);
+  const simbolo = currency ? (currency === "ARS" ? "$ " : "US$ ") : "";
+
+  const [valor, sufijo] =
+    abs >= 1_000_000
+      ? [pesos / 1_000_000, " M"]
+      : abs >= 1_000
+        ? [pesos / 1_000, " k"]
+        : [pesos, ""];
+
+  // Un decimal solo cuando el numero es chico: "1,2 M" dice algo, "902,4 k" no.
+  const decimales = sufijo !== "" && Math.abs(valor) < 10 ? 1 : 0;
+  return (
+    simbolo +
+    new Intl.NumberFormat("es-AR", {
+      minimumFractionDigits: decimales,
+      maximumFractionDigits: decimales,
+    }).format(valor) +
+    sufijo
+  );
+}
+
 /** Sin simbolo, para tablas donde la moneda ya esta en el encabezado. */
 export function formatCentsPlain(cents: Cents): string {
   return new Intl.NumberFormat("es-AR", {

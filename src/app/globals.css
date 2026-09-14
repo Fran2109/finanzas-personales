@@ -10,6 +10,11 @@
   --accent: #2f6f4e;
   --negative: #a13c2f;
   --positive: #2f6f4e;
+  /* Gris de contexto de los graficos. No es --muted, que es color de texto:
+     este es tinta de dato y tiene que llegar a 3:1 contra la superficie para
+     que el segmento se vea. Validado con el script de la skill de dataviz:
+     contra el acento da dE 17,3 a vista normal y 13,2 bajo protanopia. */
+  --chart-track: #8f8d86;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -22,6 +27,9 @@
     --accent: #6fbf8f;
     --negative: #e08573;
     --positive: #6fbf8f;
+    /* El paso oscuro no es el claro invertido: se eligio contra #1b1b1a.
+       dE 24,5 contra el acento, 3:1 contra la superficie. */
+    --chart-track: #6b6864;
   }
 }
 
@@ -34,6 +42,7 @@
   --color-accent: var(--accent);
   --color-negative: var(--negative);
   --color-positive: var(--positive);
+  --color-chart-track: var(--chart-track);
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;

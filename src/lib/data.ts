@@ -244,6 +244,7 @@ export type MonthlyRow = {
   currency: Currency;
   kind: Kind;
   isProjected: boolean;
+  categoryName: string;
 };
 
 /**
@@ -258,7 +259,9 @@ export async function getMonthlyRows(): Promise<MonthlyRow[]> {
   const { data, error } = await withRetry(() =>
     supabase
       .from("transactions")
-      .select("amount, currency, kind, occurred_on, statement_period, is_projected"),
+      .select(
+        "amount, currency, kind, occurred_on, statement_period, is_projected, category:categories(name)",
+      ),
   );
   if (error) throw new Error(`No se pudieron leer los movimientos: ${error.message}`);
 
@@ -272,6 +275,8 @@ export async function getMonthlyRows(): Promise<MonthlyRow[]> {
       currency: row.currency as Currency,
       kind: row.kind as Kind,
       isProjected: row.is_projected,
+      categoryName:
+        (row.category as unknown as { name: string } | null)?.name ?? "Sin categoria",
     });
   }
   return rows;

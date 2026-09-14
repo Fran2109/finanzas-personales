@@ -1,6 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseAmountToCents, centsToNumeric, centsFromDb, formatCents } from "./money.ts";
+import {
+  parseAmountToCents,
+  centsToNumeric,
+  centsFromDb,
+  formatCents,
+  formatCompact,
+} from "./money.ts";
 
 test("parsea las formas que uno tipea de verdad", () => {
   assert.equal(parseAmountToCents("1234"), 123400);
@@ -51,4 +57,25 @@ test("el total del resumen de agosto sobrevive la ida y vuelta", () => {
 test("formatea en es-AR", () => {
   assert.match(formatCents(231133270, "ARS"), /2\.311\.332,70/);
   assert.match(formatCents(3171, "USD"), /31,71/);
+});
+
+test("formato corto para etiquetas de grafico", () => {
+  assert.equal(formatCompact(100252403), "1,0 M");
+  assert.equal(formatCompact(451021068), "4,5 M");
+  // Arriba de 10 el decimal no aporta nada.
+  assert.equal(formatCompact(1234567890), "12 M");
+  assert.equal(formatCompact(89945902), "899 k");
+  assert.equal(formatCompact(50000), "500");
+  assert.equal(formatCompact(0), "0");
+  assert.equal(formatCompact(-100252403), "-1,0 M");
+  assert.equal(formatCompact(100252403, "ARS"), "$ 1,0 M");
+  assert.equal(formatCompact(200000, "USD"), "US$ 2,0 k");
+});
+
+test("el corte entre unidades cae donde corresponde", () => {
+  // 999,99 sigue siendo pesos; 1.000 ya es "k".
+  assert.equal(formatCompact(99999), "1.000");
+  assert.equal(formatCompact(100000), "1,0 k");
+  assert.equal(formatCompact(99999999), "1.000 k");
+  assert.equal(formatCompact(100000000), "1,0 M");
 });

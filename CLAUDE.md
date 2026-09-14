@@ -309,6 +309,34 @@ nominal con IPC (en Argentina no es opcional, 2,86M de julio y 3,67M de
 septiembre no son plata de la misma calidad), estacionalidad y detección de
 anomalías. Nada de eso da con tres meses.
 
+### Los gráficos
+
+**SVG y HTML a mano, del lado del servidor.** No hay librería de gráficos: son
+cuatro formas simples, y una dependencia pesa más que todo esto junto y encima
+obliga a mandar JavaScript al cliente para dibujar números que el servidor ya
+calculó. El hover son `title` nativos; la lista que acompaña a cada gráfico es
+la vista de tabla.
+
+**El color se elige por el trabajo que hace, y se valida, no se estima.** Acá
+casi todo es magnitud, así que va un solo tono —el acento— y el largo de la
+barra hace el resto. Pintar cada categoría de un color distinto gastaría el
+canal de identidad en repetir lo que el largo ya dice.
+
+Para "ya estaba decidido vs. decidido este mes" la forma es **énfasis**: el
+acento lleva la parte que cuenta la historia y el resto queda en un gris de
+contexto. Ese gris es `--chart-track` y **no** es `--muted`: `--muted` es color
+de texto y a 1,68:1 contra la superficie el segmento era casi invisible. Los dos
+pasos se eligieron corriendo el validador de la skill de dataviz contra cada
+superficie: claro `#8f8d86` (ΔE 17,3 a vista normal, 13,2 bajo protanopia) y
+oscuro `#6b6864` (ΔE 24,5), los dos ≥3:1. El paso oscuro no es el claro
+invertido: se eligió contra `#1b1b1a`.
+
+Las barras van **cuadradas contra el cero y redondeadas en la punta** —el
+extremo redondeado marca dónde termina el dato y la base cuadrada lo ancla al
+eje—, los segmentos se separan con 2px del color de la superficie y no con un
+borde, y se etiquetan **algunas** columnas, no todas: un número sobre cada barra
+deja de leerse.
+
 ## Plan por fases
 
 0. **Fundaciones** — scaffold, migración, seed, deploy vacío. Casi listo.

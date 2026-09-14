@@ -1,13 +1,11 @@
 import Link from "next/link";
 
 import { Amount } from "@/components/Amount";
+import { BarList } from "@/components/charts/BarList";
+import { ColumnChart } from "@/components/charts/ColumnChart";
+import { ShareLegend, StackedShare } from "@/components/charts/StackedShare";
 import { getInstallmentRows, getMonthlyRows } from "@/lib/data";
-import {
-  commitmentCalendar,
-  committedShare,
-  openPlans,
-  type CommittedShare,
-} from "@/lib/commitments";
+import { commitmentCalendar, committedShare, openPlans } from "@/lib/commitments";
 import { formatPeriod, type Currency } from "@/lib/domain";
 import { formatCents, type Cents } from "@/lib/money";
 
@@ -34,6 +32,32 @@ export default async function AnalisisPage() {
       total: delMes.length,
     };
   });
+
+  // Concentracion por categoria, solo en pesos: sin cotizaciones cargadas
+  // mezclar monedas en un ranking seria inventar una conversion.
+  const porCategoria = new Map<string, Cents>();
+  for (const row of mensuales) {
+    if (row.currency !== "ARS") continue;
+    porCategoria.set(row.categoryName, (porCategoria.get(row.categoryName) ?? 0) + row.amount);
+  }
+  const rankeadas = [...porCategoria]
+    .map(([label, value]) => ({ label, value }))
+    .filter((c) => c.value > 0)
+    .sort((a, b) => b.value - a.value);
+  const totalCategorias = rankeadas.reduce((t, c) => t + c.value, 0);
+  // Mas de siete clases dejan de leerse; la cola se junta en una.
+  const TOPE = 7;
+  const categorias =
+    rankeadas.length > TOPE + 1
+      ? [
+          ...rankeadas.slice(0, TOPE),
+          {
+            label: "Otras",
+            value: rankeadas.slice(TOPE).reduce((t, c) => t + c.value, 0),
+            hint: `· ${rankeadas.length - TOPE} categorias`,
+          },
+        ]
+      : rankeadas;
 
   const faltaPorPagar = totalPorMoneda(
     planes.map((p) => ({ currency: p.currency, amount: p.remainingTotal })),
@@ -87,6 +111,20 @@ export default async function AnalisisPage() {
               Cada mes arranca con esto ya gastado, antes de que compres nada.
               Cada cuota cae en el mes siguiente al último resumen que la trajo.
             </p>
+            <div className="mb-3 overflow-x-auto rounded-lg border border-border bg-surface p-3">
+              <ColumnChart
+                columns={calendario.map((mes) => ({
+                  label: mes.period.slice(5) + "/" + mes.period.slice(2, 4),
+                  value: mes.totals.find((t) => t.currency === "ARS")?.total ?? 0,
+                  title: `${formatPeriod(mes.period)}: ${mes.totals
+                    .map((t) => formatCents(t.total, t.currency))
+                    .join(" + ")} en ${mes.plans.length} cuota${
+                    mes.plans.length === 1 ? "" : "s"
+                  }`,
+                }))}
+              />
+            </div>
+
             <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
               {calendario.map((mes) => (
                 <li key={mes.period} className="px-3 py-3">
@@ -163,6 +201,9 @@ export default async function AnalisisPage() {
           De cada mes cerrado, qué parte eran cuotas de compras anteriores. Sobre
           esa parte no se podía hacer nada ese mes: ya estaba comprometida.
         </p>
+        <div className="mb-3">
+          <ShareLegend />
+        </div>
         <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
           {historico.map((mes) => (
             <li key={mes.period} className="px-3 py-3">
@@ -179,9 +220,14 @@ export default async function AnalisisPage() {
                   </span>
                 ) : null}
               </div>
-              <div className="mt-2 space-y-2">
+              <div className="mt-2 space-y-2.5">
                 {mes.share.map((s) => (
-                  <Barra key={s.currency} share={s} />
+                  <StackedShare
+                    key={s.currency}
+                    committed={s.committed}
+                    discretionary={s.discretionary}
+                    currency={s.currency}
+                  />
                 ))}
               </div>
             </li>
@@ -196,6 +242,19 @@ export default async function AnalisisPage() {
         ) : null}
       </section>
 
+      {categorias.length > 0 ? (
+        <section>
+          <h2 className="mb-1 text-sm font-semibold">En qué se va</h2>
+          <p className="mb-3 text-xs leading-relaxed text-muted">
+            Todo el historial, en pesos. Lo de arriba manda: apretarse con lo de
+            abajo casi no mueve la aguja.
+          </p>
+          <div className="rounded-lg border border-border bg-surface px-3 py-3">
+            <BarList bars={categorias} total={totalCategorias} />
+          </div>
+        </section>
+      ) : null}
+
       <p className="text-xs leading-relaxed text-muted">
         Los montos en dólares van aparte y nunca pesificados: sin cotizaciones
         cargadas no hay conversión honesta que hacer.{" "}
@@ -207,32 +266,6 @@ export default async function AnalisisPage() {
           </>
         ) : null}
       </p>
-    </div>
-  );
-}
-
-function Barra({ share }: { share: CommittedShare }) {
-  const pct = share.share === null ? 0 : Math.round(share.share * 100);
-
-  return (
-    <div>
-      <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs">
-        <span className="text-muted">
-          {share.currency !== "ARS" ? `${share.currency} · ` : null}
-          <strong className="text-foreground">{pct}%</strong> ya estaba decidido
-        </span>
-        <span className="tabular text-muted">
-          {formatCents(share.committed, share.currency)} de{" "}
-          {formatCents(share.total, share.currency)}
-        </span>
-      </div>
-      <div
-        className="mt-1 h-2 overflow-hidden rounded-full bg-border"
-        role="img"
-        aria-label={`${pct}% comprometido`}
-      >
-        <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
-      </div>
     </div>
   );
 }
