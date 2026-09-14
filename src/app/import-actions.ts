@@ -581,11 +581,13 @@ export async function commitImport(formData: FormData): Promise<void> {
   );
 
   if (error) {
-    const msg =
-      error.code === "23505"
-        ? "Este resumen ya fue importado antes: la base rechazo los movimientos repetidos."
-        : error.message;
-    redirect(`/importar/${importId}?error=${encodeURIComponent(msg)}`);
+    redirect(
+      `/importar/${importId}?error=${encodeURIComponent(
+        error.code === "23505"
+          ? await explicarDuplicado(supabase, imported.account_id, statementPeriod)
+          : error.message,
+      )}`,
+    );
   }
 
   // Cada correccion se convierte en regla, asi el proximo resumen se mapea solo.
@@ -619,6 +621,46 @@ export async function commitImport(formData: FormData): Promise<void> {
     reemplazados > 0
       ? `/?mes=${statementPeriod}&reemplazo=${reemplazados}`
       : "/",
+  );
+}
+
+/**
+ * Por que la base rechazo el import por duplicado.
+ *
+ * "Ya fue importado antes" es cierto pero manda a buscar el problema al lugar
+ * equivocado cuando la causa real es haber elegido mal el mes: el reemplazo de
+ * lo provisorio busca por cuenta Y periodo, asi que con el mes cambiado no
+ * encuentra nada que pisar y las mismas filas chocan contra sus propias
+ * huellas. Corre solo en el camino de error, asi que no cuesta nada.
+ */
+async function explicarDuplicado(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  accountId: string,
+  statementPeriod: string | null,
+): Promise<string> {
+  const generico =
+    "Este resumen ya fue importado antes: la base rechazo los movimientos repetidos.";
+  if (!statementPeriod) return generico;
+
+  const { data } = await supabase
+    .from("transactions")
+    .select("statement_period")
+    .eq("account_id", accountId)
+    .eq("is_projected", true)
+    .neq("statement_period", statementPeriod)
+    .not("statement_period", "is", null)
+    .limit(50);
+
+  const otros = [
+    ...new Set((data ?? []).map((t) => t.statement_period as string)),
+  ].sort();
+  if (otros.length === 0) return generico;
+
+  return (
+    `Estos movimientos ya estan cargados como provisorios en ${otros.join(" y ")}, ` +
+    `y los estas cargando en ${statementPeriod}. Si te equivocaste de mes, ` +
+    "descarta este resumen y volve a pegarlo eligiendo el mes correcto: " +
+    "cargado en el mes que corresponde, reemplaza al anterior en vez de chocar."
   );
 }
 
