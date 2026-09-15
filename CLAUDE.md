@@ -339,6 +339,15 @@ que vienen" y en la vista del mes, con dos números distintos. El plan que qued�
 atrás se marca y se dice en qué resumen no apareció, en vez de correrlo en
 silencio.
 
+**El mes en curso sí va adelante, pero no proyectado.** Dejarlo afuera obligaba
+a cambiar de pantalla para saber con cuánta cuota arrancó el mes que se está
+viviendo. Su número sale de las filas ya cargadas —el mismo que da la vista del
+mes filtrando por Cuotas—, no de los planes: proyectarlo además sería contar dos
+veces la misma cuota. Lo único que se le suma de la proyección es la cuota de
+una cuenta cuyo resumen de este mes todavía no se cargó. Que no es proyección se
+ve: la columna va en `--chart-track` y no en el acento, y la fila dice "en
+curso".
+
 Eso deja `cuota_total` como dato obligatorio al confirmar un import: sin el total
 la cuota queda huérfana —se sabe que es la 6, no de cuántas—, el plan no se puede
 deducir y esa cuota, ya cargada, se proyecta como si todavía no hubiera pasado.
