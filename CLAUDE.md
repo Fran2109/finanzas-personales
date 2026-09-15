@@ -348,6 +348,27 @@ una cuenta cuyo resumen de este mes todavía no se cargó. Que no es proyección
 ve: la columna va en `--chart-track` y no en el acento, y la fila dice "en
 curso".
 
+**Registrada no es pagada.** El resumen de un mes se paga a principios del
+siguiente, así que la cuota que ya entró en el resumen del mes en curso está
+cargada y todavía no salió de la cuenta. Por eso cada plan lleva dos números:
+`remaining` es lo que falta **registrarse** y es lo que proyecta el calendario;
+`unpaid` es lo que falta **pagar**, una cuota más cuando la última vista es la
+del mes en curso. Confundirlos subestima la deuda justo en la cuota más
+próxima, que es la única que no se puede esquivar.
+
+De ahí se sigue que **un plan que pagó su última cuota en el resumen en curso no
+se va de la lista**: no proyecta nada más, pero esa cuota sale recién cuando se
+pague el resumen. Sacarlo era el otro lado del mismo error.
+
+El invariante que los ata: **"lo que falta pagar" tiene que dar exactamente la
+suma del calendario**, mes en curso incluido. Son la misma plata contada de dos
+formas; si no coinciden, una de las dos está mal.
+
+La imprecisión conocida: "el mes en curso" es el mes del calendario, no la fecha
+real del pago. Los primeros días de octubre el resumen de septiembre todavía no
+se pagó y ya no cuenta. Saberlo de verdad pediría registrar el pago de cada
+tarjeta, que es fase 2.
+
 Eso deja `cuota_total` como dato obligatorio al confirmar un import: sin el total
 la cuota queda huérfana —se sabe que es la 6, no de cuántas—, el plan no se puede
 deducir y esa cuota, ya cargada, se proyecta como si todavía no hubiera pasado.

@@ -199,6 +199,80 @@ test("el numero de cuota proyectado sigue al plan aunque se atrase", () => {
   );
 });
 
+test("un plan que termina en el resumen en curso todavia falta pagarlo", () => {
+  // Pago su ultima cuota en septiembre: no proyecta nada mas, pero esa cuota
+  // sale recien cuando se pague el resumen, a principios de octubre.
+  const [plan] = openPlans(
+    [cuota({ cuotaCurrent: 3, cuotaTotal: 3, period: "2026-09" })],
+    new Map([["visa", "2026-09"]]),
+    "2026-09",
+  );
+  assert.ok(plan, "no puede desaparecer de la lista: todavia se debe");
+  assert.equal(plan.remaining, 0, "no queda nada por registrarse");
+  assert.equal(plan.unpaid, 1);
+  assert.equal(plan.endsOn, "2026-09", "termino en el mes en curso");
+  assert.deepEqual(commitmentCalendar([plan], 12), [], "y no proyecta nada");
+});
+
+test("un plan terminado en un resumen ya pagado si desaparece", () => {
+  const planes = openPlans(
+    [cuota({ cuotaCurrent: 3, cuotaTotal: 3, period: "2026-08" })],
+    new Map(),
+    "2026-09",
+  );
+  assert.equal(planes.length, 0, "se pago en septiembre, no se debe nada");
+});
+
+test("la cuota del resumen en curso falta pagar aunque ya este cargada", () => {
+  // El resumen de septiembre se paga a principios de octubre: esa cuota esta
+  // registrada y todavia no salio de la cuenta.
+  const [plan] = openPlans(
+    [cuota({ cuotaCurrent: 5, cuotaTotal: 7, period: "2026-09" })],
+    new Map([["visa", "2026-09"]]),
+    "2026-09",
+  );
+  assert.equal(plan.remaining, 2, "faltan registrarse la 6 y la 7");
+  assert.equal(plan.unpaid, 3, "faltan pagar la 5, la 6 y la 7");
+  assert.equal(plan.unpaidTotal, 300000);
+  assert.equal(plan.remainingTotal, 200000, "lo que proyecta el calendario no cambia");
+});
+
+test("la cuota de un resumen ya pagado no cuenta como deuda", () => {
+  // La ultima vista es de agosto, que se pago a principios de septiembre.
+  const [plan] = openPlans(
+    [cuota({ cuotaCurrent: 5, cuotaTotal: 7, period: "2026-08" })],
+    new Map(),
+    "2026-09",
+  );
+  assert.equal(plan.unpaid, plan.remaining, "no hay nada sin pagar del mes en curso");
+  assert.equal(plan.unpaid, 2);
+});
+
+test("falta pagar es exactamente lo que suma el calendario con el mes en curso", () => {
+  // Los dos numeros salen de la misma plata, asi que tienen que dar igual: si
+  // no, la pantalla dice dos cosas distintas sobre la misma deuda.
+  const rows = [
+    cuota({ cuotaCurrent: 5, cuotaTotal: 7, period: "2026-09", amount: 60000 }),
+    cuota({ merchant: "OTRO", cuotaCurrent: 1, cuotaTotal: 3, period: "2026-09", amount: 40000 }),
+  ];
+  const planes = openPlans(rows, new Map([["visa", "2026-09"]]), "2026-09");
+  const cal = withCurrentMonth(commitmentCalendar(planes, 99), rows, "2026-09");
+
+  const faltaPagar = planes.reduce((t, p) => t + p.unpaidTotal, 0);
+  const sumaCalendario = cal.reduce(
+    (t, m) => t + (m.totals.find((x) => x.currency === "ARS")?.total ?? 0),
+    0,
+  );
+  assert.equal(faltaPagar, sumaCalendario);
+});
+
+test("sin mes en curso, falta pagar es lo que falta registrarse", () => {
+  // El default: sin decirle cual es el mes sin pagar no se puede saber que
+  // cuota sigue debiendose, y no se inventa.
+  const [plan] = openPlans([cuota({ cuotaCurrent: 5, cuotaTotal: 7, period: "2026-09" })]);
+  assert.equal(plan.unpaid, plan.remaining);
+});
+
 test("el mes en curso va adelante con lo cargado, no proyectado", () => {
   // Es el mes que se esta viviendo: su numero sale de las filas, no de los
   // planes, y tiene que dar lo mismo que la vista del mes filtrando por Cuotas.

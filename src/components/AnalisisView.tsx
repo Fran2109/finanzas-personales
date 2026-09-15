@@ -70,9 +70,11 @@ export function AnalisisView({
           <section>
             <h2 className="mb-1 text-sm font-semibold">Lo que falta pagar</h2>
             <p className="mb-3 text-xs leading-relaxed text-muted">
-              La suma de todas las cuotas que quedan de {planes.length} compra
-              {planes.length === 1 ? "" : "s"} en curso. No es deuda de este mes:
-              es plata que ya está comprometida y va a salir igual.
+              La suma de todas las cuotas que faltan pagar de {planes.length} compra
+              {planes.length === 1 ? "" : "s"} que todavía estás pagando. Incluye
+              la cuota del resumen en curso: ya está cargada, pero se paga recién
+              el mes que viene. Es el mismo total que suma el calendario de acá
+              abajo.
             </p>
             <div className="grid gap-3 sm:grid-cols-3">
               {faltaPorPagar.map((t) => (
@@ -198,7 +200,8 @@ export function AnalisisView({
           <section>
             <h2 className="mb-1 text-sm font-semibold">Compras en curso</h2>
             <p className="mb-3 text-xs text-muted">
-              Cuándo se libera cada una.
+              Cuándo se libera cada una. Una que termina este mes sigue acá hasta
+              que se pague el resumen.
             </p>
             <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
               {planes.map((plan) => (
@@ -211,7 +214,7 @@ export function AnalisisView({
                     <div className="truncate text-xs text-muted">
                       {[
                         `cuota ${plan.cuotaCurrent} de ${plan.cuotaTotal}`,
-                        `quedan ${plan.remaining}`,
+                        `faltan pagar ${plan.unpaid}`,
                         `termina en ${formatPeriod(plan.endsOn)}`,
                         // Un plan que no aparecio en el ultimo resumen: o
                         // termino antes, o esa linea no se leyo. Decirlo es
@@ -228,7 +231,7 @@ export function AnalisisView({
                   </div>
                   <span className="shrink-0 text-right">
                     <Amount
-                      cents={plan.remainingTotal}
+                      cents={plan.unpaidTotal}
                       currency={plan.currency}
                       className="block text-sm font-medium"
                     />

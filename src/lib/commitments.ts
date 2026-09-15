@@ -23,6 +23,15 @@
  * venir 14.633,33 al mes siguiente por como redondea el banco, y un centavo de
  * diferencia partiria el plan en dos.
  *
+ * **Registrada no es pagada.** El resumen de un mes se paga a principios del
+ * siguiente, asi que la cuota que ya entro en el resumen del mes en curso esta
+ * cargada y todavia no salio de la cuenta: cuenta como deuda. Por eso el plan
+ * lleva dos numeros. `remaining` es lo que falta **registrarse** y es lo que
+ * proyecta el calendario; `unpaid` es lo que falta **pagar** y es una cuota mas
+ * cuando la ultima vista es la del mes en curso. Confundirlos subestima la
+ * deuda justo en la cuota mas proxima, que es la unica que no se puede
+ * esquivar.
+ *
  * El limite de esta deduccion: dos compras distintas en la misma tarjeta, con
  * la misma cantidad de cuotas y la misma cuota mensual se leen como una sola.
  * Es mas raro que el caso del nombre, y su error —subestimar— es menos grave
@@ -74,8 +83,19 @@ export type Plan = {
   behind: boolean;
   /** Periodo en el que termina de pagarse. */
   endsOn: Period;
-  /** Lo que falta pagar en total. */
+  /** Lo que queda por registrarse: `remaining` cuotas. */
   remainingTotal: Cents;
+  /**
+   * Cuotas que faltan **pagar**, que no son las mismas que faltan registrarse.
+   *
+   * El resumen de un mes se paga a principios del siguiente, asi que la cuota
+   * que ya entro en el resumen del mes en curso esta cargada pero todavia no
+   * salio de la cuenta. Contarla como pagada subestima la deuda justo en la
+   * cuota mas cercana, que es la unica que no se puede esquivar.
+   */
+  unpaid: number;
+  /** Lo que falta pagar de verdad: `unpaid` cuotas. */
+  unpaidTotal: Cents;
 };
 
 /** Un mes que viene, con lo que ya esta comprometido. */
@@ -121,6 +141,15 @@ export function openPlans(
    * de verdad quien tiene todos los movimientos, y por eso se puede pasar.
    */
   horizonteDeCuenta: ReadonlyMap<string, Period> = new Map(),
+  /**
+   * El mes cuyo resumen todavia no se pago.
+   *
+   * El resumen de un mes se paga a principios del siguiente, asi que la cuota
+   * que ya entro en el resumen de este mes esta registrada pero todavia no
+   * salio. Sin esto, `unpaid` es igual a `remaining` y la deuda queda
+   * subestimada en la cuota mas proxima de cada plan.
+   */
+  mesSinPagar?: Period,
 ): Plan[] {
   const ultima = new Map<string, InstallmentRow>();
   const horizonte = new Map<string, Period>(horizonteDeCuenta);
@@ -147,13 +176,19 @@ export function openPlans(
 
   const planes: Plan[] = [];
   for (const [key, row] of ultima) {
-    const remaining = row.cuotaTotal - row.cuotaCurrent;
-    if (remaining <= 0) continue;
+    const remaining = Math.max(0, row.cuotaTotal - row.cuotaCurrent);
     // La proyeccion arranca despues del ultimo mes cargado de la cuenta, no
     // despues de la ultima cuota vista: lo que ya esta cargado no es futuro.
     const desde = horizonte.get(row.accountId) ?? row.period;
     const base = desde > row.period ? desde : row.period;
     const nextPeriod = shiftPeriod(base, 1);
+    // La cuota del mes en curso ya esta registrada pero se paga el mes que
+    // viene, asi que cuenta como deuda. La del mes anterior no: esa ya salio.
+    const unpaid = remaining + (mesSinPagar && row.period === mesSinPagar ? 1 : 0);
+    // Un plan que pago su ultima cuota en el resumen en curso no proyecta nada
+    // mas, pero todavia debe esa cuota: sale cuando el resumen se pague. Solo
+    // se va de la lista cuando no queda nada por registrar NI por pagar.
+    if (unpaid <= 0) continue;
     planes.push({
       key,
       accountId: row.accountId,
@@ -168,13 +203,17 @@ export function openPlans(
       lastSeen: row.period,
       nextPeriod,
       behind: base !== row.period,
+      // Con `remaining` en 0 esto vuelve al mes en curso, que es cuando el plan
+      // efectivamente termino: la cuota esta, lo que falta es el pago.
       endsOn: shiftPeriod(nextPeriod, remaining - 1),
       remainingTotal: row.amount * remaining,
+      unpaid,
+      unpaidTotal: row.amount * unpaid,
     });
   }
 
   // Lo que mas pesa primero: es lo que decide si se puede tomar otra cuota.
-  return planes.sort((a, b) => b.remainingTotal - a.remainingTotal);
+  return planes.sort((a, b) => b.unpaidTotal - a.unpaidTotal);
 }
 
 /**
@@ -412,7 +451,7 @@ export function remainingByCategory(
   for (const plan of planes) {
     if (plan.currency !== currency) continue;
     const clave = plan.categoryName ?? "Sin categoria";
-    porCategoria.set(clave, (porCategoria.get(clave) ?? 0) + plan.remainingTotal);
+    porCategoria.set(clave, (porCategoria.get(clave) ?? 0) + plan.unpaidTotal);
   }
   return [...porCategoria]
     .map(([label, value]) => ({ label, value }))

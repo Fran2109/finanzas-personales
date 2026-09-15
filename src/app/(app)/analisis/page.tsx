@@ -27,14 +27,18 @@ export default async function AnalisisPage() {
     if (!previo || row.period > previo) horizonte.set(row.accountId, row.period);
   }
 
-  const planes = openPlans(cuotas, horizonte);
+  // El resumen de este mes se paga a principios del que viene, asi que su cuota
+  // esta registrada pero todavia no salio: para "falta pagar" cuenta como deuda.
+  const mesEnCurso = periodOf(new Date());
+
+  const planes = openPlans(cuotas, horizonte, mesEnCurso);
   // El mes en curso va adelante con lo que ya esta cargado, no proyectado: es
   // el mes que se esta viviendo y dejarlo afuera obligaba a cambiar de pantalla
   // para saber con que se arranco.
   const calendario = withCurrentMonth(
     commitmentCalendar(planes, MESES_A_PROYECTAR),
     cuotas,
-    periodOf(new Date()),
+    mesEnCurso,
   );
 
   // Historico por mes, con la parte que ya estaba decidida antes de empezar.
@@ -79,8 +83,11 @@ export default async function AnalisisPage() {
         ]
       : rankeadas;
 
+  // Sobre `unpaidTotal` y no sobre `remainingTotal`: lo que falta pagar incluye
+  // la cuota del resumen en curso, que ya esta cargada y todavia no se pago. Es
+  // el mismo total que suma el calendario, mes en curso incluido.
   const faltaPorPagar = totalPorMoneda(
-    planes.map((p) => ({ currency: p.currency, amount: p.remainingTotal })),
+    planes.map((p) => ({ currency: p.currency, amount: p.unpaidTotal })),
   );
 
   // Cuanto compromiso entro y salio cada mes: el calendario dice cuanto falta,
