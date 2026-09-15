@@ -25,12 +25,12 @@ export default async function ImportsPage({
   const [accounts, imports, movimientos] = await Promise.all([
     getAccounts(),
     supabase
-      .from("imports")
+      .from("finanzas_imports")
       .select(
-        "id, filename, period_close, status, provisional, declared_total_ars, declared_total_usd, created_at, account:accounts(name)",
+        "id, filename, period_close, status, provisional, declared_total_ars, declared_total_usd, created_at, account:finanzas_accounts(name)",
       )
       .order("created_at", { ascending: false }),
-    supabase.from("transactions").select("import_id").not("import_id", "is", null),
+    supabase.from("finanzas_transactions").select("import_id").not("import_id", "is", null),
   ]);
 
   // Cuantos movimientos dejo cada resumen: es lo que se pierde al borrarlo.

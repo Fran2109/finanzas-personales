@@ -207,14 +207,14 @@ async function stage(
   { statement, identity, elegida, filename, periodClose, provisional }: StageInput,
 ): Promise<UploadState> {
   const [rules, categories, cuentas, plasticos] = await Promise.all([
-    withRetry(() => supabase.from("merchant_rules").select("id, pattern, category_id")),
-    withRetry(() => supabase.from("categories").select("id, kind")),
-    withRetry(() => supabase.from("accounts").select("id, name").eq("active", true)),
+    withRetry(() => supabase.from("finanzas_merchant_rules").select("id, pattern, category_id")),
+    withRetry(() => supabase.from("finanzas_categories").select("id, kind")),
+    withRetry(() => supabase.from("finanzas_accounts").select("id, name").eq("active", true)),
     // De que cuenta vino cada plastico que ya se importo. Es la senal mas
     // fuerte para saber a quien pertenece este resumen.
     withRetry(() =>
       supabase
-        .from("transactions")
+        .from("finanzas_transactions")
         .select("account_id, card_last4")
         .not("card_last4", "is", null),
     ),
@@ -249,7 +249,7 @@ async function stage(
   }
 
   const { data: imported, error: importError } = await supabase
-    .from("imports")
+    .from("finanzas_imports")
     .insert({
       account_id: accountId,
       filename,
@@ -307,9 +307,9 @@ async function stage(
     };
   });
 
-  const { error: rowsError } = await supabase.from("import_rows").insert(rows);
+  const { error: rowsError } = await supabase.from("finanzas_import_rows").insert(rows);
   if (rowsError) {
-    await supabase.from("imports").delete().eq("id", imported.id);
+    await supabase.from("finanzas_imports").delete().eq("id", imported.id);
     return { error: `No se pudieron guardar las filas: ${rowsError.message}` };
   }
 
@@ -332,14 +332,14 @@ export async function setImportAccount(formData: FormData) {
   // La cuenta tiene que existir y ser tuya. El select pasa por RLS, asi que un
   // id ajeno no devuelve nada; la FK sola no alcanzaria para impedirlo.
   const { data: cuenta } = await supabase
-    .from("accounts")
+    .from("finanzas_accounts")
     .select("id")
     .eq("id", accountId)
     .single();
   if (!cuenta) return;
 
   await supabase
-    .from("imports")
+    .from("finanzas_imports")
     .update({ account_id: accountId })
     .eq("id", importId)
     .neq("status", "committed");
@@ -368,7 +368,7 @@ export async function setRowCategory(formData: FormData) {
     const kind = String(formData.get("category_kind") ?? "expense");
 
     const { data: creada, error } = await supabase
-      .from("categories")
+      .from("finanzas_categories")
       .insert({ name: nuevaCategoria, kind })
       .select("id")
       .single();
@@ -378,7 +378,7 @@ export async function setRowCategory(formData: FormData) {
     } else if (error?.code === "23505") {
       // Ya existia con ese nombre: se reusa en vez de fallar.
       const { data: existente } = await supabase
-        .from("categories")
+        .from("finanzas_categories")
         .select("id")
         .eq("name", nuevaCategoria)
         .single();
@@ -393,7 +393,7 @@ export async function setRowCategory(formData: FormData) {
   // impuesto leido como compra distorsiona el analisis por categoria.
   const enviado = String(formData.get("kind") ?? "");
   const { data: fila } = await supabase
-    .from("import_rows")
+    .from("finanzas_import_rows")
     .select("kind, import_id, raw_description")
     .eq("id", rowId)
     .single();
@@ -407,7 +407,7 @@ export async function setRowCategory(formData: FormData) {
   // que es un estado que no deberia poder existir.
   if (categoryId) {
     const { data: categoria } = await supabase
-      .from("categories")
+      .from("finanzas_categories")
       .select("kind")
       .eq("id", categoryId)
       .single();
@@ -416,7 +416,7 @@ export async function setRowCategory(formData: FormData) {
       // Se guarda el tipo, pero la fila vuelve a pedir categoria en vez de
       // quedar imputada a una que no le corresponde.
       await supabase
-        .from("import_rows")
+        .from("finanzas_import_rows")
         .update({ kind, suggested_category_id: null, needs_review: true })
         .eq("id", rowId);
       revalidatePath("/", "layout");
@@ -429,7 +429,7 @@ export async function setRowCategory(formData: FormData) {
   const esGasto = isExpenseKind(kind);
 
   await supabase
-    .from("import_rows")
+    .from("finanzas_import_rows")
     .update({
       suggested_category_id: esGasto ? categoryId || null : null,
       kind,
@@ -446,7 +446,7 @@ export async function setRowCategory(formData: FormData) {
     const patron = suggestPattern(String(fila.raw_description ?? ""));
     if (patron.length >= 3) {
       const { data: hermanas } = await supabase
-        .from("import_rows")
+        .from("finanzas_import_rows")
         .select("id, raw_description")
         .eq("import_id", fila.import_id)
         .eq("needs_review", true);
@@ -457,7 +457,7 @@ export async function setRowCategory(formData: FormData) {
 
       if (alcanzadas.length > 0) {
         await supabase
-          .from("import_rows")
+          .from("finanzas_import_rows")
           .update({ suggested_category_id: categoryId, needs_review: false })
           .in("id", alcanzadas);
       }
@@ -475,7 +475,7 @@ export async function discardRow(formData: FormData) {
   if (!rowId) return;
 
   await supabase
-    .from("import_rows")
+    .from("finanzas_import_rows")
     .update({ status: "discarded", needs_review: false })
     .eq("id", rowId);
 
@@ -494,8 +494,13 @@ export async function commitImport(formData: FormData): Promise<void> {
   if (!importId) return;
 
   const { data: imported } = await supabase
-    .from("imports")
-    .select("id, account_id, status, period_close, provisional, accounts!inner(is_liability)")
+    .from("finanzas_imports")
+    // El alias `accounts:` no es cosmetico: sin el, la propiedad que vuelve
+    // pasaria a llamarse `finanzas_accounts` y abajo se lee `imported.accounts`.
+    // Y el select va en UN literal: supabase-js infiere los tipos parseando ese
+    // string en tiempo de compilacion, asi que partirlo con `+` lo degrada a
+    // GenericStringError y se pierde el tipado de toda la fila.
+    .select("id, account_id, status, period_close, provisional, accounts:finanzas_accounts!inner(is_liability)")
     .eq("id", importId)
     .single();
   if (!imported || imported.status === "committed") return;
@@ -510,7 +515,7 @@ export async function commitImport(formData: FormData): Promise<void> {
     esTarjeta && imported.period_close ? periodOfDate(imported.period_close) : null;
 
   const { data: rows } = await supabase
-    .from("import_rows")
+    .from("finanzas_import_rows")
     .select("*")
     .eq("import_id", importId)
     .eq("status", "pending");
@@ -527,7 +532,7 @@ export async function commitImport(formData: FormData): Promise<void> {
   let reemplazados = 0;
   if (statementPeriod) {
     const { count } = await supabase
-      .from("transactions")
+      .from("finanzas_transactions")
       .delete({ count: "exact" })
       .eq("account_id", imported.account_id)
       .eq("statement_period", statementPeriod)
@@ -538,7 +543,7 @@ export async function commitImport(formData: FormData): Promise<void> {
     // borradores del mismo mes. Sus import_rows caen por cascada.
     const { from, to } = periodRange(statementPeriod);
     await supabase
-      .from("imports")
+      .from("finanzas_imports")
       .delete()
       .eq("account_id", imported.account_id)
       .eq("provisional", true)
@@ -567,7 +572,7 @@ export async function commitImport(formData: FormData): Promise<void> {
 
   const fingerprinted = withFingerprints(preparadas);
 
-  const { error } = await supabase.from("transactions").insert(
+  const { error } = await supabase.from("finanzas_transactions").insert(
     fingerprinted.map((r) => ({
       account_id: r.accountId,
       category_id: r.categoryId,
@@ -608,18 +613,18 @@ export async function commitImport(formData: FormData): Promise<void> {
     if (pattern.length >= 3) nuevasReglas.set(pattern, r.suggested_category_id);
   }
   if (nuevasReglas.size > 0) {
-    await supabase.from("merchant_rules").upsert(
+    await supabase.from("finanzas_merchant_rules").upsert(
       [...nuevasReglas].map(([pattern, category_id]) => ({ pattern, category_id })),
       { onConflict: "user_id,pattern", ignoreDuplicates: true },
     );
   }
 
   await supabase
-    .from("import_rows")
+    .from("finanzas_import_rows")
     .update({ status: "accepted" })
     .eq("import_id", importId)
     .eq("status", "pending");
-  await supabase.from("imports").update({ status: "committed" }).eq("id", importId);
+  await supabase.from("finanzas_imports").update({ status: "committed" }).eq("id", importId);
 
   revalidatePath("/", "layout");
   // Si se piso lo provisorio, se vuelve al mes que cambio y se dice cuanto se
@@ -650,7 +655,7 @@ async function explicarDuplicado(
   if (!statementPeriod) return generico;
 
   const { data } = await supabase
-    .from("transactions")
+    .from("finanzas_transactions")
     .select("statement_period")
     .eq("account_id", accountId)
     .eq("is_projected", true)
@@ -689,7 +694,7 @@ export async function deleteImport(formData: FormData) {
   if (!importId) return;
 
   const { error: txError } = await supabase
-    .from("transactions")
+    .from("finanzas_transactions")
     .delete()
     .eq("import_id", importId);
   if (txError) {
@@ -699,7 +704,7 @@ export async function deleteImport(formData: FormData) {
   }
 
   // import_rows cae solo: su FK al import es ON DELETE CASCADE.
-  const { error } = await supabase.from("imports").delete().eq("id", importId);
+  const { error } = await supabase.from("finanzas_imports").delete().eq("id", importId);
   if (error) {
     redirect(`/importar?error=${encodeURIComponent(
       `No se pudo borrar el resumen: ${error.message}`,

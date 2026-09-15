@@ -19,7 +19,7 @@ export default async function SettingsPage() {
     supabase.auth.getUser(),
     getCategories(),
     supabase
-      .from("merchant_rules")
+      .from("finanzas_merchant_rules")
       .select("id, pattern, category_id, hit_count")
       .order("pattern"),
   ]);

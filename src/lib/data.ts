@@ -51,7 +51,7 @@ export async function getAccounts(): Promise<Account[]> {
   const supabase = await createClient();
   const { data, error } = await withRetry(() =>
     supabase
-      .from("accounts")
+      .from("finanzas_accounts")
       .select("id, name, type, currency, is_liability, active")
       .order("is_liability")
       .order("name"),
@@ -63,7 +63,7 @@ export async function getAccounts(): Promise<Account[]> {
 export async function getCategories(): Promise<Category[]> {
   const supabase = await createClient();
   const { data, error } = await withRetry(() =>
-    supabase.from("categories").select("id, name, kind").order("kind").order("name"),
+    supabase.from("finanzas_categories").select("id, name, kind").order("kind").order("name"),
   );
   if (error) throw new Error(`No se pudieron leer las categorias: ${error.message}`);
   return (data ?? []) as Category[];
@@ -72,7 +72,7 @@ export async function getCategories(): Promise<Category[]> {
 const TX_SELECT =
   "id, occurred_on, amount, currency, kind, description, card_last4, is_projected, fingerprint," +
   " statement_period, created_at," +
-  " account:accounts!inner(id, name, is_liability), category:categories(id, name)";
+  " account:finanzas_accounts!inner(id, name, is_liability), category:finanzas_categories(id, name)";
 
 type RawTransaction = Omit<Transaction, "amount"> & { amount: number };
 
@@ -95,11 +95,11 @@ export async function getTransactionsForPeriod(period: Period): Promise<Transact
   // de PostgREST. El volumen de un mes es chico, el costo es irrelevante.
   const [delResumen, porFecha] = await Promise.all([
     withRetry(() =>
-      supabase.from("transactions").select(TX_SELECT).eq("statement_period", period),
+      supabase.from("finanzas_transactions").select(TX_SELECT).eq("statement_period", period),
     ),
     withRetry(() =>
       supabase
-        .from("transactions")
+        .from("finanzas_transactions")
         .select(TX_SELECT)
         .is("statement_period", null)
         .gte("occurred_on", from)
@@ -205,9 +205,9 @@ export async function getInstallmentRows(): Promise<InstallmentRow[]> {
   const supabase = await createClient();
   const { data, error } = await withRetry(() =>
     supabase
-      .from("transactions")
+      .from("finanzas_transactions")
       .select(
-        "amount, currency, occurred_on, statement_period, description, merchant_normalized, cuota_number, cuota_total, account:accounts!inner(id, name), category:categories(name)",
+        "amount, currency, occurred_on, statement_period, description, merchant_normalized, cuota_number, cuota_total, account:finanzas_accounts!inner(id, name), category:finanzas_categories(name)",
       )
       .eq("kind", "installment")
       .not("cuota_total", "is", null),
@@ -258,9 +258,9 @@ export async function getMonthlyRows(): Promise<MonthlyRow[]> {
   const supabase = await createClient();
   const { data, error } = await withRetry(() =>
     supabase
-      .from("transactions")
+      .from("finanzas_transactions")
       .select(
-        "amount, currency, kind, occurred_on, statement_period, is_projected, category:categories(name)",
+        "amount, currency, kind, occurred_on, statement_period, is_projected, category:finanzas_categories(name)",
       ),
   );
   if (error) throw new Error(`No se pudieron leer los movimientos: ${error.message}`);
@@ -295,7 +295,7 @@ export async function getAccountsWithActivity(): Promise<AccountActivity[]> {
 
   const [accounts, movements] = await Promise.all([
     getAccounts(),
-    withRetry(() => supabase.from("transactions").select("account_id")),
+    withRetry(() => supabase.from("finanzas_transactions").select("account_id")),
   ]);
 
   if (movements.error) {
