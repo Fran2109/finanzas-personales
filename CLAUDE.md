@@ -42,7 +42,12 @@ sin comillas. Tres cosas que se siguen de compartir:
 
 - [x] Proyecto Supabase creado, región sa-east-1
 - [x] Migración inicial aplicada (versión remota `20260914112501`)
-- [x] 9 tablas con RLS, 9 políticas, vista `finanzas_v_transactions_ars`
+- [x] 6 tablas con RLS y 6 políticas (`finanzas_*`). El andamiaje vacío de
+      fases futuras —`fx_rates`, `installment_plans`, `budgets` y la vista
+      multi-moneda— se borró al pasar al proyecto compartido: una tabla sin uso
+      en un schema que comparten dos apps es ruido que el próximo que lo lea
+      tiene que descartar. La fase que las necesite las crea con la forma que
+      necesite (migración `20260915103325_drop_unused_phase_scaffolding`).
 - [x] Usuario creado en auth + seed corrido (20 categorías de gasto)
 - [x] Scaffold de Next.js 16 (App Router, Tailwind v4, `@supabase/ssr`)
 - [x] Fase 1 construida: alta manual, vista del mes, filtros
@@ -73,8 +78,11 @@ Esto no es un tracker genérico. Las reglas que siguen no son opcionales.
 
 **Multi-moneda.** Cada transacción guarda su monto y moneda originales, siempre.
 La conversión es un problema de lectura, nunca de escritura: se resuelve en
-`v_transactions_ars` contra `fx_rates` a la fecha de la operación. Nunca
-pesificar al insertar.
+una vista contra una tabla de cotizaciones a la fecha de la operación. Nunca
+pesificar al insertar. **Esa tabla y esa vista todavía no existen**: se crearon
+en el init, nunca se usaron y se borraron; las crea la fase 2. Hasta entonces
+los montos en dólares se muestran aparte y sin convertir, que es lo que hoy
+dicen la vista del mes, el análisis y el importador.
 
 **El resumen manda sobre la fecha de compra.** Un movimiento que viene de un
 resumen de tarjeta pertenece al mes del resumen, no al de la compra: el resumen
@@ -85,7 +93,7 @@ real de la compra no se puede recuperar después. Solo aplica a cuentas de
 tarjeta; un extracto bancario no tiene esa demora.
 
 **Cuotas.** Una compra en 12 cuotas es una decisión que genera 12 salidas de
-caja. Se modela como `installment_plans` + N filas en `transactions` con
+caja. Se modelará como una tabla de planes + N filas en `transactions` con
 `is_projected = true` hasta que se confirman. Al importar un resumen, si una
 cuota corresponde a un plan ya existente hay que enlazarla, no crear una compra
 nueva.
@@ -308,7 +316,7 @@ puede cambiar. Las cuotas son entre el **45% y el 52%** de cada mes: sobre esa
 parte no hay nada que decidir cuando el mes empieza, y decirlo así es lo único
 que convierte el dato en algo accionable.
 
-**Un plan se deduce de las filas, porque `installment_plans` está vacío.** La
+**Un plan se deduce de las filas, porque no hay tabla de planes.** La
 misma compra aparece una vez por resumen, así que de cada plan se toma la cuota
 más alta vista y desde ahí se proyecta una cuota por mes.
 
@@ -324,7 +332,7 @@ de diferencia entre un resumen y el siguiente, y eso partía el plan en dos.
 El límite conocido: dos compras distintas en la misma tarjeta, con la misma
 cantidad de cuotas y la misma cuota mensual se leen como una sola. Es más raro
 que el caso del nombre, y su error —subestimar— es menos grave que triplicar.
-`installment_plans` existe para resolverlo cuando la fase 2 lo modele.
+La fase 2 lo resuelve cuando modele los planes de verdad.
 
 **La fase 4 quedó desactualizada.** "Tasa de ahorro" y "patrimonio en USD" son
 incompatibles con "esto no lleva balances": sin ingresos ni saldos no hay con
@@ -410,7 +418,11 @@ qué campos molestan de verdad.
 - Los nombres de archivo en `supabase/migrations/` tienen que coincidir con las
   versiones registradas en el remoto, o `db push` intenta reaplicar y falla.
 - RLS activo en todas las tablas, siempre, aunque haya un solo usuario.
-- `fx_rates` es data de referencia compartida: lectura para `authenticated`,
-  escritura solo desde el cron con `service_role`.
+- Cuando la fase 2 traiga la tabla de cotizaciones, va como data de referencia
+  compartida: lectura para `authenticated`, escritura solo desde el cron con
+  `service_role`.
+- Las políticas escriben `(select auth.uid())` y no `auth.uid()` pelado. Es la
+  misma semántica, pero sin el subselect el planner lo trata como volátil y lo
+  evalúa una vez por fila en vez de una por consulta.
 - Los resúmenes contienen CUIT y domicilio. Si se manda el PDF a una API, sacar
   el bloque de cabecera antes.
