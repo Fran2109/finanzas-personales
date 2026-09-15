@@ -20,12 +20,16 @@ import { AccountForm } from "@/components/AccountForm";
 import { AnalisisView } from "@/components/AnalisisView";
 import { AccountRow } from "@/components/AccountRow";
 import { Amount } from "@/components/Amount";
+import { Aviso } from "@/components/ui/Aviso";
 import { CategoryForm } from "@/components/CategoryForm";
 import { LoginForm } from "@/components/LoginForm";
 import { MesView } from "@/components/MesView";
 import { PasswordForm } from "@/components/PasswordForm";
 import { PasteStatementForm } from "@/components/PasteStatementForm";
-import { RowCategorySelect } from "@/components/RowCategorySelect";
+import { DeleteImportButton } from "@/components/DeleteImportButton";
+import { ImportAccountSelect } from "@/components/ImportAccountSelect";
+import { ImportRowList } from "@/components/ImportRowList";
+import { StatementRow } from "@/components/StatementRow";
 import { UploadStatementForm } from "@/components/UploadStatementForm";
 import {
   commitmentCalendar,
@@ -35,8 +39,18 @@ import {
   remainingByCategory,
   withCurrentMonth,
 } from "@/lib/commitments";
-import { cuentas, categorias, cuotas, movimientos, summary, MES } from "./datos";
-import { botonIcono, gridDosColumnas, lista } from "@/components/ui/estilos";
+import {
+  cuentas,
+  categorias,
+  cuotas,
+  filasDescartadas,
+  filasImportadas,
+  movimientos,
+  resumenes,
+  summary,
+  MES,
+} from "./datos";
+import { botonAcento, botonIcono, gridDosColumnas, insignia, lista } from "@/components/ui/estilos";
 
 /**
  * Sin esto Next la prerenderiza y evalua `process.env` en el build, cuando la
@@ -229,40 +243,131 @@ function Importar() {
   const activas = cuentas.filter((a) => a.active);
   return (
     <div className="space-y-8">
+      <h1 className="text-lg font-semibold">Importar</h1>
       <section>
-        <h1 className="mb-3 text-lg font-semibold">Importar un resumen</h1>
+        <h2 className="mb-1 text-base font-semibold">Subir resumen cerrado</h2>
+        <p className="mb-3 text-sm text-muted">
+          El PDF que manda el banco. Es el dato definitivo.
+        </p>
         <UploadStatementForm accounts={activas} />
       </section>
       <section>
-        <h2 className="mb-3 text-sm font-semibold">Pegar el mes en curso</h2>
+        <h2 className="mb-1 flex flex-wrap items-center gap-2 text-base font-semibold">
+          Adelantar el mes en curso
+          <span className={insignia}>provisorio</span>
+        </h2>
+        <p className="mb-3 text-sm text-muted">
+          El resumen todavía no cerró y no hay PDF, pero los consumos ya están en
+          el home banking. Pegá la tabla y mirá cómo viene el mes.
+        </p>
         <PasteStatementForm accounts={activas} />
+      </section>
+      <section>
+        <h2 className="mb-3 text-base font-semibold">Resumenes importados</h2>
+        <ul className={lista}>
+          {resumenes.map((imp, i) => (
+            <StatementRow key={imp.id} imp={imp} movimientos={i === 0 ? 148 : 0} />
+          ))}
+        </ul>
       </section>
     </div>
   );
 }
 
+/**
+ * La revision de un resumen.
+ *
+ * Antes era una **copia a mano** de la fila, que es justo la trampa que ya hizo
+ * mirar capturas de un markup que las paginas reales no tenian. Ahora usa el
+ * componente de verdad, y de paso entran a la auditoria el selector de cuenta,
+ * los botones de borrado y la cabecera, que nunca habia medido nadie.
+ */
 function Revision() {
+  const [porRevisar, ...mapeadas] = filasImportadas;
   return (
-    <ul className={lista}>
-      {movimientos.map((t, i) => (
-        <li key={t.id} className="flex flex-wrap items-center gap-3 px-3 py-2.5 text-sm">
-          <span className="tabular w-14 shrink-0 text-xs text-muted">09-0{i + 1}</span>
-          <div className="min-w-0 flex-1">
-            <div className="truncate">{t.description}</div>
-            <div className="text-xs text-muted">Cuota · *1234 · cuota 6/12</div>
-          </div>
-          <Amount cents={t.amount} currency={t.currency} tone="auto" className="shrink-0" />
-          <RowCategorySelect
-            rowId={t.id}
-            categories={categorias}
-            defaultKind="installment"
-            defaultValue={categorias[i % categorias.length].id}
-          />
-          <button className={botonIcono}>
-            &times;
-          </button>
-        </li>
-      ))}
-    </ul>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="flex flex-wrap items-center gap-2 text-lg font-semibold">
+            <span className="min-w-0 break-words">
+              resumen-con-un-nombre-de-archivo-larguisimo-2026-09.pdf
+            </span>
+            <span className={insignia}>provisorio</span>
+          </h1>
+          <p className="mt-1 text-sm text-muted">
+            Banco Del Centro MASTERCARD · Periodo 2026-09 · 8 filas leidas · 6
+            gastos · 1 por revisar
+            {" · "}
+            <span className="text-positive">reconcilia al centavo</span>
+          </p>
+        </div>
+        <a
+          href="#"
+          className="-my-1.5 shrink-0 py-1.5 text-sm text-muted transition hover:text-foreground"
+        >
+          Volver
+        </a>
+      </div>
+
+      <Aviso tono="acento">
+        Sale de la lista del home banking, de un resumen que todavía no cerró.
+        Los movimientos quedan marcados como provisorios y el PDF real los
+        reemplaza cuando lo subas.
+      </Aviso>
+
+      <div className="flex flex-wrap items-center gap-3 rounded-contenedor border border-negative/40 bg-negative/10 px-3 py-2.5 text-sm">
+        <span className="text-muted">Cuenta</span>
+        <ImportAccountSelect importId="i0" accounts={cuentas} current={cuentas[0].id} />
+        <span className="text-xs text-negative">
+          El resumen dice Visa y la cuenta es una MasterCard. Si no es la que
+          corresponde, cambiala antes de confirmar.
+        </span>
+      </div>
+
+      <section>
+        <h2 className="mb-1 text-base font-semibold">Por revisar (1)</h2>
+        <p className="mb-3 text-sm text-muted">
+          Lo que categorices acá se guarda como regla: el próximo resumen lo
+          mapea solo.
+        </p>
+        <ImportRowList rows={[porRevisar]} categories={categorias} importId="i0" />
+      </section>
+
+      <section>
+        <h2 className="mb-3 text-base font-semibold">Ya mapeadas ({mapeadas.length})</h2>
+        <ImportRowList rows={mapeadas} categories={categorias} importId="i0" />
+      </section>
+
+      <section>
+        <h2 className="mb-1 text-base font-semibold text-muted">
+          No se importan ({filasDescartadas.length})
+        </h2>
+        <p className="mb-3 text-sm text-muted">
+          El resumen las trae y hacen falta para que reconcilie, pero no son
+          gastos: el pago mueve plata entre cuentas propias y ese consumo ya esta
+          contado en las lineas de arriba.
+        </p>
+        <ul className={lista}>
+          {filasDescartadas.map((row) => (
+            <li key={row.id} className="flex items-center gap-3 px-3 py-2 text-sm text-muted">
+              <span className="tabular w-14 shrink-0 text-xs">
+                {row.occurred_on?.slice(5)}
+              </span>
+              <span className="min-w-0 flex-1 truncate">{row.raw_description}</span>
+              <span className="shrink-0 text-xs">Pago</span>
+              <Amount cents={row.amount} currency={row.currency} className="shrink-0" />
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
+        <button className={botonAcento}>Cargar 6 movimientos provisorios</button>
+        <span className="text-sm text-muted">Falta categorizar 1.</span>
+        <div className="ml-auto">
+          <DeleteImportButton importId="i0" transactionCount={0} label="Descartar resumen" />
+        </div>
+      </div>
+    </div>
   );
 }

@@ -1,20 +1,10 @@
-import Link from "next/link";
-
 import { UploadStatementForm } from "@/components/UploadStatementForm";
 import { PasteStatementForm } from "@/components/PasteStatementForm";
-import { DeleteImportButton } from "@/components/DeleteImportButton";
+import { StatementRow, type ImportedStatement } from "@/components/StatementRow";
 import { getAccounts } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
-import { centsFromDb, formatCents } from "@/lib/money";
-import { lista as claseLista, vacio } from "@/components/ui/estilos";
+import { insignia, lista, vacio } from "@/components/ui/estilos";
 import { Aviso } from "@/components/ui/Aviso";
-
-const STATUS_LABELS: Record<string, string> = {
-  pending: "Sin reconciliar",
-  reconciled: "Listo para revisar",
-  rejected: "Rechazado",
-  committed: "Importado",
-};
 
 export default async function ImportsPage({
   searchParams,
@@ -42,37 +32,40 @@ export default async function ImportsPage({
     porImport.set(row.import_id, (porImport.get(row.import_id) ?? 0) + 1);
   }
 
-  const lista = imports.data ?? [];
+  const resumenes = (imports.data ?? []) as unknown as ImportedStatement[];
+  const activas = accounts.filter((a) => a.active);
 
   return (
     <div className="space-y-8">
       <h1 className="text-lg font-semibold">Importar</h1>
 
       <section>
-        <h2 className="mb-1 text-sm font-semibold">Subir resumen cerrado</h2>
-        <p className="mb-3 text-xs text-muted">
+        <h2 className="mb-1 text-base font-semibold">Subir resumen cerrado</h2>
+        <p className="mb-3 text-sm text-muted">
           El PDF que manda el banco. Es el dato definitivo.
         </p>
-        <UploadStatementForm accounts={accounts.filter((a) => a.active)} />
+        <UploadStatementForm accounts={activas} />
       </section>
 
-      <section className="rounded-lg border border-dashed border-border p-4">
-        <h2 className="mb-1 text-sm font-semibold">
-          Adelantar el mes en curso{" "}
-          <span className="ml-1 rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent align-middle">
-            provisorio
-          </span>
+      {/* Sin caja: el borde punteado que tenia decia "aca falta algo" cuando es
+          una de las dos formas de cargar. Que sea provisorio ya lo dicen la
+          insignia y la bajada, y el aire alcanza para separarla de la de
+          arriba. */}
+      <section>
+        <h2 className="mb-1 flex flex-wrap items-center gap-2 text-base font-semibold">
+          Adelantar el mes en curso
+          <span className={insignia}>provisorio</span>
         </h2>
-        <p className="mb-3 text-xs leading-relaxed text-muted">
+        <p className="mb-3 text-sm text-muted">
           El resumen todavía no cerró y no hay PDF, pero los consumos ya están en
           el home banking. Pegá la tabla y mirá cómo viene el mes. Cuando llegue
           el PDF real, lo que cargues acá se reemplaza solo.
         </p>
-        <PasteStatementForm accounts={accounts.filter((a) => a.active)} />
+        <PasteStatementForm accounts={activas} />
       </section>
 
       <section>
-        <h2 className="mb-3 text-sm font-semibold">Resumenes importados</h2>
+        <h2 className="mb-3 text-base font-semibold">Resumenes importados</h2>
 
         {error ? (
           <Aviso tono="negativo" className="mb-3">
@@ -80,56 +73,16 @@ export default async function ImportsPage({
           </Aviso>
         ) : null}
 
-        {lista.length === 0 ? (
-          <p className={vacio}>
-            Todavia no subiste ningun resumen.
-          </p>
+        {resumenes.length === 0 ? (
+          <p className={vacio}>Todavia no subiste ningun resumen.</p>
         ) : (
-          <ul className={claseLista}>
-            {lista.map((imp) => {
-              const count = porImport.get(imp.id) ?? 0;
-              return (
-                <li key={imp.id} className="flex flex-wrap items-center gap-3 px-3 py-3 text-sm">
-                  <div className="min-w-0 flex-1">
-                    <Link href={`/importar/${imp.id}`} className="block truncate hover:underline">
-                      {imp.filename}
-                    </Link>
-                    {imp.provisional ? (
-                      <span className="ml-2 rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
-                        provisorio
-                      </span>
-                    ) : null}
-                    <div className="text-xs text-muted">
-                      {[
-                        (imp.account as unknown as { name: string } | null)?.name,
-                        imp.period_close,
-                        STATUS_LABELS[imp.status] ?? imp.status,
-                        count > 0 ? `${count} movimientos` : null,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </div>
-                  </div>
-                  <span className="tabular shrink-0 text-right">
-                    <span className="block">
-                      {formatCents(centsFromDb(imp.declared_total_ars))}
-                    </span>
-                    {/* Sin fx_rates cargadas no hay cotizacion honesta: los
-                        dolares se muestran aparte, nunca pesificados. */}
-                    {centsFromDb(imp.declared_total_usd) !== 0 ? (
-                      <span className="block text-xs text-muted">
-                        {formatCents(centsFromDb(imp.declared_total_usd), "USD")}
-                      </span>
-                    ) : null}
-                  </span>
-                  <DeleteImportButton importId={imp.id} transactionCount={count} />
-                </li>
-              );
-            })}
+          <ul className={lista}>
+            {resumenes.map((imp) => (
+              <StatementRow key={imp.id} imp={imp} movimientos={porImport.get(imp.id) ?? 0} />
+            ))}
           </ul>
         )}
       </section>
-
     </div>
   );
 }

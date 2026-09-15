@@ -5,7 +5,7 @@ import { useActionState, useState } from "react";
 import { deleteAccount, setAccountActive, updateAccount, type FormState } from "@/app/actions";
 import { SubmitButton } from "@/components/SubmitButton";
 import type { AccountActivity } from "@/lib/data";
-import { campoCompacto as field } from "@/components/ui/estilos";
+import { botonBorde, campoCompacto as field } from "@/components/ui/estilos";
 import { Aviso } from "@/components/ui/Aviso";
 
 export const ACCOUNT_TYPE_LABELS: Record<string, string> = {
@@ -138,7 +138,7 @@ export function AccountRow({
             <input type="hidden" name="id" value={account.id} />
             <button
               type="submit"
-              className="rounded border border-negative/50 px-2 py-1 text-negative hover:bg-negative/10"
+              className={botonBorde("peligro")}
             >
               Si, borrar
             </button>

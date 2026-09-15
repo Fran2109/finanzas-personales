@@ -87,3 +87,21 @@ export function chip(activo: boolean): string {
       : "border-border bg-surface text-muted hover:text-foreground"
   }`;
 }
+
+/**
+ * El boton secundario, el que lleva borde en vez de relleno.
+ *
+ * Existia en cuatro copias que divergieron en radio y padding, y dos de ellas
+ * —el "Si, borrar" de `AccountRow` y el de `DeleteImportButton`— eran el mismo
+ * string escrito en dos archivos. Los tonos no son decorativos: el neutro es
+ * una accion mas, el acento es la que confirma un cambio que ya elegiste, y el
+ * peligro es la que no tiene vuelta atras.
+ */
+export function botonBorde(tono: "neutro" | "acento" | "peligro" = "neutro"): string {
+  const color = {
+    neutro: "border-border text-muted hover:text-foreground",
+    acento: "border-accent text-accent",
+    peligro: "border-negative/50 text-negative hover:bg-negative/10",
+  }[tono];
+  return `rounded-control border px-2.5 py-1.5 text-sm transition ${color}`;
+}

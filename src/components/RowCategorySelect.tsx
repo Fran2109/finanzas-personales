@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 
 import { setRowCategory } from "@/app/import-actions";
+import { botonBorde, campoCompacto } from "@/components/ui/estilos";
 import {
   CATEGORY_KIND_FOR,
   KIND_LABELS,
@@ -61,7 +62,7 @@ export function RowCategorySelect({
           setCreating(false);
         }}
         aria-label="Tipo de movimiento"
-        className="min-w-28 flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-xs sm:w-36 sm:flex-none"
+        className={`${campoCompacto} min-w-28 flex-1 sm:w-36 sm:flex-none`}
       >
         {MANUAL_KINDS.map((k) => (
           <option key={k} value={k}>
@@ -77,7 +78,7 @@ export function RowCategorySelect({
           autoFocus
           placeholder="Seguros"
           aria-label="Nombre de la categoria nueva"
-          className="min-w-32 flex-1 rounded-md border border-accent bg-background px-2 py-1.5 text-xs sm:w-44 sm:flex-none"
+          className={`${campoCompacto} min-w-32 flex-1 border-accent sm:w-44 sm:flex-none`}
         />
       ) : (
         <select
@@ -90,7 +91,7 @@ export function RowCategorySelect({
             if (e.target.value === "__nueva__") setCreating(true);
           }}
           aria-label="Categoria"
-          className="min-w-32 flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-xs sm:w-44 sm:flex-none"
+          className={`${campoCompacto} min-w-32 flex-1 sm:w-44 sm:flex-none`}
         >
           <option value="">Sin categoria</option>
           {opciones.map((c) => (
@@ -104,7 +105,7 @@ export function RowCategorySelect({
 
       <button
         type="submit"
-        className="rounded border border-border px-2 py-1.5 text-xs text-muted hover:text-foreground"
+        className={botonBorde()}
       >
         Guardar
       </button>
@@ -114,7 +115,7 @@ export function RowCategorySelect({
           type="button"
           onClick={() => setCreating(false)}
           aria-label="Cancelar categoria nueva"
-          className="text-xs text-muted hover:text-foreground"
+          className="-my-1.5 py-1.5 text-sm text-muted transition hover:text-foreground"
         >
           Cancelar
         </button>

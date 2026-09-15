@@ -2,8 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { Amount } from "@/components/Amount";
-import { commitImport, discardRow } from "@/app/import-actions";
-import { RowCategorySelect } from "@/components/RowCategorySelect";
+import { commitImport } from "@/app/import-actions";
+import { ImportRowList, type ImportRow } from "@/components/ImportRowList";
 import { ImportAccountSelect } from "@/components/ImportAccountSelect";
 import { DeleteImportButton } from "@/components/DeleteImportButton";
 import { createClient } from "@/lib/supabase/server";
@@ -15,7 +15,7 @@ import {
 } from "@/lib/import/match-account";
 import { KIND_LABELS, type Kind } from "@/lib/domain";
 import { centsFromDb } from "@/lib/money";
-import { botonAcento, botonIcono, lista } from "@/components/ui/estilos";
+import { botonAcento, insignia, lista } from "@/components/ui/estilos";
 import { Aviso } from "@/components/ui/Aviso";
 
 export default async function ReviewImportPage({
@@ -64,9 +64,18 @@ export default async function ReviewImportPage({
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <div>
-          <h1 className="text-lg font-semibold">{imported.data.filename}</h1>
-          <p className="text-sm text-muted">
+        <div className="min-w-0">
+          <h1 className="flex flex-wrap items-center gap-2 text-lg font-semibold">
+            <span className="min-w-0 break-words">{imported.data.filename}</span>
+            {imported.data.provisional ? (
+              <span className={insignia}>provisorio</span>
+            ) : null}
+          </h1>
+          {/* "Reconcilia" era un recuadro verde, y un import que no reconcilia
+              ni llega hasta aca: siempre decia que si. Un cartel que nunca
+              cambia es ruido con forma de noticia, asi que va como un dato mas
+              de la ficha del resumen. */}
+          <p className="mt-1 text-sm text-muted">
             {[
               identity ? statementLabel(identity) : null,
               imported.data.provisional
@@ -78,42 +87,34 @@ export default async function ReviewImportPage({
             ]
               .filter(Boolean)
               .join(" · ")}
+            {" · "}
+            <span className="text-positive">reconcilia al centavo</span>
           </p>
         </div>
-        <Link href="/importar" className="text-sm text-muted hover:text-foreground">
+        <Link
+          href="/importar"
+          className="-my-1.5 shrink-0 py-1.5 text-sm text-muted transition hover:text-foreground"
+        >
           Volver
         </Link>
       </div>
 
-      {error ? (
-        <Aviso tono="negativo">
-          {error}
+      {error ? <Aviso tono="negativo">{error}</Aviso> : null}
+
+      {imported.data.provisional ? (
+        <Aviso tono="acento">
+          Sale de la lista del home banking, de un resumen que todavía no cerró.
+          Los movimientos quedan marcados como provisorios y el PDF real los
+          reemplaza cuando lo subas.
         </Aviso>
       ) : null}
 
-      <div className="rounded-lg border border-positive/40 bg-positive/10 px-3 py-2 text-sm">
-        <strong className="text-positive">Reconcilia.</strong>{" "}
-        <span className="text-muted">
-          La suma de las filas da el total declarado, al centavo, en cada moneda.
-        </span>
-      </div>
-
-      {imported.data.provisional ? (
-        <div className="rounded-lg border border-accent/40 bg-accent/10 px-3 py-2 text-sm">
-          <strong className="text-accent">Provisorio.</strong>{" "}
-          <span className="text-muted">
-            Sale de la lista del home banking, de un resumen que todavía no
-            cerró. Los movimientos quedan marcados como provisorios y el PDF
-            real los reemplaza cuando lo subas.
-          </span>
-        </div>
-      ) : null}
-
-      {/* La cuenta se deduce del resumen, asi que se muestra donde todavia se
-          puede corregir: despues de confirmar forma parte de la huella de cada
-          movimiento y ya no se cambia. */}
+      {/* El unico bloque con caja de la pantalla, porque es lo unico accionable
+          de la cabecera. La cuenta se deduce del resumen, asi que se muestra
+          donde todavia se puede corregir: despues de confirmar forma parte de
+          la huella de cada movimiento y ya no se cambia. */}
       <div
-        className={`flex flex-wrap items-center gap-3 rounded-lg border px-3 py-2 text-sm ${
+        className={`flex flex-wrap items-center gap-3 rounded-contenedor border px-3 py-2.5 text-sm ${
           conflicto ? "border-negative/40 bg-negative/10" : "border-border bg-surface"
         }`}
       >
@@ -136,23 +137,21 @@ export default async function ReviewImportPage({
 
       {porRevisar.length > 0 ? (
         <section>
-          <h2 className="mb-1 text-sm font-semibold">
-            Por revisar ({porRevisar.length})
-          </h2>
-          <p className="mb-3 text-xs text-muted">
+          <h2 className="mb-1 text-base font-semibold">Por revisar ({porRevisar.length})</h2>
+          <p className="mb-3 text-sm text-muted">
             Lo que categorices acá se guarda como regla: el próximo resumen lo
             mapea solo.
           </p>
-          <RowTable rows={porRevisar} categories={categories} importId={id} />
+          <ImportRowList rows={porRevisar} categories={categories} importId={id} />
         </section>
       ) : null}
 
       <section>
-        <h2 className="mb-3 text-sm font-semibold">
+        <h2 className="mb-3 text-base font-semibold">
           {porRevisar.length > 0 ? "Ya mapeadas" : "Movimientos"} (
           {yaImportado ? movimientosCreados : pending.length - porRevisar.length})
         </h2>
-        <RowTable
+        <ImportRowList
           rows={(yaImportado ? rows.filter((r) => r.status === "accepted") : pending).filter(
             (r) => !r.needs_review,
           )}
@@ -164,16 +163,18 @@ export default async function ReviewImportPage({
 
       {descartadas.length > 0 ? (
         <section>
-          <h2 className="mb-1 text-sm font-semibold text-muted">
+          <h2 className="mb-1 text-base font-semibold text-muted">
             No se importan ({descartadas.length})
           </h2>
-          <p className="mb-3 text-xs leading-relaxed text-muted">
+          <p className="mb-3 text-sm text-muted">
             El resumen las trae y hacen falta para que reconcilie, pero no son
             gastos: el pago mueve plata entre cuentas propias y ese consumo ya
             esta contado en las lineas de arriba.
           </p>
-          <ul className="divide-y divide-border rounded-lg border border-dashed border-border">
-            {descartadas.map((row) => (
+          {/* Banda como el resto de las listas: lo que dice que no entran son el
+              titulo, la bajada y el gris, no una caja punteada alrededor. */}
+          <ul className={lista}>
+            {(descartadas as unknown as ImportRow[]).map((row) => (
               <li
                 key={row.id}
                 className="flex items-center gap-3 px-3 py-2 text-sm text-muted"
@@ -182,9 +183,7 @@ export default async function ReviewImportPage({
                   {row.occurred_on?.slice(5)}
                 </span>
                 <span className="min-w-0 flex-1 truncate">{row.raw_description}</span>
-                <span className="shrink-0 text-xs">
-                  {KIND_LABELS[row.kind as Kind]}
-                </span>
+                <span className="shrink-0 text-xs">{KIND_LABELS[row.kind as Kind]}</span>
                 <Amount
                   cents={centsFromDb(row.amount)}
                   currency={row.currency}
@@ -200,31 +199,21 @@ export default async function ReviewImportPage({
         <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
           <form action={commitImport}>
             <input type="hidden" name="import_id" value={id} />
-            <button
-              type="submit"
-              disabled={porRevisar.length > 0}
-              className={botonAcento}
-            >
+            <button type="submit" disabled={porRevisar.length > 0} className={botonAcento}>
               {imported.data.provisional
                 ? `Cargar ${pending.length} movimientos provisorios`
                 : `Confirmar e importar ${pending.length} movimientos`}
             </button>
           </form>
           {porRevisar.length > 0 ? (
-            <span className="text-xs text-muted">
-              Falta categorizar {porRevisar.length}.
-            </span>
+            <span className="text-sm text-muted">Falta categorizar {porRevisar.length}.</span>
           ) : null}
           <div className="ml-auto">
-            <DeleteImportButton
-              importId={id}
-              transactionCount={0}
-              label="Descartar resumen"
-            />
+            <DeleteImportButton importId={id} transactionCount={0} label="Descartar resumen" />
           </div>
         </div>
       ) : (
-        <div className="flex items-center gap-3 border-t border-border pt-4">
+        <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
           <span className="text-sm text-muted">
             Ya importado: {movimientosCreados} movimientos en tus cuentas.
           </span>
@@ -238,97 +227,5 @@ export default async function ReviewImportPage({
         </div>
       )}
     </div>
-  );
-}
-
-type Row = {
-  id: string;
-  occurred_on: string | null;
-  raw_description: string;
-  amount: number;
-  currency: string;
-  kind: string;
-  card_last4: string | null;
-  cuota_current: number | null;
-  cuota_total: number | null;
-  suggested_category_id: string | null;
-};
-
-function RowTable({
-  rows,
-  categories,
-  importId,
-  readOnly = false,
-}: {
-  rows: Row[];
-  categories: { id: string; name: string; kind: Kind }[];
-  importId: string;
-  readOnly?: boolean;
-}) {
-  if (rows.length === 0) {
-    return <p className="text-sm text-muted">Nada por acá.</p>;
-  }
-
-  return (
-    <ul className={lista}>
-      {rows.map((row) => {
-        const kind = row.kind as Kind;
-        return (
-          <li key={row.id} className="flex flex-wrap items-center gap-3 px-3 py-2.5 text-sm">
-            <span className="tabular w-14 shrink-0 text-xs text-muted">
-              {row.occurred_on?.slice(5)}
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="truncate">{row.raw_description}</div>
-              <div className="text-xs text-muted">
-                {[
-                  kind !== "consumption" ? KIND_LABELS[kind] : null,
-                  row.card_last4 ? `*${row.card_last4}` : null,
-                  row.cuota_current ? `cuota ${row.cuota_current}/${row.cuota_total}` : null,
-                ]
-                  .filter(Boolean)
-                  .join(" · ") || " "}
-              </div>
-            </div>
-            <Amount
-              cents={centsFromDb(row.amount)}
-              currency={row.currency}
-              tone="auto"
-              className="shrink-0"
-            />
-            {readOnly ? (
-              <span className="w-full text-xs text-muted sm:w-44 sm:shrink-0 sm:text-right">
-                {categories.find((c) => c.id === row.suggested_category_id)?.name ??
-                  "Sin categoria"}
-              </span>
-            ) : (
-              <RowCategorySelect
-                // Remonta el selector cuando cambia lo guardado, asi despues de
-                // un save siempre muestra lo que quedo en la base y no la
-                // eleccion local que lo produjo.
-                key={`${row.kind}-${row.suggested_category_id ?? ""}`}
-                rowId={row.id}
-                categories={categories}
-                defaultKind={kind}
-                defaultValue={row.suggested_category_id ?? ""}
-              />
-            )}
-            {!readOnly ? (
-              <form action={discardRow}>
-                <input type="hidden" name="row_id" value={row.id} />
-                <input type="hidden" name="import_id" value={importId} />
-                <button
-                  type="submit"
-                  aria-label="Descartar fila"
-                  className={botonIcono}
-                >
-                  &times;
-                </button>
-              </form>
-            ) : null}
-          </li>
-        );
-      })}
-    </ul>
   );
 }

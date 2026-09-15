@@ -15,12 +15,12 @@ import { formatCents } from "@/lib/money";
  */
 export function UploadDiagnostico({ d }: { d: NonNullable<UploadState["diagnostico"]> }) {
   return (
-    <div className="space-y-4 rounded-lg border border-negative/40 bg-negative/5 p-3">
+    <div className="space-y-4 rounded-contenedor border border-negative/40 bg-negative/5 p-3">
       <div>
-        <h3 className="text-sm font-semibold text-negative">
+        <h3 className="text-base font-semibold text-negative">
           No reconcilia, asi que no se importo nada
         </h3>
-        <p className="mt-1 text-xs text-muted">
+        <p className="mt-1 text-sm text-muted">
           {[d.brand, d.periodClose ? `cierre ${d.periodClose}` : null, `${d.rows.length} filas leidas`]
             .filter(Boolean)
             .join(" · ")}
@@ -31,7 +31,7 @@ export function UploadDiagnostico({ d }: { d: NonNullable<UploadState["diagnosti
         {d.currencies.map((c) => (
           <div
             key={c.currency}
-            className={`rounded-md border px-3 py-2 text-xs ${
+            className={`rounded-control border px-3 py-2 text-xs ${
               c.ok ? "border-border" : "border-negative/50"
             }`}
           >
@@ -53,12 +53,12 @@ export function UploadDiagnostico({ d }: { d: NonNullable<UploadState["diagnosti
 
       {d.unparsedLines.length > 0 ? (
         <div>
-          <h4 className="mb-1 text-xs font-medium text-negative">
+          <h4 className="mb-1 text-sm font-medium text-negative">
             Lineas que no se pudieron leer ({d.unparsedLines.length})
           </h4>
           <ul className="space-y-1">
             {d.unparsedLines.map((l, i) => (
-              <li key={i} className="rounded bg-background px-2 py-1 font-mono text-xs">
+              <li key={i} className="rounded-control bg-background px-2 py-1 font-mono text-xs">
                 {l}
               </li>
             ))}
@@ -67,12 +67,12 @@ export function UploadDiagnostico({ d }: { d: NonNullable<UploadState["diagnosti
       ) : null}
 
       <div>
-        <h4 className="mb-1 text-xs font-medium">Lo que leyo, fila por fila</h4>
-        <p className="mb-2 text-xs text-muted">
+        <h4 className="mb-1 text-sm font-medium">Lo que leyo, fila por fila</h4>
+        <p className="mb-2 text-sm text-muted">
           Compara con el PDF: si una diferencia aparece igual y opuesta en las
           dos monedas, hay un monto leido en la columna equivocada.
         </p>
-        <div className="max-h-96 overflow-auto rounded-md border border-border">
+        <div className="max-h-96 overflow-auto rounded-control border border-border">
           <table className="w-full text-xs">
             <thead className="sticky top-0 bg-surface text-muted">
               <tr>

@@ -8,6 +8,8 @@
 import type { Account, Category, Transaction } from "@/lib/data";
 import type { Currency } from "@/lib/domain";
 import type { InstallmentRow } from "@/lib/commitments";
+import type { ImportRow } from "@/components/ImportRowList";
+import type { ImportedStatement } from "@/components/StatementRow";
 import type { Cents } from "@/lib/money";
 
 export const MES = "2026-09";
@@ -97,3 +99,36 @@ export const cuotas: InstallmentRow[] = [
   }
   return filas;
 });
+
+/** Las lineas transcritas de un resumen, como las ve la pantalla de revision. */
+export const filasImportadas: ImportRow[] = DESCS.map((raw_description, i) => ({
+  id: `r${i}`,
+  occurred_on: `2026-09-0${(i % 9) + 1}`,
+  raw_description,
+  amount: [12895.39, 450, 2334, 89900, 123456.78, 9.9][i],
+  currency: i === 4 ? "USD" : "ARS",
+  kind: (["consumption", "installment", "tax_fee", "financing", "refund", "consumption"] as const)[i],
+  card_last4: i % 2 === 0 ? "1234" : null,
+  cuota_current: i % 3 === 0 ? 6 : null,
+  cuota_total: i % 3 === 0 ? 12 : null,
+  suggested_category_id: i === 1 ? null : categorias[i % categorias.length].id,
+}));
+
+/** Lo que el resumen trae y no es gasto: se lista aparte, nunca se importa. */
+export const filasDescartadas: ImportRow[] = [
+  { kind: "payment", raw_description: "SU PAGO EN PESOS" },
+  { kind: "income", raw_description: "SALDO ANTERIOR A FAVOR" },
+].map((r, i) => ({
+  ...filasImportadas[i],
+  ...r,
+  id: `d${i}`,
+  cuota_current: null,
+  cuota_total: null,
+}));
+
+/** El listado de resumenes ya subidos. */
+export const resumenes: ImportedStatement[] = [
+  { id: "i0", filename: "resumen-con-un-nombre-de-archivo-larguisimo-2026-09.pdf", period_close: "2026-09-28", status: "committed", provisional: false, declared_total_ars: 1664654.03, declared_total_usd: 1234.56, account: { name: cuentas[0].name } },
+  { id: "i1", filename: "pegado-2026-09.txt", period_close: "2026-09-30", status: "reconciled", provisional: true, declared_total_ars: 233400.5, declared_total_usd: 0, account: { name: cuentas[1].name } },
+  { id: "i2", filename: "resumen-2026-08.pdf", period_close: "2026-08-28", status: "rejected", provisional: false, declared_total_ars: 98765.43, declared_total_usd: 0, account: null },
+];
