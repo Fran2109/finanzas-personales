@@ -17,6 +17,7 @@
 import { notFound } from "next/navigation";
 
 import { AccountForm } from "@/components/AccountForm";
+import { AnalisisView } from "@/components/AnalisisView";
 import { AccountRow } from "@/components/AccountRow";
 import { Amount } from "@/components/Amount";
 import { CategoryForm } from "@/components/CategoryForm";
@@ -26,7 +27,15 @@ import { PasswordForm } from "@/components/PasswordForm";
 import { PasteStatementForm } from "@/components/PasteStatementForm";
 import { RowCategorySelect } from "@/components/RowCategorySelect";
 import { UploadStatementForm } from "@/components/UploadStatementForm";
-import { cuentas, categorias, movimientos, summary, MES } from "./datos";
+import {
+  commitmentCalendar,
+  committedShare,
+  installmentFlow,
+  openPlans,
+  remainingByCategory,
+  withCurrentMonth,
+} from "@/lib/commitments";
+import { cuentas, categorias, cuotas, movimientos, summary, MES } from "./datos";
 import { botonIcono, gridDosColumnas, lista } from "@/components/ui/estilos";
 
 /**
@@ -38,6 +47,7 @@ export const dynamic = "force-dynamic";
 
 export const PANTALLAS = [
   "mes",
+  "analisis",
   "cuentas",
   "ajustes",
   "importar",
@@ -70,6 +80,7 @@ export default async function Verificacion({
       </header>
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">
         {p === "mes" ? <Mes /> : null}
+        {p === "analisis" ? <Analisis /> : null}
         {p === "cuentas" ? <Cuentas /> : null}
         {p === "ajustes" ? <Ajustes /> : null}
         {p === "importar" ? <Importar /> : null}
@@ -94,6 +105,46 @@ function Mes() {
       provisorios={2}
       reemplazo={4}
       defaultDate="2026-09-15"
+    />
+  );
+}
+
+function Analisis() {
+  const horizonte = new Map(cuotas.map((r) => [r.accountId, MES]));
+  const planes = openPlans(cuotas, horizonte, MES);
+  const calendario = withCurrentMonth(commitmentCalendar(planes, 12), cuotas, MES);
+  const periodos = [...new Set(cuotas.map((r) => r.period))].sort().reverse();
+  const falta = remainingByCategory(planes);
+
+  return (
+    <AnalisisView
+      flujo={installmentFlow(cuotas).filter((f) => f.currency === "ARS")}
+      faltaPorCategoria={falta}
+      variacion={[
+        { label: "Financiacion", before: 41000000, after: 51732748, delta: 10732748 },
+        { label: "Celular", before: 12000000, after: 8999991, delta: -3000009 },
+        { label: "Una categoria con nombre largo", before: 0, after: 6616668, delta: 6616668 },
+      ]}
+      comparados={{ anterior: "2026-08", ultimo: MES }}
+      ultimoEsProvisorio
+      planes={planes}
+      calendario={calendario}
+      historico={periodos.map((period) => ({
+        period,
+        share: committedShare(
+          cuotas
+            .filter((r) => r.period === period)
+            .map((r) => ({ amount: r.amount, currency: r.currency, kind: "installment" })),
+        ),
+        provisorios: period === MES ? 4 : 0,
+        total: cuotas.filter((r) => r.period === period).length,
+      }))}
+      categorias={falta}
+      totalCategorias={falta.reduce((t, c) => t + c.value, 0)}
+      faltaPorPagar={[
+        { currency: "ARS", amount: planes.reduce((t, x) => t + x.unpaidTotal, 0) },
+      ]}
+      periodos={periodos}
     />
   );
 }

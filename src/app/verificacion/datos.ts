@@ -7,6 +7,7 @@
  */
 import type { Account, Category, Transaction } from "@/lib/data";
 import type { Currency } from "@/lib/domain";
+import type { InstallmentRow } from "@/lib/commitments";
 import type { Cents } from "@/lib/money";
 
 export const MES = "2026-09";
@@ -57,3 +58,42 @@ export const summary = {
     total: (9000000 - i * 1200000) as Cents,
   })),
 };
+
+/**
+ * Las cuotas de donde sale todo lo de Analisis.
+ *
+ * Se arman con las funciones reales (`openPlans`, `commitmentCalendar`...) y no
+ * a mano: un fixture calculado a mano se desfasa del calculo y termina
+ * mostrando una pantalla que no existe.
+ */
+export const cuotas: InstallmentRow[] = [
+  ["Plan de refinanciacion consolidado (TNA 37,00)", "Financiacion", 51732748, 6, 12],
+  ["Tienda de electrodomesticos del centro", "Celular", 8999991, 8, 12],
+  ["Marketplace*vendedor-con-nombre-larguisimo", "Regalo", 7445292, 2, 6],
+  ["Cuotas de una compra de verano", "Prestado", 4200241, 5, 12],
+  ["Optica y accesorios", "Moto", 10950962, 1, 3],
+  ["Servicio tecnico", "Regalo", 6616668, 1, 3],
+  ["Muebleria", "Prestado", 28701500, 3, 3],
+  ["Indumentaria deportiva", "Moto", 8843168, 2, 3],
+  ["Libreria", "Regalo", 1463333, 2, 3],
+].flatMap(([desc, cat, amount, actual, total]) => {
+  const filas: InstallmentRow[] = [];
+  for (let c = Math.max(1, (actual as number) - 2); c <= (actual as number); c++) {
+    const meses = (actual as number) - c;
+    const [y, m] = MES.split("-").map(Number);
+    const d = new Date(Date.UTC(y, m - 1 - meses, 1));
+    filas.push({
+      accountId: cat as string,
+      accountName: "Banco - Tarjeta",
+      merchant: desc as string,
+      description: desc as string,
+      categoryName: cat as string,
+      amount: amount as Cents,
+      currency: "ARS",
+      cuotaCurrent: c,
+      cuotaTotal: total as number,
+      period: `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`,
+    });
+  }
+  return filas;
+});

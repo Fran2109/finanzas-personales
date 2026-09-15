@@ -9,7 +9,7 @@ import type { CommittedShare, FuturePeriod, MonthFlow, Plan } from "@/lib/commit
 import type { CategoryDelta } from "@/lib/analysis";
 import { formatPeriod, shiftPeriod, type Currency } from "@/lib/domain";
 import { formatCents, type Cents } from "@/lib/money";
-import { lista, vacio } from "@/components/ui/estilos";
+import { insignia, lista, vacio } from "@/components/ui/estilos";
 
 export type MesHistorico = {
   period: string;
@@ -69,52 +69,45 @@ export function AnalisisView({
       ) : (
         <>
           <section>
-            <h2 className="mb-1 text-sm font-semibold">Lo que falta pagar</h2>
-            <p className="mb-3 text-xs leading-relaxed text-muted">
-              La suma de todas las cuotas que faltan pagar de {planes.length} compra
-              {planes.length === 1 ? "" : "s"} que todavía estás pagando. Incluye
-              la cuota del resumen en curso: ya está cargada, pero se paga recién
-              el mes que viene. Es el mismo total que suma el calendario de acá
-              abajo.
+            <h2 className="mb-1 text-base font-semibold">Lo que falta pagar</h2>
+            {faltaPorPagar.map((t) => (
+              <p key={t.currency} className="mb-2 text-base leading-snug">
+                Te falta pagar{" "}
+                <Amount
+                  cents={t.amount}
+                  currency={t.currency}
+                  className="cifra align-baseline text-2xl"
+                />
+                .
+              </p>
+            ))}
+            <p className="mb-5 text-sm leading-relaxed text-muted">
+              De {planes.length} compra{planes.length === 1 ? "" : "s"} que
+              todavía estás pagando. Incluye la cuota del resumen en curso: ya
+              está cargada, pero se paga recién el mes que viene. Es el mismo
+              total que suma el calendario de acá abajo.
             </p>
-            <div className="grid gap-3 sm:grid-cols-3">
-              {faltaPorPagar.map((t) => (
-                <div
-                  key={t.currency}
-                  className="rounded-lg border border-accent/40 bg-accent/5 px-3 py-2.5"
-                >
-                  <div className="text-xs text-muted">
-                    Falta pagar {t.currency !== "ARS" ? t.currency : null}
-                  </div>
-                  <Amount
-                    cents={t.amount}
-                    currency={t.currency}
-                    className="cifra mt-0.5 block text-2xl"
-                  />
-                </div>
-              ))}
-            </div>
 
             {faltaPorCategoria.length > 1 ? (
-              <div className="mt-3 rounded-lg border border-border bg-surface px-3 py-3">
-                <p className="mb-3 text-xs leading-relaxed text-muted">
+              <>
+                <p className="mb-3 text-sm leading-relaxed text-muted">
                   En qué se te va a ir esa plata. Lo que sea costo de
                   financiarse no compró nada: es lo que pagás <em>por</em> pagar
                   en cuotas.
                 </p>
                 <BarList bars={faltaPorCategoria} />
-              </div>
+              </>
             ) : null}
           </section>
 
           <section>
-            <h2 className="mb-1 text-sm font-semibold">¿Te estás soltando o atando?</h2>
-            <p className="mb-3 text-xs leading-relaxed text-muted">
+            <h2 className="mb-1 text-base font-semibold">¿Te estás soltando o atando?</h2>
+            <p className="mb-3 text-sm leading-relaxed text-muted">
               Cada mes entra compromiso (compras nuevas en cuotas) y sale
               (planes que pagaron su última). El saldo dice con cuánta cuota fija
               arranca el mes siguiente comparado con el anterior.
             </p>
-            <div className="rounded-lg border border-border bg-surface px-3 py-3">
+            <div>
               <DivergingBars
                 items={flujo.map((f) => ({
                   label: formatPeriod(f.period),
@@ -127,7 +120,7 @@ export function AnalisisView({
                 izquierda="te soltaste"
                 derecha="te ataste"
               />
-              <p className="mt-3 text-xs leading-relaxed text-muted">
+              <p className="mt-3 text-sm leading-relaxed text-muted">
                 Un plan que empezó antes del primer resumen importado nunca
                 aparece como tomado: no se lo vio arrancar. Por eso los primeros
                 meses subestiman lo que entró.
@@ -136,13 +129,13 @@ export function AnalisisView({
           </section>
 
           <section>
-            <h2 className="mb-1 text-sm font-semibold">El mes en curso y los que vienen</h2>
-            <p className="mb-3 text-xs leading-relaxed text-muted">
+            <h2 className="mb-1 text-base font-semibold">El mes en curso y los que vienen</h2>
+            <p className="mb-3 text-sm leading-relaxed text-muted">
               Cada mes arranca con esto ya gastado, antes de que compres nada. El
               mes en curso va en gris porque no es proyección: son las cuotas que
               ya tenés cargadas, el mismo número que “Mes” filtrando por Cuotas.
             </p>
-            <div className="mb-3 overflow-x-auto rounded-lg border border-border bg-surface p-3">
+            <div className="mb-4 overflow-x-auto">
               <ColumnChart
                 columns={calendario.map((mes) => ({
                   label: mes.period.slice(5) + "/" + mes.period.slice(2, 4),
@@ -199,8 +192,8 @@ export function AnalisisView({
           </section>
 
           <section>
-            <h2 className="mb-1 text-sm font-semibold">Compras en curso</h2>
-            <p className="mb-3 text-xs text-muted">
+            <h2 className="mb-1 text-base font-semibold">Compras en curso</h2>
+            <p className="mb-3 text-sm text-muted">
               Cuándo se libera cada una. Una que termina este mes sigue acá hasta
               que se pague el resumen.
             </p>
@@ -249,8 +242,8 @@ export function AnalisisView({
       )}
 
       <section>
-        <h2 className="mb-1 text-sm font-semibold">Cuánto ya estaba decidido</h2>
-        <p className="mb-3 text-xs leading-relaxed text-muted">
+        <h2 className="mb-1 text-base font-semibold">Cuánto ya estaba decidido</h2>
+        <p className="mb-3 text-sm leading-relaxed text-muted">
           De cada mes cerrado, qué parte eran cuotas de compras anteriores. Sobre
           esa parte no se podía hacer nada ese mes: ya estaba comprometida.
         </p>
@@ -263,12 +256,12 @@ export function AnalisisView({
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <Link
                   href={`/?mes=${mes.period}`}
-                  className="text-sm font-medium capitalize hover:underline"
+                  className="-my-1.5 py-1.5 text-base font-medium capitalize hover:underline"
                 >
                   {formatPeriod(mes.period)}
                 </Link>
                 {mes.provisorios > 0 ? (
-                  <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
+                  <span className={insignia}>
                     {mes.provisorios} de {mes.total} provisorios
                   </span>
                 ) : null}
@@ -297,13 +290,13 @@ export function AnalisisView({
 
       {variacion.length > 0 && comparados ? (
         <section>
-          <h2 className="mb-1 text-sm font-semibold">Qué cambió respecto del mes anterior</h2>
-          <p className="mb-3 text-xs leading-relaxed text-muted">
+          <h2 className="mb-1 text-base font-semibold">Qué cambió respecto del mes anterior</h2>
+          <p className="mb-3 text-sm leading-relaxed text-muted">
             {formatPeriod(comparados.ultimo)} contra{" "}
             {formatPeriod(comparados.anterior)}, en pesos. Una categoría que
             aparece o desaparece cuenta como cambio: suele ser el más grande.
           </p>
-          <div className="rounded-lg border border-border bg-surface px-3 py-3">
+          <div>
             <DivergingBars
               items={variacion.slice(0, 8).map((v) => ({
                 label: v.label,
@@ -315,7 +308,7 @@ export function AnalisisView({
               derecha="gastaste más"
             />
             {ultimoEsProvisorio ? (
-              <p className="mt-3 text-xs leading-relaxed text-muted">
+              <p className="mt-3 text-sm leading-relaxed text-muted">
                 {formatPeriod(comparados.ultimo)} todavía tiene movimientos
                 provisorios: el resumen no cerró, así que va a seguir subiendo.
                 Leerlo como tendencia es leer de más.
@@ -327,12 +320,12 @@ export function AnalisisView({
 
       {categorias.length > 0 ? (
         <section>
-          <h2 className="mb-1 text-sm font-semibold">En qué se va</h2>
-          <p className="mb-3 text-xs leading-relaxed text-muted">
+          <h2 className="mb-1 text-base font-semibold">En qué se va</h2>
+          <p className="mb-3 text-sm leading-relaxed text-muted">
             Todo el historial, en pesos. Lo de arriba manda: apretarse con lo de
             abajo casi no mueve la aguja.
           </p>
-          <div className="rounded-lg border border-border bg-surface px-3 py-3">
+          <div>
             <BarList bars={categorias} total={totalCategorias} />
           </div>
         </section>

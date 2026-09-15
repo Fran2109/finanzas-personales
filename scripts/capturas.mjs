@@ -41,7 +41,7 @@ if (!chromium) {
 }
 
 const BASE = process.env.BASE ?? "http://localhost:3210";
-const PANTALLAS = ["mes", "cuentas", "ajustes", "importar", "revision", "login"];
+const PANTALLAS = ["mes", "analisis", "cuentas", "ajustes", "importar", "revision", "login"];
 const TEMAS = ["light", "dark"];
 /** Un ancho de escritorio y uno de telefono: el layout cambia entre los dos. */
 const ANCHOS = [900, 375];

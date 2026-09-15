@@ -41,7 +41,7 @@ if (!chromium) {
 const BASE = process.env.BASE ?? "http://localhost:3210";
 // 320 es el telefono chico de verdad y es el peor caso; 1920 es un monitor.
 const ANCHOS = [320, 375, 414, 667, 768, 1024, 1280, 1920];
-const PANTALLAS = ["mes", "cuentas", "ajustes", "importar", "revision", "login"];
+const PANTALLAS = ["mes", "analisis", "cuentas", "ajustes", "importar", "revision", "login"];
 /** Menos de esto no se acierta con el dedo. */
 const TARGET_MIN = 28;
 
