@@ -57,7 +57,7 @@ El esquema del remoto está versionado en `supabase/migrations/`. Los nombres de
 archivo coinciden con las versiones registradas (`20260914112501_init`,
 `20260914134533_add_installment_kind`, `20260914140347_add_statement_period`,
 `20260914170801_add_provisional_imports`, `20260914181405_add_cuota_total`,
-`20260915120000_rename_tables_prefix`), así que `db push` no los reaplica.
+`20260915102537_rename_tables_prefix`), así que `db push` no los reaplica.
 
 El rename a `finanzas_*` es `alter table ... rename`: preserva datos, índices,
 constraints, foreign keys y políticas, no recrea ni mueve nada. Renombra también
