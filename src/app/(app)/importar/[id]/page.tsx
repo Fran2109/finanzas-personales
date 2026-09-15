@@ -318,7 +318,7 @@ function RowTable({
                 <button
                   type="submit"
                   aria-label="Descartar fila"
-                  className="text-muted hover:text-negative"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-muted transition hover:text-negative"
                 >
                   &times;
                 </button>

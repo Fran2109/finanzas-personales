@@ -108,7 +108,10 @@ export function AccountRow({
 
   return (
     <li className="flex flex-wrap items-center gap-3 px-3 py-3 text-sm">
-      <div className="min-w-0 flex-1">
+      {/* basis-full en angosto: los tres botones suman ~200px fijos y, al
+          lado, dejaban el nombre en una columna de cuatro lineas. Desde sm:
+          vuelven a ser una pieza a la derecha. */}
+      <div className="min-w-0 flex-1 basis-full sm:basis-0">
         <div className={account.active ? "" : "text-muted line-through"}>
           {account.name}
         </div>
@@ -150,24 +153,29 @@ export function AccountRow({
           </button>
         </span>
       ) : (
-        <span className="flex items-center gap-3 text-xs">
+        <span className="-my-1.5 flex flex-1 items-center justify-end gap-1 text-xs sm:flex-none">
+          {/* -my-1.5 para que el padding que hace tocables los botones no
+              engorde la fila: el area crece, la altura visual queda igual. */}
           <button
             type="button"
             onClick={() => setEditing(true)}
-            className="text-muted transition hover:text-foreground"
+            className="px-1.5 py-2 text-muted transition hover:text-foreground"
           >
             Editar
           </button>
           <form action={setAccountActive}>
             <input type="hidden" name="id" value={account.id} />
             <input type="hidden" name="active" value={String(!account.active)} />
-            <button type="submit" className="text-muted transition hover:text-foreground">
+            <button
+              type="submit"
+              className="px-1.5 py-2 text-muted transition hover:text-foreground"
+            >
               {account.active ? "Archivar" : "Reactivar"}
             </button>
           </form>
           {tieneMovimientos ? (
             <span
-              className="cursor-not-allowed text-muted/50"
+              className="cursor-not-allowed px-1.5 py-2 text-muted/50"
               title="Tiene movimientos. Archivala en vez de borrarla."
             >
               Borrar
@@ -176,7 +184,7 @@ export function AccountRow({
             <button
               type="button"
               onClick={() => setConfirming(true)}
-              className="text-muted transition hover:text-negative"
+              className="px-1.5 py-2 text-muted transition hover:text-negative"
             >
               Borrar
             </button>

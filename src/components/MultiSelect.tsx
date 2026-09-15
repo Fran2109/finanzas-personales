@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 export type Opcion = { value: string; label: string };
 
@@ -73,6 +73,44 @@ export function MultiSelect({
     );
   }
 
+  /**
+   * Corre el panel lo justo para que no se salga de la pantalla.
+   *
+   * El panel se ancla al gatillo, y un gatillo que quedo a la derecha lo manda
+   * afuera: `max-w` limita el ancho pero no la posicion. Anclarlo a la derecha
+   * tampoco alcanza —un gatillo angosto y centrado se sale para el otro lado,
+   * porque el panel mide mas que media pantalla a 320px— asi que se mide y se
+   * corre. **Esto CSS no lo puede preguntar**: depende de donde quedo el
+   * gatillo despues de que la barra de filtros envolvio.
+   *
+   * Va directo al nodo y no por estado: es una correccion de layout, no algo
+   * que la app tenga que recordar, y como estado ademas obligaria a un
+   * setState dentro del efecto.
+   */
+  const panel = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const el = panel.current;
+    if (!abierto || !el) return;
+
+    const acomodar = () => {
+      // Se mide sin corrimiento previo, o cada medicion partiria de la
+      // anterior y se acumularian.
+      el.style.transform = "";
+      const caja = el.getBoundingClientRect();
+      const margen = 8;
+      const sobra = caja.right - (document.documentElement.clientWidth - margen);
+      const falta = margen - caja.left;
+      const corrimiento = sobra > 0 ? -sobra : falta > 0 ? falta : 0;
+      if (corrimiento) el.style.transform = `translateX(${corrimiento}px)`;
+    };
+
+    acomodar();
+    // Girar el telefono con el panel abierto lo dejaba corrido de mas.
+    window.addEventListener("resize", acomodar);
+    return () => window.removeEventListener("resize", acomodar);
+  }, [abierto]);
+
   return (
     <div ref={ref} className="relative">
       <button
@@ -94,7 +132,10 @@ export function MultiSelect({
       </button>
 
       {abierto ? (
-        <div className="absolute left-0 z-20 mt-1 max-h-72 w-56 max-w-[calc(100vw-2rem)] overflow-auto rounded-md border border-border bg-surface p-1 shadow-lg">
+        <div
+          ref={panel}
+          className="absolute left-0 z-20 mt-1 max-h-72 w-56 max-w-[calc(100vw-2rem)] overflow-auto rounded-md border border-border bg-surface p-1 shadow-lg"
+        >
           <button
             type="button"
             onClick={() => onChange([])}

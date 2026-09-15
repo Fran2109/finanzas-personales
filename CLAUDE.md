@@ -497,6 +497,29 @@ baja de su ancho de contenido** (`min-width: auto`). Por eso:
   controles que suma ~400px fijos tiene que pasar a `w-full` en pantalla
   angosta y recién volver a ser una pieza al lado desde `sm:`.
 
+**Un panel que se ancla a un gatillo no se arregla con `max-w`.** El
+desplegable del filtro tiene `max-w-[calc(100vw-2rem)]`, que le limita el ancho
+y no la posición: anclado a un gatillo que quedó a la derecha, se iba de la
+pantalla igual. Anclarlo a la derecha tampoco alcanza —a 320px el panel mide más
+de media pantalla, así que un gatillo angosto y centrado lo manda afuera para el
+otro lado—. Se mide al abrir y se corre lo justo, aplicando el `transform` **al
+nodo y no por estado**: es una corrección de layout, no algo que la app tenga
+que recordar. Esto CSS no lo puede preguntar: depende de dónde quedó el gatillo
+después de que la barra envolvió.
+
+**Un target táctil no baja de ~32px.** La auditoría encontró varios de 16px de
+alto y, peor, borrados de 12×20: un símbolo `×` chiquito, difícil de acertar y
+destructivo cuando se acierta. Los borrados pasan a un cuadrado de 32px; a los
+botones de texto les alcanza con padding vertical más un margen negativo que lo
+compensa, así el área crece y la altura visual queda igual.
+
+**Una insignia adentro de un `truncate` no existe en un teléfono.** El badge
+"provisorio" vivía dentro del span que trunca la descripción, así que una
+descripción larga se lo comía entero: no se veía nunca, justo donde más hace
+falta saber que el número puede cambiar. Ponerlo **al lado** tampoco servía —se
+comía la descripción, que quedaba en "C..."—. Va en la línea de metadatos y
+primero: siempre visible, y lo que se recorta es la cola de los metadatos.
+
 **`flex-wrap` con `justify-between` es una trampa.** Cuando el contenido no
 entra, el importe se cae a la línea de abajo y `justify-between` lo pega a la
 **izquierda**, lejos de donde el ojo lo busca; y un `truncate` en el label de al
@@ -524,7 +547,21 @@ el script de capturas** lo mata por SIGPIPE antes de que escriba las últimas.
 Y como no hay base de datos alcanzable desde el contenedor, la página se mira
 renderizando el **componente real** con datos inventados en una página
 descartable fuera del proxy. Una copia del markup en un banco de pruebas se
-desfasa del original y termina verificando algo que no existe.
+desfasa del original y termina verificando algo que no existe: por eso la vista
+del mes vive en `MesView` y la de análisis en `AnalisisView`, separadas de sus
+páginas, que se quedan con los datos. En la auditoría punta a punta esto pasó de
+verdad —el banco reportó un `×` de 12px que las páginas reales ya no tenían,
+porque la copia del banco no se había actualizado—.
+
+La auditoría se corre a **320, 375, 414, 667, 768, 1024, 1280 y 1920**, en claro
+y en oscuro, midiendo `scrollWidth` contra el viewport **y** elemento por
+elemento (un hijo puede salirse sin que la página scrollee, si un ancestro lo
+recorta: eso no es un desborde, es información que desaparece). Y no alcanza con
+el estado inicial: los desbordes que quedaban estaban en lo que se abre —el
+desplegable del filtro, el editor en línea, el confirmar de borrado—, así que
+hay que hacer click y volver a medir. Un click que no encuentra nada no falla,
+simplemente no hace nada: conviene afirmar que la interacción ocurrió antes de
+creerle al "sin problemas".
 
 ## Plan por fases
 

@@ -50,13 +50,19 @@ export function TransactionRow({
           <span className="min-w-0 flex-1">
             <span className="block truncate">
               {tx.description || KIND_LABELS[tx.kind]}
+            </span>
+            {/* El badge va en la linea de metadatos y primero, no pegado a la
+                descripcion. Adentro del truncate de la descripcion no se veia
+                nunca en un telefono; al lado, se comia la descripcion entera
+                ("C..."). Aca esta siempre visible y no le saca lugar a nada:
+                lo que se recorta es la cola de los metadatos, como antes. */}
+            <span className="flex items-center gap-2 text-xs text-muted">
               {tx.is_projected ? (
-                <span className="ml-2 rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
+                <span className="shrink-0 rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
                   provisorio
                 </span>
               ) : null}
-            </span>
-            <span className="block truncate text-xs text-muted">
+              <span className="min-w-0 truncate">
               {[
                 tx.category?.name,
                 tx.account?.name,
@@ -69,6 +75,7 @@ export function TransactionRow({
               ]
                 .filter(Boolean)
                 .join(" · ")}
+              </span>
             </span>
           </span>
           <Amount cents={tx.amount} currency={tx.currency} className="shrink-0" />
@@ -78,7 +85,7 @@ export function TransactionRow({
           <button
             type="submit"
             aria-label="Borrar movimiento"
-            className="text-muted transition hover:text-negative"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-muted transition hover:text-negative"
           >
             &times;
           </button>
