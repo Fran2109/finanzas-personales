@@ -48,8 +48,14 @@ export function DivergingBars({
           const sube = item.value > 0;
           return (
             <li key={item.label}>
-              <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs">
-                <span className="min-w-0 truncate">
+              {/* Sin `flex-wrap`: con el, el importe se caia a la linea de
+                  abajo y `justify-between` lo pegaba a la izquierda, lejos de
+                  donde el ojo lo busca. Y el `truncate` del label no llegaba a
+                  dispararse nunca, porque envolver lo hacia innecesario. Sin
+                  wrap el importe queda fijo a la derecha y el label envuelve
+                  adentro de su columna, que no pierde texto ni lo corre. */}
+              <div className="flex items-baseline justify-between gap-2 text-xs">
+                <span className="min-w-0 break-words">
                   {item.label}
                   {item.hint ? <span className="ml-1 text-muted">{item.hint}</span> : null}
                 </span>

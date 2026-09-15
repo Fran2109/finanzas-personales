@@ -497,11 +497,34 @@ baja de su ancho de contenido** (`min-width: auto`). Por eso:
   controles que suma ~400px fijos tiene que pasar a `w-full` en pantalla
   angosta y recién volver a ser una pieza al lado desde `sm:`.
 
+**`flex-wrap` con `justify-between` es una trampa.** Cuando el contenido no
+entra, el importe se cae a la línea de abajo y `justify-between` lo pega a la
+**izquierda**, lejos de donde el ojo lo busca; y un `truncate` en el label de al
+lado no llega a dispararse nunca, porque envolver lo hizo innecesario. Sin wrap,
+con el importe en `shrink-0` y el label en `min-w-0`, el importe queda fijo a la
+derecha y el label envuelve adentro de su columna: no se pierde texto ni se
+corre el número.
+
+**Una línea de detalle no comparte línea con el importe.** En un teléfono le
+quedaban ~180px y truncaba en "cuota 6 de 12 · faltan pag...", que se comía
+cuándo termina, la categoría y la cuenta —todo lo que la línea tenía para
+decir—. Va abajo, a lo ancho, y envuelve.
+
 **Verificar con el viewport real, no con un contenedor angosto.** Los
 breakpoints de Tailwind miran el viewport: achicar un `div` deja los `sm:` y
 `lg:` activos y la prueba miente. Chrome headless tampoco sirve directo —
 clampea la ventana en ~500px— así que el teléfono se mira metiendo la página en
 un `<iframe width="375">`, que sí crea su propio viewport.
+
+Dos trampas que hicieron mirar capturas viejas y sacar conclusiones falsas: un
+**`next-server` que quedó vivo** sigue sirviendo el build anterior —verificar
+que el HTML servido tenga el markup nuevo antes de medir— y un **`| head` sobre
+el script de capturas** lo mata por SIGPIPE antes de que escriba las últimas.
+
+Y como no hay base de datos alcanzable desde el contenedor, la página se mira
+renderizando el **componente real** con datos inventados en una página
+descartable fuera del proxy. Una copia del markup en un banco de pruebas se
+desfasa del original y termina verificando algo que no existe.
 
 ## Plan por fases
 

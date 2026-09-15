@@ -205,40 +205,41 @@ export function AnalisisView({
             </p>
             <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
               {planes.map((plan) => (
-                <li
-                  key={plan.key}
-                  className="flex flex-wrap items-center gap-3 px-3 py-2.5 text-sm"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate">{plan.description}</div>
-                    <div className="truncate text-xs text-muted">
-                      {[
-                        `cuota ${plan.cuotaCurrent} de ${plan.cuotaTotal}`,
-                        `faltan pagar ${plan.unpaid}`,
-                        `termina en ${formatPeriod(plan.endsOn)}`,
-                        // Un plan que no aparecio en el ultimo resumen: o
-                        // termino antes, o esa linea no se leyo. Decirlo es
-                        // mejor que proyectarlo como si nada.
-                        plan.behind
-                          ? `no apareció en ${formatPeriod(shiftPeriod(plan.nextPeriod, -1))}`
-                          : null,
-                        plan.categoryName,
-                        plan.accountName,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </div>
-                  </div>
-                  <span className="shrink-0 text-right">
-                    <Amount
-                      cents={plan.unpaidTotal}
-                      currency={plan.currency}
-                      className="block text-sm font-medium"
-                    />
-                    <span className="block text-xs text-muted">
-                      {formatCents(plan.amount, plan.currency)} por mes
+                // El detalle va en su propia linea y envuelve. Compartiendola
+                // con el importe, en un telefono le quedaban ~180px y truncaba
+                // en "cuota 6 de 12 · faltan pag...": se perdia cuando termina,
+                // la categoria y la cuenta, que es todo lo que tenia para decir.
+                <li key={plan.key} className="px-3 py-2.5 text-sm">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="min-w-0 truncate">{plan.description}</span>
+                    <span className="shrink-0 text-right">
+                      <Amount
+                        cents={plan.unpaidTotal}
+                        currency={plan.currency}
+                        className="block text-sm font-medium"
+                      />
+                      <span className="block text-xs text-muted">
+                        {formatCents(plan.amount, plan.currency)} por mes
+                      </span>
                     </span>
-                  </span>
+                  </div>
+                  <div className="mt-0.5 text-xs text-muted">
+                    {[
+                      `cuota ${plan.cuotaCurrent} de ${plan.cuotaTotal}`,
+                      `faltan pagar ${plan.unpaid}`,
+                      `termina en ${formatPeriod(plan.endsOn)}`,
+                      // Un plan que no aparecio en el ultimo resumen: o termino
+                      // antes, o esa linea no se leyo. Decirlo es mejor que
+                      // proyectarlo como si nada.
+                      plan.behind
+                        ? `no apareció en ${formatPeriod(shiftPeriod(plan.nextPeriod, -1))}`
+                        : null,
+                      plan.categoryName,
+                      plan.accountName,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </div>
                 </li>
               ))}
             </ul>
