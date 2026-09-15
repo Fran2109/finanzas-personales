@@ -133,18 +133,23 @@ export function AnalisisView({
           </section>
 
           <section>
-            <h2 className="mb-1 text-sm font-semibold">Los meses que vienen</h2>
+            <h2 className="mb-1 text-sm font-semibold">El mes en curso y los que vienen</h2>
             <p className="mb-3 text-xs leading-relaxed text-muted">
-              Cada mes arranca con esto ya gastado, antes de que compres nada.
-              Empieza después del último mes que ya tenés cargado, así que
-              acá no aparece ningún mes que puedas mirar en “Mes”.
+              Cada mes arranca con esto ya gastado, antes de que compres nada. El
+              mes en curso va en gris porque no es proyección: son las cuotas que
+              ya tenés cargadas, el mismo número que “Mes” filtrando por Cuotas.
             </p>
             <div className="mb-3 overflow-x-auto rounded-lg border border-border bg-surface p-3">
               <ColumnChart
                 columns={calendario.map((mes) => ({
                   label: mes.period.slice(5) + "/" + mes.period.slice(2, 4),
                   value: mes.totals.find((t) => t.currency === "ARS")?.total ?? 0,
-                  title: `${formatPeriod(mes.period)}: ${mes.totals
+                  // El mes en curso es contexto: ya paso, no se proyecta. El
+                  // acento queda para lo que todavia se puede decidir.
+                  muted: mes.recorded,
+                  title: `${formatPeriod(mes.period)}${
+                    mes.recorded ? " (en curso, ya cargado)" : ""
+                  }: ${mes.totals
                     .map((t) => formatCents(t.total, t.currency))
                     .join(" + ")} en ${mes.plans.length} cuota${
                     mes.plans.length === 1 ? "" : "s"
@@ -157,8 +162,13 @@ export function AnalisisView({
               {calendario.map((mes) => (
                 <li key={mes.period} className="px-3 py-3">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <span className="text-sm font-medium capitalize">
+                    <span className="min-w-0 text-sm font-medium capitalize">
                       {formatPeriod(mes.period)}
+                      {mes.recorded ? (
+                        <span className="ml-2 rounded bg-border px-1.5 py-0.5 text-[10px] font-normal normal-case text-muted">
+                          en curso
+                        </span>
+                      ) : null}
                     </span>
                     <span className="flex flex-wrap items-baseline gap-3">
                       {mes.totals.map((t) => (

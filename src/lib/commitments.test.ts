@@ -7,6 +7,7 @@ import {
   installmentFlow,
   openPlans,
   remainingByCategory,
+  withCurrentMonth,
   type InstallmentRow,
 } from "./commitments.ts";
 
@@ -196,6 +197,53 @@ test("el numero de cuota proyectado sigue al plan aunque se atrase", () => {
     cal.map((p) => p.plans[0].cuota),
     [6, 7],
   );
+});
+
+test("el mes en curso va adelante con lo cargado, no proyectado", () => {
+  // Es el mes que se esta viviendo: su numero sale de las filas, no de los
+  // planes, y tiene que dar lo mismo que la vista del mes filtrando por Cuotas.
+  const rows = [
+    cuota({ cuotaCurrent: 5, cuotaTotal: 7, period: "2026-09", amount: 60000 }),
+    cuota({ merchant: "OTRO", cuotaCurrent: 1, cuotaTotal: 2, period: "2026-09", amount: 40000 }),
+  ];
+  const planes = openPlans(rows, new Map([["visa", "2026-09"]]));
+  const cal = withCurrentMonth(commitmentCalendar(planes, 12), rows, "2026-09");
+
+  assert.equal(cal[0].period, "2026-09");
+  assert.equal(cal[0].recorded, true);
+  assert.equal(cal[0].totals[0].total, 100000, "la suma es la de las filas cargadas");
+  assert.equal(cal[1].period, "2026-10", "lo proyectado sigue arrancando despues");
+  assert.equal(cal[1].recorded, false);
+});
+
+test("el mes en curso suma la cuota de la cuenta que todavia no cargo su resumen", () => {
+  // Galicia ya cargo septiembre y Supervielle no: la cuota de Supervielle no
+  // esta en las filas porque nadie la trajo, no porque no exista.
+  const rows = [
+    cuota({ accountId: "galicia", cuotaCurrent: 2, cuotaTotal: 4, period: "2026-09", amount: 60000 }),
+    cuota({ accountId: "super", cuotaCurrent: 1, cuotaTotal: 4, period: "2026-08", amount: 40000 }),
+  ];
+  const planes = openPlans(rows, new Map([["galicia", "2026-09"], ["super", "2026-08"]]));
+  const cal = withCurrentMonth(commitmentCalendar(planes, 12), rows, "2026-09");
+
+  assert.equal(cal[0].period, "2026-09");
+  assert.equal(cal[0].totals[0].total, 100000, "lo cargado de galicia mas lo proyectado de super");
+  assert.equal(cal[0].plans.length, 2);
+  assert.equal(
+    cal.filter((m) => m.period === "2026-09").length,
+    1,
+    "septiembre no puede aparecer dos veces",
+  );
+});
+
+test("un mes en curso sin nada cargado no se inventa", () => {
+  // Todavia no se cargo nada de septiembre: es futuro como cualquier otro y el
+  // calendario ya lo trae si algun plan cae ahi.
+  const rows = [cuota({ cuotaCurrent: 1, cuotaTotal: 3, period: "2026-08" })];
+  const planes = openPlans(rows);
+  const cal = withCurrentMonth(commitmentCalendar(planes, 12), rows, "2026-09");
+  assert.equal(cal[0].period, "2026-09");
+  assert.equal(cal[0].recorded, false, "es proyeccion, no algo cargado");
 });
 
 test("varios planes se suman en el mes que coinciden", () => {

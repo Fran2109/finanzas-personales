@@ -6,9 +6,10 @@ import {
   installmentFlow,
   openPlans,
   remainingByCategory,
+  withCurrentMonth,
 } from "@/lib/commitments";
 import { categoryDeltas, periodsOf } from "@/lib/analysis";
-import type { Currency } from "@/lib/domain";
+import { periodOf, type Currency } from "@/lib/domain";
 import type { Cents } from "@/lib/money";
 
 const MESES_A_PROYECTAR = 12;
@@ -27,7 +28,14 @@ export default async function AnalisisPage() {
   }
 
   const planes = openPlans(cuotas, horizonte);
-  const calendario = commitmentCalendar(planes, MESES_A_PROYECTAR);
+  // El mes en curso va adelante con lo que ya esta cargado, no proyectado: es
+  // el mes que se esta viviendo y dejarlo afuera obligaba a cambiar de pantalla
+  // para saber con que se arranco.
+  const calendario = withCurrentMonth(
+    commitmentCalendar(planes, MESES_A_PROYECTAR),
+    cuotas,
+    periodOf(new Date()),
+  );
 
   // Historico por mes, con la parte que ya estaba decidida antes de empezar.
   const periodos = [...new Set(mensuales.map((r) => r.period))].sort().reverse();

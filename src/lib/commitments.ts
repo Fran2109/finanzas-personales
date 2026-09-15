@@ -85,6 +85,13 @@ export type FuturePeriod = {
   totals: { currency: Currency; total: Cents }[];
   /** Que planes caen en ese mes. */
   plans: { key: string; description: string; amount: Cents; currency: Currency; cuota: number }[];
+  /**
+   * El mes ya esta cargado: lo que dice no es proyeccion sino lo que hay.
+   *
+   * Solo el mes en curso puede tener esto en true, y su numero es el mismo que
+   * el de la vista del mes filtrando por Cuotas.
+   */
+  recorded: boolean;
 };
 
 function planKey(row: InstallmentRow): string {
@@ -185,7 +192,7 @@ export function commitmentCalendar(planes: Plan[], months: number): FuturePeriod
     for (let i = 1; i <= plan.remaining; i++) {
       const period = shiftPeriod(plan.nextPeriod, i - 1);
       const entry =
-        porPeriodo.get(period) ?? { period, totals: [], plans: [] };
+        porPeriodo.get(period) ?? { period, totals: [], plans: [], recorded: false };
 
       const total = entry.totals.find((t) => t.currency === plan.currency);
       if (total) total.total += plan.amount;
@@ -213,6 +220,63 @@ export function commitmentCalendar(planes: Plan[], months: number): FuturePeriod
   }
 
   return ordenados.slice(0, months);
+}
+
+/**
+ * El mes en curso al frente del calendario, con lo que ya esta cargado.
+ *
+ * El calendario proyecta, y este mes no hay que proyectarlo: ya esta
+ * registrado. Por eso su numero sale de las filas y no de los planes, y es el
+ * mismo que da la vista del mes filtrando por Cuotas. Proyectarlo ademas seria
+ * contar dos veces la misma cuota, que es justo lo que el calendario evita al
+ * arrancar despues del ultimo mes cargado.
+ *
+ * Lo unico que se le suma de la proyeccion es lo de las cuentas cuyo resumen de
+ * este mes todavia no se cargo: ahi la cuota no esta en las filas porque nadie
+ * la trajo, no porque no exista. El mes queda mitad hecho y mitad proyectado, y
+ * `recorded` esta para que la pantalla lo pueda decir.
+ */
+export function withCurrentMonth(
+  calendario: FuturePeriod[],
+  rows: InstallmentRow[],
+  period: Period,
+): FuturePeriod[] {
+  const delMes = rows.filter((r) => r.period === period && r.cuotaCurrent && r.cuotaTotal);
+  // Sin nada cargado el mes no empezo a verse: es futuro como cualquier otro y
+  // el calendario ya lo trae si algun plan cae ahi.
+  if (delMes.length === 0) return calendario;
+
+  const entry: FuturePeriod = { period, totals: [], plans: [], recorded: true };
+
+  const sumar = (currency: Currency, amount: Cents) => {
+    const total = entry.totals.find((t) => t.currency === currency);
+    if (total) total.total += amount;
+    else entry.totals.push({ currency, total: amount });
+  };
+
+  for (const row of delMes) {
+    sumar(row.currency, row.amount);
+    entry.plans.push({
+      key: planKey(row),
+      description: row.description,
+      amount: row.amount,
+      currency: row.currency,
+      cuota: row.cuotaCurrent,
+    });
+  }
+
+  // Lo que el calendario proyecte en este mismo mes es de una cuenta que
+  // todavia no cargo su resumen; no puede estar duplicado con lo de arriba.
+  const proyectado = calendario.find((m) => m.period === period);
+  for (const plan of proyectado?.plans ?? []) {
+    sumar(plan.currency, plan.amount);
+    entry.plans.push(plan);
+  }
+
+  entry.totals.sort((a, b) => a.currency.localeCompare(b.currency));
+  entry.plans.sort((a, b) => b.amount - a.amount);
+
+  return [entry, ...calendario.filter((m) => m.period !== period)];
 }
 
 /**

@@ -1,7 +1,18 @@
 import { axisMax, columnPath, niceTicks } from "@/components/charts/scale";
 import { formatCents, formatCompact, type Cents } from "@/lib/money";
 
-export type Column = { label: string; value: Cents; title: string };
+export type Column = {
+  label: string;
+  value: Cents;
+  title: string;
+  /**
+   * La columna es contexto, no el dato que cuenta la historia.
+   *
+   * El gris es `--chart-track`, que esta validado contra las dos superficies;
+   * `--muted` es color de texto y contra el fondo daba 1,68:1.
+   */
+  muted?: boolean;
+};
 
 const ALTO = 150;
 const ARRIBA = 14;
@@ -20,6 +31,11 @@ const GAP = 2;
  * mirando— y un solo tono. Se etiqueta la primera columna y la mas alta, no
  * todas: un numero sobre cada barra se vuelve ruido y deja de leerse. El resto
  * lo cargan el eje, el tooltip y la lista de abajo.
+ *
+ * Una columna puede ir `muted` cuando no es de la misma naturaleza que el resto
+ * —lo que ya paso al lado de lo que se proyecta—. Es la misma forma que usa
+ * `StackedShare`: el acento lleva lo que cuenta la historia y el contexto queda
+ * en gris. Sigue siendo un solo tono; lo que cambia es el enfasis.
  */
 export function ColumnChart({
   columns,
@@ -82,7 +98,10 @@ export function ColumnChart({
         const y = base - h;
         return (
           <g key={col.label}>
-            <path d={columnPath(x, y, ANCHO_BARRA, h)} fill="var(--accent)">
+            <path
+              d={columnPath(x, y, ANCHO_BARRA, h)}
+              fill={col.muted ? "var(--chart-track)" : "var(--accent)"}
+            >
               <title>{col.title}</title>
             </path>
             {destacadas.has(i) && h > 0 ? (
