@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Amount } from "@/components/Amount";
 import { MonthFilters } from "@/components/MonthFilters";
 import { TransactionForm } from "@/components/TransactionForm";
+import { StackedShare } from "@/components/charts/StackedShare";
 import { TransactionRow } from "@/components/TransactionRow";
 import type { Account, Category, Transaction } from "@/lib/data";
 import { formatPeriod, shiftPeriod, type Currency } from "@/lib/domain";
@@ -91,15 +92,7 @@ export function MesView({
             : `No hay movimientos en ${formatPeriod(period)}. Carga el primero abajo.`}
         </p>
       ) : (
-        <div className="space-y-6">
-          {currencies.map((currency) => (
-            <MonthTotals
-              key={currency}
-              currency={currency}
-              totals={summary.totals.get(currency)!}
-            />
-          ))}
-        </div>
+        <Totales currencies={currencies} summary={summary} />
       )}
 
       {/* min-w-0 en las dos columnas: un item de grid no baja de su ancho de
@@ -114,7 +107,6 @@ export function MesView({
           />
           <TransactionList
             transactions={transactions}
-            period={period}
             accounts={accounts}
             categories={categories}
           />
@@ -122,7 +114,7 @@ export function MesView({
 
         <aside className="min-w-0">
           <section>
-            <h2 className="mb-3 text-sm font-semibold">Nuevo movimiento</h2>
+            <h2 className="mb-3 text-base font-semibold">Nuevo movimiento</h2>
             <TransactionForm
               accounts={accounts.filter((a) => a.active)}
               categories={categories}
@@ -156,81 +148,68 @@ function MonthNav({ period, filters }: { period: string; filters: Filters }) {
   );
 }
 
-function MonthTotals({
-  currency,
-  totals,
-}: {
-  currency: Currency;
-  totals: { total: Cents; purchases: Cents; installments: Cents };
-}) {
-  return (
-    <section>
-      {currency !== "ARS" ? (
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted">
-          {currency}
-        </h2>
-      ) : null}
-      {/* "Total gastado" y no "Gastado": este numero es la suma de los otros
-          dos, y con nombres parecidos se leia uno por otro.
-          Los otros dos no se llaman por su tipo sino por lo que significan:
-          sobre las cuotas de compras viejas no se podia hacer nada este mes, y
-          esa es la unica lectura que sirve para decidir algo. */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Stat label="Total gastado" cents={totals.total} currency={currency} destacado />
-        <Stat
-          label="Ya estaba decidido"
-          cents={totals.installments}
-          currency={currency}
-          hint={
-            totals.total === 0
-              ? "cuotas"
-              : `${Math.round((totals.installments / totals.total) * 100)}%, cuotas`
-          }
-        />
-        <Stat
-          label="Decidido este mes"
-          cents={totals.purchases}
-          currency={currency}
-          hint="gastos nuevos"
-        />
-      </div>
-    </section>
-  );
-}
+/** El nombre de la moneda para leerla adentro de una oracion. */
+const MONEDAS: Record<string, string> = { ARS: "pesos", USD: "dolares" };
 
-function Stat({
-  label,
-  cents,
-  currency,
-  destacado = false,
-  hint,
+/**
+ * Cuanto se fue, y cuanto de eso ya estaba decidido antes de empezar.
+ *
+ * Eran seis cajas iguales —tres por moneda— y decian algo que no era cierto:
+ * que los tres numeros eran pares. El primero es la suma de los otros dos, y
+ * verlos con el mismo peso obligaba a reconstruir esa relacion cada vez.
+ *
+ * Ahora el numero entra en una oracion, en la display: el tipo hace el trabajo
+ * que hacia el recuadro. Y la proporcion la dice la barra, que es la forma que
+ * corresponde a una parte sobre un todo y ademas es la tesis de la app —las
+ * cuotas son entre el 45% y el 52% de cada mes—.
+ *
+ * La segunda moneda no repite el tratamiento: es una linea. Dos heroes no son
+ * una jerarquia.
+ */
+function Totales({
+  currencies,
+  summary,
 }: {
-  label: string;
-  cents: Cents;
-  currency: Currency;
-  destacado?: boolean;
-  hint?: string;
+  currencies: Currency[];
+  summary: MonthSummary;
 }) {
+  const [principal, ...resto] = currencies;
+  const t = summary.totals.get(principal)!;
+
   return (
-    <div
-      className={`rounded-lg border px-3 py-2.5 ${
-        destacado ? "border-accent/40 bg-accent/5" : "border-border bg-surface"
-      }`}
-    >
-      <div className="text-xs text-muted">
-        {label}
-        {hint ? <span className="ml-1 opacity-70">({hint})</span> : null}
-      </div>
-      {/* Todo lo que la app registra es plata que salio, asi que no hay signos
-          que interpretar: el numero es cuanto se fue. */}
-      <Amount
-        cents={cents}
-        currency={currency}
-        className={`mt-0.5 block ${
-          destacado ? "cifra text-2xl" : "font-medium text-base"
-        }`}
-      />
-    </div>
+    <section className="space-y-5">
+      <p className="text-base leading-snug">
+        Gastaste{" "}
+        <Amount
+          cents={t.total}
+          currency={principal}
+          className="cifra align-baseline text-2xl"
+        />
+        .
+      </p>
+
+      {t.total > 0 ? (
+        <StackedShare
+          committed={t.installments}
+          discretionary={t.purchases}
+          currency={principal}
+        />
+      ) : null}
+
+      {resto.map((currency) => {
+        const otra = summary.totals.get(currency)!;
+        return (
+          <p key={currency} className="text-sm text-muted">
+            Y <Amount cents={otra.total} currency={currency} className="text-foreground" />{" "}
+            en {MONEDAS[currency] ?? currency}
+            {otra.installments > 0
+              ? `, de los que ${Math.round((otra.installments / otra.total) * 100)}% son cuotas`
+              : null}
+            .
+          </p>
+        );
+      })}
+    </section>
   );
 }
 
@@ -249,7 +228,7 @@ function CategoryBreakdown({
 
   return (
     <section>
-      <h2 className="mb-3 text-sm font-semibold">En que se fue</h2>
+      <h2 className="mb-3 text-base font-semibold">En que se fue</h2>
       <ul className="space-y-2">
         {byCategory.map((category) => (
           <li key={`${category.id}-${category.currency}`}>
@@ -284,12 +263,10 @@ function CategoryBreakdown({
 
 function TransactionList({
   transactions,
-  period,
   accounts,
   categories,
 }: {
   transactions: Transaction[];
-  period: string;
   accounts: Account[];
   categories: Category[];
 }) {
@@ -297,8 +274,8 @@ function TransactionList({
 
   return (
     <section>
-      <h2 className="mb-1 text-sm font-semibold">
-        Movimientos de {formatPeriod(period)}{" "}
+      <h2 className="mb-1 text-base font-semibold">
+        Movimientos{" "}
         <span className="font-normal text-muted">({transactions.length})</span>
       </h2>
       <p className="mb-3 text-xs text-muted">

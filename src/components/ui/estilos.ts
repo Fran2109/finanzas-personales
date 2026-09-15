@@ -22,27 +22,24 @@
 
 /** El input de un formulario de pagina entera. */
 export const campo =
-  "w-full rounded-md border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent";
+  "w-full rounded-control border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent";
 
 /** El mismo input cuando vive adentro de una fila que ya esta sobre `surface`. */
 export const campoCompacto =
-  "w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm outline-none focus:border-accent";
+  "w-full rounded-control border border-border bg-background px-2 py-1.5 text-sm outline-none focus:border-accent";
 
 /** La etiqueta que va arriba de un campo. */
-export const etiqueta =
-  "block text-xs font-medium uppercase tracking-wide text-muted mb-1.5";
+export const etiqueta = "block text-xs font-medium text-muted mb-1.5";
 
 /** La misma etiqueta cuando el formulario esta adentro de una fila. */
-export const etiquetaCompacta =
-  "block text-[10px] font-medium uppercase tracking-wide text-muted mb-1";
+export const etiquetaCompacta = "block text-micro font-medium text-muted mb-1";
 
 /** El contenedor de una lista de filas. */
-export const lista =
-  "divide-y divide-border rounded-lg border border-border bg-surface";
+export const lista = "divide-y divide-border border-y border-border";
 
 /** Cuando no hay nada que mostrar. Una pantalla vacia es una invitacion. */
 export const vacio =
-  "rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted";
+  "rounded-contenedor border border-dashed border-border px-4 py-10 text-center text-sm text-muted";
 
 /**
  * El boton de la accion principal.
@@ -52,7 +49,7 @@ export const vacio =
  * confirmar un import con `opacity-40`. Nadie decidio que fueran distintos.
  */
 export const botonAcento =
-  "rounded-md bg-accent px-4 py-2 text-sm font-medium text-background transition disabled:opacity-50";
+  "rounded-control bg-accent px-4 py-2 text-sm font-medium text-background transition disabled:opacity-50";
 
 /**
  * El boton de un solo simbolo, casi siempre para borrar.
@@ -61,11 +58,17 @@ export const botonAcento =
  * de acertar con el dedo y destructivo cuando se acierta.
  */
 export const botonIcono =
-  "flex h-8 w-8 shrink-0 items-center justify-center rounded text-muted transition hover:text-negative";
+  "flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-muted transition hover:text-negative";
 
-/** La insignia que marca un estado en una fila. */
+/**
+ * La insignia que marca un estado en una fila.
+ *
+ * Sigue en mayusculas a proposito y no cae en la regla del eyebrow: no es una
+ * etiqueta que anuncia el campo de abajo, es un sello. Que se lea distinto del
+ * texto que la rodea es todo su trabajo.
+ */
 export const insignia =
-  "shrink-0 rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent";
+  "shrink-0 rounded-pildora bg-accent/15 px-2 py-0.5 text-micro font-medium uppercase tracking-wide text-accent";
 
 /**
  * El grid de contenido + columna lateral.
@@ -78,7 +81,7 @@ export const gridDosColumnas = "grid gap-8 lg:grid-cols-[1fr_20rem]";
 
 /** El boton de elegir entre pocas opciones, con estado. */
 export function chip(activo: boolean): string {
-  return `rounded-md border px-2.5 py-1.5 text-xs transition ${
+  return `rounded-control border px-2.5 py-1.5 text-xs transition ${
     activo
       ? "border-accent bg-accent text-background"
       : "border-border bg-surface text-muted hover:text-foreground"

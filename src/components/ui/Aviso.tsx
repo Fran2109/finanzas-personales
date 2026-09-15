@@ -49,7 +49,7 @@ export function Aviso({
   const tamano = compacto ? "px-2 py-1.5 text-xs" : "px-3 py-2 text-sm";
   const color = sobrio ? SOBRIO[tono] : TONOS[tono];
   return (
-    <p className={`rounded-md border ${color} ${tamano} ${className}`.trim()}>
+    <p className={`rounded-control border ${color} ${tamano} ${className}`.trim()}>
       {children}
     </p>
   );
