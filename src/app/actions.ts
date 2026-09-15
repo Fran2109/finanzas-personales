@@ -92,6 +92,57 @@ export async function changePassword(
   return { ok: "Contrasena actualizada." };
 }
 
+/**
+ * Resuelve la categoria de un movimiento, creandola si el formulario mando un
+ * nombre nuevo en vez de un id.
+ *
+ * Poder crear la categoria desde el mismo formulario donde se la necesita es lo
+ * que evita el desvio a Ajustes en el medio de cargar un gasto, y ese desvio es
+ * justo lo que hace que el gasto termine sin categoria.
+ *
+ * La familia la fija el tipo del movimiento, no quien carga: una categoria
+ * creada desde un consumo tiene que quedar como gasto o despues no aparece en
+ * la lista del formulario que la creo.
+ */
+async function resolveCategoryId(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  formData: FormData,
+  kind: Kind,
+): Promise<{ id: string | null } | { error: string }> {
+  const nombre = String(formData.get("new_category") ?? "").trim();
+  if (!nombre) return { id: String(formData.get("category_id") ?? "") || null };
+
+  const familia = CATEGORY_KIND_FOR[kind];
+
+  const { data: creada, error } = await supabase
+    .from("finanzas_categories")
+    .insert({ name: nombre, kind: familia })
+    .select("id")
+    .single();
+
+  if (creada) return { id: creada.id };
+  if (error?.code !== "23505") {
+    return { error: `No se pudo crear la categoria: ${error?.message}` };
+  }
+
+  // El unique es (user_id, name), asi que ya hay una con ese nombre: se reusa
+  // en vez de fallar. Salvo que sea de otra familia, donde reusarla imputaria
+  // el movimiento a una categoria que su propia lista no ofrece.
+  const { data: existente } = await supabase
+    .from("finanzas_categories")
+    .select("id, kind")
+    .eq("name", nombre)
+    .single();
+
+  if (!existente) return { error: `No se pudo crear la categoria "${nombre}".` };
+  if (existente.kind !== familia) {
+    return {
+      error: `Ya existe una categoria "${nombre}" y es de otro tipo. Elegila de la lista o ponele otro nombre.`,
+    };
+  }
+  return { id: existente.id };
+}
+
 // ---------------------------------------------------------------------------
 // Movimientos
 // ---------------------------------------------------------------------------
@@ -123,16 +174,18 @@ export async function createTransaction(
   if (!/^\d{4}-\d{2}-\d{2}$/.test(occurredOn)) return fail("Fecha invalida.");
 
   const description = String(formData.get("description") ?? "").trim();
-  const categoryId = String(formData.get("category_id") ?? "");
   const cardLast4 = String(formData.get("card_last4") ?? "").trim();
 
   if (cardLast4 && !/^\d{4}$/.test(cardLast4)) {
     return fail("Los ultimos 4 de la tarjeta son 4 digitos.");
   }
 
+  const categoria = await resolveCategoryId(supabase, formData, kind);
+  if ("error" in categoria) return fail(categoria.error);
+
   const { error } = await supabase.from("finanzas_transactions").insert({
     account_id: accountId,
-    category_id: categoryId || null,
+    category_id: categoria.id,
     occurred_on: occurredOn,
     amount: centsToNumeric(cents),
     currency,
@@ -206,15 +259,19 @@ export async function updateTransaction(
   if (!/^\d{4}-\d{2}-\d{2}$/.test(occurredOn)) return fail("Fecha invalida.");
 
   const description = String(formData.get("description") ?? "").trim();
-  const categoryId = String(formData.get("category_id") ?? "");
   const cardLast4 = String(formData.get("card_last4") ?? "").trim();
 
   if (cardLast4 && !/^\d{4}$/.test(cardLast4)) {
     return fail("Los ultimos 4 de la tarjeta son 4 digitos.");
   }
 
+  const resuelta = await resolveCategoryId(supabase, formData, kind);
+  if ("error" in resuelta) return fail(resuelta.error);
+  const categoryId = resuelta.id;
+
   // La categoria tiene que pertenecer a la familia del tipo. El formulario ya
-  // filtra, pero una Server Action es alcanzable por POST directo.
+  // filtra y una categoria recien creada nace en la familia correcta, pero una
+  // Server Action es alcanzable por POST directo.
   if (categoryId) {
     const { data: categoria } = await supabase
       .from("finanzas_categories")
@@ -259,7 +316,7 @@ export async function updateTransaction(
     .from("finanzas_transactions")
     .update({
       account_id: accountId,
-      category_id: categoryId || null,
+      category_id: categoryId,
       occurred_on: occurredOn,
       amount: centsToNumeric(cents),
       currency,

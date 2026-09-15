@@ -29,6 +29,9 @@ export function TransactionForm({
   const [state, action] = useActionState<FormState, FormData>(createTransaction, {});
   const [kind, setKind] = useState<Kind>("consumption");
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? "");
+  const [categoryId, setCategoryId] = useState("");
+  const [creandoCategoria, setCreandoCategoria] = useState(false);
+  const [nombreNuevo, setNombreNuevo] = useState("");
 
   const account = accounts.find((a) => a.id === accountId);
 
@@ -36,6 +39,22 @@ export function TransactionForm({
     () => categories.filter((c) => c.kind === CATEGORY_KIND_FOR[kind]),
     [categories, kind],
   );
+
+  // Al guardar, el servidor crea la categoria nueva y revalida, asi que la
+  // categoria vuelve en `categories`. Verla aparecer en la lista es la senal de
+  // que ya existe: el campo de texto se cierra y queda elegida, que es lo que
+  // hace falta si el proximo movimiento es de lo mismo. Se deriva en el render
+  // y no se sincroniza con un efecto, que es un render de mas para llegar al
+  // mismo lado.
+  const recienCreada = useMemo(() => {
+    if (!creandoCategoria) return undefined;
+    const buscado = nombreNuevo.trim().toLowerCase();
+    if (!buscado) return undefined;
+    return visibleCategories.find((c) => c.name.toLowerCase() === buscado);
+  }, [creandoCategoria, nombreNuevo, visibleCategories]);
+
+  const creando = creandoCategoria && !recienCreada;
+  const categoriaElegida = recienCreada?.id ?? categoryId;
 
   if (accounts.length === 0) {
     return (
@@ -58,7 +77,12 @@ export function TransactionForm({
             <button
               key={k}
               type="button"
-              onClick={() => setKind(k)}
+              onClick={() => {
+                setKind(k);
+                // La categoria elegida pertenece a la familia del tipo anterior.
+                setCategoryId("");
+                setCreandoCategoria(false);
+              }}
               className={`rounded-md border px-2.5 py-1.5 text-xs transition ${
                 kind === k
                   ? "border-accent bg-accent text-background"
@@ -155,17 +179,67 @@ export function TransactionForm({
 
       <div className="grid grid-cols-2 gap-3 *:min-w-0">
         <div>
-          <label className={label} htmlFor="category_id">
+          <label
+            className={label}
+            htmlFor={creando ? "new_category" : "category_id"}
+          >
             Categoria
           </label>
-          <select id="category_id" name="category_id" className={field} key={kind}>
-            <option value="">Sin categoria</option>
-            {visibleCategories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          {/* Crear la categoria aca y no en Ajustes: salir del formulario a
+              mitad de carga es lo que hace que el gasto termine sin categoria.
+              La familia la fija el tipo, asi que no hay nada mas que elegir
+              que el nombre. */}
+          {creando ? (
+            <>
+              <input
+                id="new_category"
+                name="new_category"
+                required
+                autoFocus
+                autoComplete="off"
+                placeholder="Seguros"
+                value={nombreNuevo}
+                onChange={(e) => setNombreNuevo(e.target.value)}
+                className={`${field} border-accent`}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setCreandoCategoria(false);
+                  setNombreNuevo("");
+                }}
+                className="mt-1 text-xs text-muted transition hover:text-foreground"
+              >
+                Cancelar
+              </button>
+            </>
+          ) : (
+            <select
+              id="category_id"
+              name="category_id"
+              className={field}
+              value={categoriaElegida}
+              onChange={(e) => {
+                if (e.target.value === "__nueva__") {
+                  setCreandoCategoria(true);
+                  // Vacio, o el nombre de la vuelta anterior ya estaria en la
+                  // lista y el campo se cerraria antes de poder tipear.
+                  setNombreNuevo("");
+                  return;
+                }
+                setCreandoCategoria(false);
+                setCategoryId(e.target.value);
+              }}
+            >
+              <option value="">Sin categoria</option>
+              {visibleCategories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+              <option value="__nueva__">+ Nueva categoria...</option>
+            </select>
+          )}
         </div>
         {account?.is_liability ? (
           <div>
