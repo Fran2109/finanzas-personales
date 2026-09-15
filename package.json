@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "motion:red": "node scripts/red-de-motion.mjs",
     "responsive": "node scripts/responsive.mjs",
-    "capturas": "node scripts/capturas.mjs"
+    "capturas": "node scripts/capturas.mjs",
+    "abre": "node scripts/lo-que-se-abre.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

@@ -93,9 +93,23 @@ export function TransactionRow({
     );
   }
 
+  // `.abre` lleva el alto de 0 al real sin que nadie lo mida (ver globals.css).
+  // El padding va adentro del recorte, o queda visible con el editor en cero y
+  // la fila arranca con un escalon.
   return (
-    <li className="bg-background/40 px-3 py-3">
-      <Editor tx={tx} accounts={accounts} categories={categories} cerrar={() => setAbierto(false)} />
+    <li className="bg-background/40">
+      <div className="abre">
+        <div>
+          <div className="px-3 py-3">
+            <Editor
+              tx={tx}
+              accounts={accounts}
+              categories={categories}
+              cerrar={() => setAbierto(false)}
+            />
+          </div>
+        </div>
+      </div>
     </li>
   );
 }

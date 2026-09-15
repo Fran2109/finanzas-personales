@@ -14,6 +14,8 @@
  * Sin `VERIFICACION=1` devuelve 404, asi que el deploy no lo expone aunque el
  * proxy lo deje pasar.
  */
+import Link from "next/link";
+import { ViewTransition } from "react";
 import { notFound } from "next/navigation";
 
 import { AccountForm } from "@/components/AccountForm";
@@ -59,6 +61,16 @@ import { botonAcento, botonIcono, gridDosColumnas, insignia, lista } from "@/com
  */
 export const dynamic = "force-dynamic";
 
+/** Las mismas etiquetas y el mismo orden que el header real: el banco sirve
+ *  para medir, y una etiqueta mas corta que la de verdad mide otra cosa. */
+const NAV = [
+  ["mes", "Mes"],
+  ["analisis", "Análisis"],
+  ["importar", "Importar"],
+  ["cuentas", "Cuentas"],
+  ["ajustes", "Ajustes"],
+] as const;
+
 export const PANTALLAS = [
   "mes",
   "analisis",
@@ -80,18 +92,26 @@ export default async function Verificacion({
   return (
     <div className="flex min-h-full flex-1 flex-col">
       <header className="border-b border-border bg-surface">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
-          <span className="text-sm font-semibold">Finanzas</span>
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-2">
+          <span className="py-1.5 text-sm font-semibold">Finanzas</span>
+          {/* Links de verdad y no `span`: son lo que hace navegable el banco, y
+              una navegacion es la unica forma de ver correr el crossfade del
+              mes. Ademas el header real tiene links, asi que asi tambien se
+              parece mas a lo que hay que medir. */}
           <nav className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
-            <span>Mes</span>
-            <span>Análisis</span>
-            <span>Importar</span>
-            <span>Cuentas</span>
-            <span>Ajustes</span>
+            {NAV.map(([p, label]) => (
+              <Link key={p} href={`/verificacion?p=${p}`} className="py-1.5 hover:text-foreground">
+                {label}
+              </Link>
+            ))}
           </nav>
-          <span className="ml-auto text-sm text-muted">Salir</span>
+          <span className="ml-auto py-1.5 text-sm text-muted">Salir</span>
         </div>
       </header>
+      {/* La misma configuracion que la pagina del mes, para que lo que se
+          verifica sea el mecanismo que corre en produccion y no una version
+          parecida. */}
+      <ViewTransition update="mes" enter="none" exit="none" share="none">
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">
         {p === "mes" ? <Mes /> : null}
         {p === "analisis" ? <Analisis /> : null}
@@ -101,6 +121,7 @@ export default async function Verificacion({
         {p === "revision" ? <Revision /> : null}
         {p === "login" ? <Login /> : null}
       </main>
+      </ViewTransition>
     </div>
   );
 }

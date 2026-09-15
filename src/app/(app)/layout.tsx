@@ -13,10 +13,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-full flex-1 flex-col">
       <header className="border-b border-border bg-surface">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
+        {/* Los targets del header crecen con padding y **sin** el margen
+            negativo que los compensa en el resto de la app: aca la barra
+            envuelve, y un margen negativo se come el gap entre las filas
+            envueltas hasta montar una sobre otra. Se compensa achicando el
+            padding del contenedor: el header queda 4px mas alto y la
+            navegacion entera pasa a ser tocable. */}
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-2">
           {/* El nombre vuelve al inicio limpio: sin mes, sin filtros. Es el
               escape de una vista filtrada, que es justo cuando uno lo busca. */}
-          <Link href="/" className="text-sm font-semibold transition hover:text-accent">
+          <Link href="/" className="py-1.5 text-sm font-semibold transition hover:text-accent">
             Finanzas
           </Link>
           {/* flex-wrap: cinco items mas la marca y "Salir" no entran en una linea
@@ -26,7 +32,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.href}
                 href={item.href}
-                className="text-muted transition hover:text-foreground"
+                className="py-1.5 text-muted transition hover:text-foreground"
               >
                 {item.label}
               </Link>
@@ -35,7 +41,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <form action={signOut} className="ml-auto">
             <button
               type="submit"
-              className="text-sm text-muted transition hover:text-foreground"
+              className="py-1.5 text-sm text-muted transition hover:text-foreground"
             >
               Salir
             </button>

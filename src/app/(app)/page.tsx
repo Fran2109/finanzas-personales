@@ -1,3 +1,5 @@
+import { ViewTransition } from "react";
+
 import { MesView } from "@/components/MesView";
 import {
   getAccounts,
@@ -44,19 +46,32 @@ export default async function MonthPage({
       ? today.toISOString().slice(0, 10)
       : `${period}-01`;
 
+  // El crossfade entre meses lo hace el navegador y no cuesta un byte de JS: el
+  // DOM viejo se destruye en la navegacion, asi que no hay nada que una libreria
+  // de animacion pueda interpolar. Solo puede fadear lo nuevo *despues* de la
+  // espera, y eso hace sentir mas lenta una navegacion que ya lo es.
+  //
+  // `update` y no `enter`/`exit`: la clase se aplica solo cuando cambia el
+  // contenido de esta misma pantalla, que es la flecha del mes. Entrar desde
+  // Analisis o salir hacia el no anima, y eso no es cosmetico — cuando la fase
+  // de GSAP monte su orquesta aca, montarse aplica su estado inicial en el
+  // mismo commit en que el navegador saca la foto, y el crossfade fadearia
+  // hacia contenido en opacidad 0 que despues vuelve a subir. Doble fade.
   return (
-    <MesView
-      period={period}
-      filters={filters}
-      accounts={accounts}
-      categories={categories}
-      transactions={transactions}
-      totalSinFiltrar={todosLosMovimientos.length}
-      summary={summary}
-      currencies={currencies}
-      provisorios={provisorios}
-      reemplazo={reemplazo}
-      defaultDate={defaultDate}
-    />
+    <ViewTransition update="mes" enter="none" exit="none" share="none">
+      <MesView
+        period={period}
+        filters={filters}
+        accounts={accounts}
+        categories={categories}
+        transactions={transactions}
+        totalSinFiltrar={todosLosMovimientos.length}
+        summary={summary}
+        currencies={currencies}
+        provisorios={provisorios}
+        reemplazo={reemplazo}
+        defaultDate={defaultDate}
+      />
+    </ViewTransition>
   );
 }

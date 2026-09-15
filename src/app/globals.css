@@ -153,3 +153,65 @@ select,
 textarea {
   color-scheme: light dark;
 }
+
+/* Lo que se abre, sin una linea de JavaScript.
+ *
+ * `grid-template-rows: 0fr -> 1fr` anima hasta la altura real del contenido sin
+ * medirla. Es lo que ninguna libreria de animacion puede hacer sin medir y
+ * volver a medir en cada resize, asi que aca CSS no es la opcion barata: es la
+ * mejor. Y `@starting-style` da el estado de entrada de un nodo recien montado,
+ * o sea que el "antes" no necesita ningun estado de React.
+ *
+ * No hay animacion de salida, y es a proposito: el nodo se desmonta, y tenerlo
+ * montado mientras se va pide justo el estado que este mecanismo evita. Abrir
+ * es cuando hay algo nuevo que seguir con la vista; cerrar es irse. */
+.abre {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 200ms ease-out;
+}
+
+/* Sin esto el contenido no se deja recortar y la fila salta a su alto final en
+   el primer frame, que es la animacion entera perdida. */
+.abre > * {
+  min-height: 0;
+  overflow: hidden;
+}
+
+@starting-style {
+  .abre {
+    grid-template-rows: 0fr;
+  }
+}
+
+/* El panel del filtro.
+ *
+ * Anima `translate` y no `transform` a proposito: el `transform` de ese panel
+ * lo escribe el JS que lo corre para que no se salga de la pantalla en un
+ * telefono. Son dos propiedades distintas que el navegador compone, asi que la
+ * correccion de layout y la animacion conviven. Con las dos en `transform` la
+ * escritura inline gana y no queda animacion ninguna. */
+.panel-abre {
+  opacity: 1;
+  translate: 0 0;
+  transition:
+    opacity 120ms ease-out,
+    translate 120ms ease-out;
+}
+
+@starting-style {
+  .panel-abre {
+    opacity: 0;
+    translate: 0 -0.25rem;
+  }
+}
+
+/* El mes que cambia.
+ *
+ * El crossfade lo hace el navegador y la duracion es lo unico que se elige. Va
+ * corto: no es una animacion para mirar, es para que se note que la pantalla es
+ * la misma y lo que cambio son los datos. La clase la pone `<ViewTransition>`,
+ * asi que el resto de la pagina —el header, la barra de filtros— no entra. */
+::view-transition-group(.mes) {
+  animation-duration: 220ms;
+}
