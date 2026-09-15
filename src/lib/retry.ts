@@ -1,10 +1,11 @@
 /**
  * Reintento para fallas transitorias contra Supabase.
  *
- * La app corre en Vercel (iad1) y la base esta en sa-east-1: cada consulta
- * cruza el continente, y una instancia que estuvo ociosa puede tardar lo
- * suficiente como para que el gateway corte con un 504. Eso es transitorio y no
- * tiene por que llegar a la pantalla.
+ * Las funciones corren en `gru1` (San Pablo) y la base esta en sa-east-1, asi
+ * que la consulta no cruza el continente como decia antes este comentario: la
+ * API de Vercel dice `regions: ["gru1"]`. Igual una instancia que estuvo ociosa
+ * puede tardar lo suficiente como para que el gateway corte con un 504, y eso
+ * es transitorio: no tiene por que llegar a la pantalla.
  *
  * Solo se reintenta lo que puede andar bien en el proximo intento. Un error de
  * permisos o una consulta mal formada fallan igual siempre: reintentarlos solo
