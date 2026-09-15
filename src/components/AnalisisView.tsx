@@ -7,7 +7,7 @@ import { ColumnChart } from "@/components/charts/ColumnChart";
 import { ShareLegend, StackedShare } from "@/components/charts/StackedShare";
 import type { CommittedShare, FuturePeriod, MonthFlow, Plan } from "@/lib/commitments";
 import type { CategoryDelta } from "@/lib/analysis";
-import { formatPeriod, type Currency } from "@/lib/domain";
+import { formatPeriod, shiftPeriod, type Currency } from "@/lib/domain";
 import { formatCents, type Cents } from "@/lib/money";
 
 export type MesHistorico = {
@@ -136,7 +136,8 @@ export function AnalisisView({
             <h2 className="mb-1 text-sm font-semibold">Los meses que vienen</h2>
             <p className="mb-3 text-xs leading-relaxed text-muted">
               Cada mes arranca con esto ya gastado, antes de que compres nada.
-              Cada cuota cae en el mes siguiente al último resumen que la trajo.
+              Empieza después del último mes que ya tenés cargado, así que
+              acá no aparece ningún mes que puedas mirar en “Mes”.
             </p>
             <div className="mb-3 overflow-x-auto rounded-lg border border-border bg-surface p-3">
               <ColumnChart
@@ -202,6 +203,12 @@ export function AnalisisView({
                         `cuota ${plan.cuotaCurrent} de ${plan.cuotaTotal}`,
                         `quedan ${plan.remaining}`,
                         `termina en ${formatPeriod(plan.endsOn)}`,
+                        // Un plan que no aparecio en el ultimo resumen: o
+                        // termino antes, o esa linea no se leyo. Decirlo es
+                        // mejor que proyectarlo como si nada.
+                        plan.behind
+                          ? `no apareció en ${formatPeriod(shiftPeriod(plan.nextPeriod, -1))}`
+                          : null,
                         plan.categoryName,
                         plan.accountName,
                       ]

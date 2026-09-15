@@ -16,7 +16,17 @@ const MESES_A_PROYECTAR = 12;
 export default async function AnalisisPage() {
   const [cuotas, mensuales] = await Promise.all([getInstallmentRows(), getMonthlyRows()]);
 
-  const planes = openPlans(cuotas);
+  // Hasta que mes hay movimientos cargados de cada cuenta. Es lo que separa lo
+  // que ya paso de lo que viene: sin esto un plan cuya ultima cuota quedo en
+  // agosto proyecta la siguiente a septiembre aunque septiembre ya este cargado,
+  // y el mismo mes queda contado dos veces con dos numeros distintos.
+  const horizonte = new Map<string, string>();
+  for (const row of mensuales) {
+    const previo = horizonte.get(row.accountId);
+    if (!previo || row.period > previo) horizonte.set(row.accountId, row.period);
+  }
+
+  const planes = openPlans(cuotas, horizonte);
   const calendario = commitmentCalendar(planes, MESES_A_PROYECTAR);
 
   // Historico por mes, con la parte que ya estaba decidida antes de empezar.

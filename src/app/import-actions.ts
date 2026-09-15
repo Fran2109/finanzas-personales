@@ -584,6 +584,10 @@ export async function commitImport(formData: FormData): Promise<void> {
       merchant_normalized: normalizeMerchant(r.description),
       card_last4: r.cardLast4,
       cuota_number: r.cuotaCurrent,
+      // Sin el total la cuota queda huerfana: se sabe que es la 6, no de
+      // cuantas. El analisis no puede deducir el plan y la proyecta como si
+      // todavia no hubiera pasado, en un mes que ya esta cargado.
+      cuota_total: r.cuotaTotal,
       import_id: importId,
       statement_period: statementPeriod,
       // Lo pegado del home banking es provisorio hasta que llegue el PDF.

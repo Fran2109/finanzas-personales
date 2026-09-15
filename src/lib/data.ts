@@ -240,6 +240,7 @@ export async function getInstallmentRows(): Promise<InstallmentRow[]> {
 /** Lo minimo de cada movimiento para armar el historico por mes. */
 export type MonthlyRow = {
   period: Period;
+  accountId: string;
   amount: Cents;
   currency: Currency;
   kind: Kind;
@@ -260,7 +261,7 @@ export async function getMonthlyRows(): Promise<MonthlyRow[]> {
     supabase
       .from("finanzas_transactions")
       .select(
-        "amount, currency, kind, occurred_on, statement_period, is_projected, category:finanzas_categories(name)",
+        "amount, currency, kind, occurred_on, statement_period, is_projected, account_id, category:finanzas_categories(name)",
       ),
   );
   if (error) throw new Error(`No se pudieron leer los movimientos: ${error.message}`);
@@ -271,6 +272,7 @@ export async function getMonthlyRows(): Promise<MonthlyRow[]> {
     if (!periodo) continue;
     rows.push({
       period: periodo,
+      accountId: row.account_id,
       amount: centsFromDb(row.amount),
       currency: row.currency as Currency,
       kind: row.kind as Kind,

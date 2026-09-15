@@ -62,7 +62,9 @@ El esquema del remoto está versionado en `supabase/migrations/`. Los nombres de
 archivo coinciden con las versiones registradas (`20260914112501_init`,
 `20260914134533_add_installment_kind`, `20260914140347_add_statement_period`,
 `20260914170801_add_provisional_imports`, `20260914181405_add_cuota_total`,
-`20260915102537_rename_tables_prefix`), así que `db push` no los reaplica.
+`20260915102537_rename_tables_prefix`,
+`20260915113020_backfill_cuota_total_from_import_rows`), así que `db push` no
+los reaplica.
 
 El rename a `finanzas_*` es `alter table ... rename`: preserva datos, índices,
 constraints, foreign keys y políticas, no recrea ni mueve nada. Renombra también
@@ -328,6 +330,18 @@ refinanciación lleva el número de cuota pegado al nombre (`PLAN V CONSOLID
 Tres nombres para una sola deuda, que contada por nombre se **triplicaba**. El
 redondeo al peso es por el otro lado: una cuota fija puede venir con un centavo
 de diferencia entre un resumen y el siguiente, y eso partía el plan en dos.
+
+**El calendario arranca después del último mes cargado de esa cuenta**, no
+después de la última cuota vista. Si no, un plan al que le falta una cuota
+—porque el plan terminó antes o porque esa línea no se leyó— proyecta la
+siguiente a un mes que ya está cargado, y ese mes aparece a la vez en "los meses
+que vienen" y en la vista del mes, con dos números distintos. El plan que quedó
+atrás se marca y se dice en qué resumen no apareció, en vez de correrlo en
+silencio.
+
+Eso deja `cuota_total` como dato obligatorio al confirmar un import: sin el total
+la cuota queda huérfana —se sabe que es la 6, no de cuántas—, el plan no se puede
+deducir y esa cuota, ya cargada, se proyecta como si todavía no hubiera pasado.
 
 El límite conocido: dos compras distintas en la misma tarjeta, con la misma
 cantidad de cuotas y la misma cuota mensual se leen como una sola. Es más raro

@@ -51,6 +51,7 @@ export type InstallmentRow = {
 /** Un plan en curso, con lo que le falta. */
 export type Plan = {
   key: string;
+  accountId: string;
   accountName: string;
   description: string;
   categoryName: string | null;
@@ -62,6 +63,15 @@ export type Plan = {
   remaining: number;
   /** Periodo de la ultima cuota vista. */
   lastSeen: Period;
+  /** Primer mes donde cae una cuota que todavia no esta registrada. */
+  nextPeriod: Period;
+  /**
+   * La cuota no aparecio en el ultimo resumen cargado de la cuenta.
+   *
+   * O el plan termino antes de tiempo, o esa linea no se leyo. En los dos casos
+   * lo que no se puede hacer es proyectarla dentro de un mes que ya se cargo.
+   */
+  behind: boolean;
   /** Periodo en el que termina de pagarse. */
   endsOn: Period;
   /** Lo que falta pagar en total. */
@@ -91,8 +101,27 @@ function planKey(row: InstallmentRow): string {
  * que dice donde esta parado. Los que ya llegaron a la ultima cuota no
  * comprometen nada mas y quedan afuera.
  */
-export function openPlans(rows: InstallmentRow[]): Plan[] {
+export function openPlans(
+  rows: InstallmentRow[],
+  /**
+   * Hasta que mes hay movimientos cargados de cada cuenta.
+   *
+   * Es el limite entre lo que ya paso y lo que viene. Sin el, un plan cuya
+   * ultima cuota quedo en agosto proyecta la siguiente a septiembre aunque el
+   * resumen de septiembre ya este cargado, y entonces el mismo mes aparece a la
+   * vez en "los meses que vienen" y en la vista del mes, con dos numeros
+   * distintos. De las propias cuotas sale una aproximacion; la cuenta la sabe
+   * de verdad quien tiene todos los movimientos, y por eso se puede pasar.
+   */
+  horizonteDeCuenta: ReadonlyMap<string, Period> = new Map(),
+): Plan[] {
   const ultima = new Map<string, InstallmentRow>();
+  const horizonte = new Map<string, Period>(horizonteDeCuenta);
+
+  for (const row of rows) {
+    const previo = horizonte.get(row.accountId);
+    if (!previo || row.period > previo) horizonte.set(row.accountId, row.period);
+  }
 
   for (const row of rows) {
     if (!row.cuotaTotal || !row.cuotaCurrent) continue;
@@ -113,8 +142,14 @@ export function openPlans(rows: InstallmentRow[]): Plan[] {
   for (const [key, row] of ultima) {
     const remaining = row.cuotaTotal - row.cuotaCurrent;
     if (remaining <= 0) continue;
+    // La proyeccion arranca despues del ultimo mes cargado de la cuenta, no
+    // despues de la ultima cuota vista: lo que ya esta cargado no es futuro.
+    const desde = horizonte.get(row.accountId) ?? row.period;
+    const base = desde > row.period ? desde : row.period;
+    const nextPeriod = shiftPeriod(base, 1);
     planes.push({
       key,
+      accountId: row.accountId,
       accountName: row.accountName,
       description: row.description,
       categoryName: row.categoryName,
@@ -124,7 +159,9 @@ export function openPlans(rows: InstallmentRow[]): Plan[] {
       cuotaTotal: row.cuotaTotal,
       remaining,
       lastSeen: row.period,
-      endsOn: shiftPeriod(row.period, remaining),
+      nextPeriod,
+      behind: base !== row.period,
+      endsOn: shiftPeriod(nextPeriod, remaining - 1),
       remainingTotal: row.amount * remaining,
     });
   }
@@ -136,16 +173,17 @@ export function openPlans(rows: InstallmentRow[]): Plan[] {
 /**
  * El calendario: mes por mes, que cae y cuanto suma.
  *
- * Arranca en el mes siguiente al ultimo resumen de cada plan, no en el mes
- * corriente: si el resumen de septiembre ya trajo la cuota 5, la 6 cae en
- * octubre aunque hoy sea 14 de septiembre.
+ * Arranca en `nextPeriod`, que es el mes siguiente al ultimo que la cuenta
+ * tiene cargado: si el resumen de septiembre ya esta, la cuota que sigue cae en
+ * octubre aunque hoy sea 15 de septiembre. Nunca un mes que ya se cargo, o el
+ * calendario y la vista del mes darian dos numeros para el mismo mes.
  */
 export function commitmentCalendar(planes: Plan[], months: number): FuturePeriod[] {
   const porPeriodo = new Map<Period, FuturePeriod>();
 
   for (const plan of planes) {
     for (let i = 1; i <= plan.remaining; i++) {
-      const period = shiftPeriod(plan.lastSeen, i);
+      const period = shiftPeriod(plan.nextPeriod, i - 1);
       const entry =
         porPeriodo.get(period) ?? { period, totals: [], plans: [] };
 
@@ -158,7 +196,7 @@ export function commitmentCalendar(planes: Plan[], months: number): FuturePeriod
         description: plan.description,
         amount: plan.amount,
         currency: plan.currency,
-        cuota: plan.cuotaCurrent + i,
+        cuota: plan.cuotaTotal - plan.remaining + i,
       });
 
       porPeriodo.set(period, entry);

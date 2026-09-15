@@ -150,6 +150,54 @@ test("el calendario reparte una cuota por mes desde el mes siguiente", () => {
   assert.equal(cal[0].totals[0].total, 100000);
 });
 
+test("el calendario nunca cae en un mes que ya esta cargado", () => {
+  // El bug que hacia que "los meses que vienen" y la vista del mes dieran dos
+  // numeros para septiembre: la cuota de septiembre estaba cargada pero sin
+  // total, asi que el plan se quedaba parado en agosto y proyectaba la
+  // siguiente a septiembre, encima de la que ya estaba.
+  const planes = openPlans(
+    [cuota({ cuotaCurrent: 5, cuotaTotal: 7, period: "2026-08" })],
+    new Map([["visa", "2026-09"]]),
+  );
+  const [plan] = planes;
+  assert.equal(plan.behind, true, "la cuota no aparecio en el resumen de septiembre");
+  assert.equal(plan.nextPeriod, "2026-10");
+  assert.equal(plan.endsOn, "2026-11");
+  assert.deepEqual(
+    commitmentCalendar(planes, 12).map((p) => p.period),
+    ["2026-10", "2026-11"],
+  );
+});
+
+test("el horizonte de una cuenta no corre el plan de otra", () => {
+  const planes = openPlans(
+    [
+      cuota({ accountId: "visa", cuotaCurrent: 1, cuotaTotal: 2, period: "2026-08" }),
+      cuota({ accountId: "master", cuotaCurrent: 1, cuotaTotal: 2, period: "2026-09" }),
+    ],
+    new Map([["master", "2026-09"]]),
+  );
+  const visa = planes.find((p) => p.accountId === "visa")!;
+  const master = planes.find((p) => p.accountId === "master")!;
+  assert.equal(visa.nextPeriod, "2026-09", "de visa no hay nada mas nuevo que agosto");
+  assert.equal(visa.behind, false);
+  assert.equal(master.nextPeriod, "2026-10");
+});
+
+test("el numero de cuota proyectado sigue al plan aunque se atrase", () => {
+  // Si la cuota 6 no se vio y el plan arranca en octubre, octubre es la 6: se
+  // salteo el resumen, no la cuota.
+  const planes = openPlans(
+    [cuota({ cuotaCurrent: 5, cuotaTotal: 7, period: "2026-08" })],
+    new Map([["visa", "2026-09"]]),
+  );
+  const cal = commitmentCalendar(planes, 12);
+  assert.deepEqual(
+    cal.map((p) => p.plans[0].cuota),
+    [6, 7],
+  );
+});
+
 test("varios planes se suman en el mes que coinciden", () => {
   const planes = openPlans([
     cuota({ merchant: "UNO", amount: 100000, cuotaCurrent: 1, cuotaTotal: 3 }),
