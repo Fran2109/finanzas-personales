@@ -2,9 +2,11 @@ import Link from "next/link";
 
 import { Amount } from "@/components/Amount";
 import { BarList, type Bar } from "@/components/charts/BarList";
+import { DivergingBars } from "@/components/charts/DivergingBars";
 import { ColumnChart } from "@/components/charts/ColumnChart";
 import { ShareLegend, StackedShare } from "@/components/charts/StackedShare";
-import type { CommittedShare, FuturePeriod, Plan } from "@/lib/commitments";
+import type { CommittedShare, FuturePeriod, MonthFlow, Plan } from "@/lib/commitments";
+import type { CategoryDelta } from "@/lib/analysis";
 import { formatPeriod, type Currency } from "@/lib/domain";
 import { formatCents, type Cents } from "@/lib/money";
 
@@ -23,6 +25,11 @@ export type MesHistorico = {
  * verificando algo que no existe.
  */
 export function AnalisisView({
+  flujo,
+  faltaPorCategoria,
+  variacion,
+  comparados,
+  ultimoEsProvisorio,
   planes,
   calendario,
   historico,
@@ -31,6 +38,11 @@ export function AnalisisView({
   faltaPorPagar,
   periodos,
 }: {
+  flujo: MonthFlow[];
+  faltaPorCategoria: Bar[];
+  variacion: CategoryDelta[];
+  comparados: { anterior: string; ultimo: string } | null;
+  ultimoEsProvisorio: boolean;
   planes: Plan[];
   calendario: FuturePeriod[];
   historico: MesHistorico[];
@@ -78,6 +90,45 @@ export function AnalisisView({
                   />
                 </div>
               ))}
+            </div>
+
+            {faltaPorCategoria.length > 1 ? (
+              <div className="mt-3 rounded-lg border border-border bg-surface px-3 py-3">
+                <p className="mb-3 text-xs leading-relaxed text-muted">
+                  En qué se te va a ir esa plata. Lo que sea costo de
+                  financiarse no compró nada: es lo que pagás <em>por</em> pagar
+                  en cuotas.
+                </p>
+                <BarList bars={faltaPorCategoria} />
+              </div>
+            ) : null}
+          </section>
+
+          <section>
+            <h2 className="mb-1 text-sm font-semibold">¿Te estás soltando o atando?</h2>
+            <p className="mb-3 text-xs leading-relaxed text-muted">
+              Cada mes entra compromiso (compras nuevas en cuotas) y sale
+              (planes que pagaron su última). El saldo dice con cuánta cuota fija
+              arranca el mes siguiente comparado con el anterior.
+            </p>
+            <div className="rounded-lg border border-border bg-surface px-3 py-3">
+              <DivergingBars
+                items={flujo.map((f) => ({
+                  label: formatPeriod(f.period),
+                  value: f.net,
+                  hint:
+                    f.takenCount === 0 && f.releasedCount === 0
+                      ? "· sin cambios"
+                      : `· ${f.takenCount} ${f.takenCount === 1 ? "nueva" : "nuevas"}, ${f.releasedCount} ${f.releasedCount === 1 ? "terminada" : "terminadas"}`,
+                }))}
+                izquierda="te soltaste"
+                derecha="te ataste"
+              />
+              <p className="mt-3 text-xs leading-relaxed text-muted">
+                Un plan que empezó antes del primer resumen importado nunca
+                aparece como tomado: no se lo vio arrancar. Por eso los primeros
+                meses subestiman lo que entró.
+              </p>
             </div>
           </section>
 
@@ -221,6 +272,36 @@ export function AnalisisView({
           </p>
         ) : null}
       </section>
+
+      {variacion.length > 0 && comparados ? (
+        <section>
+          <h2 className="mb-1 text-sm font-semibold">Qué cambió respecto del mes anterior</h2>
+          <p className="mb-3 text-xs leading-relaxed text-muted">
+            {formatPeriod(comparados.ultimo)} contra{" "}
+            {formatPeriod(comparados.anterior)}, en pesos. Una categoría que
+            aparece o desaparece cuenta como cambio: suele ser el más grande.
+          </p>
+          <div className="rounded-lg border border-border bg-surface px-3 py-3">
+            <DivergingBars
+              items={variacion.slice(0, 8).map((v) => ({
+                label: v.label,
+                value: v.delta,
+                hint:
+                  v.before === 0 ? "· nueva" : v.after === 0 ? "· no aparece" : undefined,
+              }))}
+              izquierda="gastaste menos"
+              derecha="gastaste más"
+            />
+            {ultimoEsProvisorio ? (
+              <p className="mt-3 text-xs leading-relaxed text-muted">
+                {formatPeriod(comparados.ultimo)} todavía tiene movimientos
+                provisorios: el resumen no cerró, así que va a seguir subiendo.
+                Leerlo como tendencia es leer de más.
+              </p>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
 
       {categorias.length > 0 ? (
         <section>

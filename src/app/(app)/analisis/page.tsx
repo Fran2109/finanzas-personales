@@ -1,6 +1,13 @@
 import { AnalisisView } from "@/components/AnalisisView";
 import { getInstallmentRows, getMonthlyRows } from "@/lib/data";
-import { commitmentCalendar, committedShare, openPlans } from "@/lib/commitments";
+import {
+  commitmentCalendar,
+  committedShare,
+  installmentFlow,
+  openPlans,
+  remainingByCategory,
+} from "@/lib/commitments";
+import { categoryDeltas, periodsOf } from "@/lib/analysis";
 import type { Currency } from "@/lib/domain";
 import type { Cents } from "@/lib/money";
 
@@ -58,8 +65,28 @@ export default async function AnalisisPage() {
     planes.map((p) => ({ currency: p.currency, amount: p.remainingTotal })),
   );
 
+  // Cuanto compromiso entro y salio cada mes: el calendario dice cuanto falta,
+  // esto dice si la cosa va para arriba o para abajo.
+  const flujo = installmentFlow(cuotas).filter((f) => f.currency === "ARS");
+
+  // De lo que falta pagar, cuanto es cada categoria. Separa las cosas del costo
+  // de financiarse, que es una deuda de otra naturaleza.
+  const faltaPorCategoria = remainingByCategory(planes);
+
+  // Que cambio entre los dos ultimos meses con movimientos.
+  const [ultimo, anterior] = periodsOf(mensuales);
+  const variacion =
+    ultimo && anterior ? categoryDeltas(mensuales, anterior, ultimo) : [];
+  const comparados = ultimo && anterior ? { anterior, ultimo } : null;
+  const ultimoEsProvisorio = mensuales.some((r) => r.period === ultimo && r.isProjected);
+
   return (
     <AnalisisView
+      flujo={flujo}
+      faltaPorCategoria={faltaPorCategoria}
+      variacion={variacion}
+      comparados={comparados}
+      ultimoEsProvisorio={ultimoEsProvisorio}
       planes={planes}
       calendario={calendario}
       historico={historico}

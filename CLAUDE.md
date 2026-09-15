@@ -341,6 +341,32 @@ nominal con IPC (en Argentina no es opcional, 2,86M de julio y 3,67M de
 septiembre no son plata de la misma calidad), estacionalidad y detección de
 anomalías. Nada de eso da con tres meses.
 
+### Mirar para atrás: el flujo de cuotas y qué cambió
+
+El calendario dice **cuánto falta**; estas dos secciones dicen **para dónde va la
+cosa**.
+
+**`installmentFlow` mide el compromiso que entra y el que sale cada mes.** Entra
+la cuota de los planes que arrancaron ese mes (su cuota 1) y sale la de los que
+pagaron la última. El neto contesta si el mes que viene arranca con más o con
+menos cuota fija que el anterior, que es una pregunta que el total gastado no
+contesta: un mes caro puede ser un mes en el que el futuro se descomprimió.
+
+Un plan que empezó **antes del primer resumen importado** nunca cuenta como
+tomado: no se lo vio arrancar, y afirmar que se tomó en un mes que no se miró
+sería inventarlo. Eso hace que los primeros meses de historia subestimen lo que
+entró, y la pantalla lo dice.
+
+**`remainingByCategory` parte lo que falta pagar por categoría.** Sirve sobre
+todo para separar las cosas del costo de financiarse: una deuda de la que el 82%
+son intereses no es la misma deuda que una del mismo tamaño por compras.
+
+**`categoryDeltas` compara los dos últimos meses.** Una categoría que aparece o
+desaparece cuenta como cambio —suele ser el más grande— y el orden es por cuánto
+se movió, sin importar para qué lado: la pregunta es "qué cambió", no "qué
+subió". Si el mes más nuevo todavía tiene provisorios, se avisa: el resumen no
+cerró y va a seguir subiendo.
+
 ### Los gráficos
 
 **SVG y HTML a mano, del lado del servidor.** No hay librería de gráficos: son
@@ -362,6 +388,15 @@ pasos se eligieron corriendo el validador de la skill de dataviz contra cada
 superficie: claro `#8f8d86` (ΔE 17,3 a vista normal, 13,2 bajo protanopia) y
 oscuro `#6b6864` (ΔE 24,5), los dos ≥3:1. El paso oscuro no es el claro
 invertido: se eligió contra `#1b1b1a`.
+
+**El verde contra el rojo no se puede usar para el signo.** Es lo natural para
+"subió / bajó" y el validador lo rechaza: ese par da ΔE 5,5 en claro y 4,0 en
+oscuro bajo deuteranopía, o sea que un daltónico ve dos barras del mismo color y
+pierde el signo. En `DivergingBars` el signo lo lleva **de qué lado del cero cae
+la barra**, que no se pierde nunca, más el número con signo al lado; el color
+queda sólo como magnitud, un tono. El par azul/rojo que propone la skill pasaría
+el chequeo, pero meter un tono nuevo en una app cuya paleta entera es un verde
+cuesta más de lo que rinde.
 
 Las barras van **cuadradas contra el cero y redondeadas en la punta** —el
 extremo redondeado marca dónde termina el dato y la base cuadrada lo ancla al

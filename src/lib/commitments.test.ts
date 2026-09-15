@@ -4,7 +4,9 @@ import assert from "node:assert/strict";
 import {
   commitmentCalendar,
   committedShare,
+  installmentFlow,
   openPlans,
+  remainingByCategory,
   type InstallmentRow,
 } from "./commitments.ts";
 
@@ -207,4 +209,93 @@ test("un mes vacio no divide por cero", () => {
   assert.deepEqual(committedShare([]), []);
   const [solo] = committedShare([{ amount: 0, currency: "ARS", kind: "consumption" }]);
   assert.equal(solo.share, null);
+});
+
+// Cuanto compromiso entra y sale cada mes
+// ---------------------------------------------------------------------------
+
+test("lo que arranca y lo que termina en cada mes", () => {
+  const flujo = installmentFlow([
+    // Arranca un plan de 3 en julio.
+    cuota({ merchant: "UNO", amount: 100000, cuotaCurrent: 1, cuotaTotal: 3, period: "2026-07" }),
+    cuota({ merchant: "UNO", amount: 100000, cuotaCurrent: 2, cuotaTotal: 3, period: "2026-08" }),
+    cuota({ merchant: "UNO", amount: 100000, cuotaCurrent: 3, cuotaTotal: 3, period: "2026-09" }),
+  ]);
+
+  assert.equal(flujo.length, 3);
+  assert.deepEqual(
+    flujo.map((f) => [f.period, f.taken, f.released, f.net]),
+    [
+      ["2026-07", 100000, 0, 100000],
+      // El mes del medio no mueve el compromiso: ni arranca ni termina nada.
+      ["2026-08", 0, 0, 0],
+      ["2026-09", 0, 100000, -100000],
+    ],
+  );
+});
+
+test("el neto dice si el mes que viene arranca mas o menos comprometido", () => {
+  const flujo = installmentFlow([
+    cuota({ merchant: "NUEVO", amount: 300000, cuotaCurrent: 1, cuotaTotal: 6, period: "2026-09" }),
+    cuota({ merchant: "VIEJO", amount: 100000, cuotaCurrent: 3, cuotaTotal: 3, period: "2026-09" }),
+  ]);
+  const [sep] = flujo;
+  assert.equal(sep.taken, 300000);
+  assert.equal(sep.released, 100000);
+  assert.equal(sep.net, 200000);
+  assert.equal(sep.takenCount, 1);
+  assert.equal(sep.releasedCount, 1);
+});
+
+test("un plan de una sola cuota entra y sale el mismo mes", () => {
+  // Arranca y termina a la vez: sobre el compromiso futuro no deja nada, que
+  // es exactamente lo que hace con la plata.
+  const [mes] = installmentFlow([
+    cuota({ amount: 50000, cuotaCurrent: 1, cuotaTotal: 1, period: "2026-09" }),
+  ]);
+  assert.equal(mes.taken, 50000);
+  assert.equal(mes.released, 50000);
+  assert.equal(mes.net, 0);
+});
+
+test("un plan que ya venia en curso no cuenta como tomado", () => {
+  // Empezo antes del primer resumen importado: no se lo vio arrancar, y decir
+  // que se tomo en un mes que no se miro seria inventarlo.
+  const [mes] = installmentFlow([
+    cuota({ amount: 500000, cuotaCurrent: 6, cuotaTotal: 12, period: "2026-09" }),
+  ]);
+  assert.equal(mes.taken, 0);
+  assert.equal(mes.released, 0);
+  assert.equal(mes.net, 0);
+});
+
+test("cada moneda lleva su propia cuenta", () => {
+  const flujo = installmentFlow([
+    cuota({ amount: 100000, currency: "ARS", cuotaCurrent: 1, cuotaTotal: 3, period: "2026-09" }),
+    cuota({ amount: 2000, currency: "USD", cuotaCurrent: 1, cuotaTotal: 3, period: "2026-09" }),
+  ]);
+  assert.equal(flujo.length, 2);
+  assert.deepEqual(
+    flujo.map((f) => [f.currency, f.taken]),
+    [["ARS", 100000], ["USD", 2000]],
+  );
+});
+
+test("de lo que falta pagar, cuanto es de cada categoria", () => {
+  const planes = openPlans([
+    cuota({ merchant: "A", categoryName: "Financiacion", amount: 500000, cuotaCurrent: 1, cuotaTotal: 3 }),
+    cuota({ merchant: "B", categoryName: "Compras", amount: 100000, cuotaCurrent: 1, cuotaTotal: 3 }),
+    cuota({ merchant: "C", categoryName: "Compras", amount: 200000, cuotaCurrent: 1, cuotaTotal: 3 }),
+  ]);
+  assert.deepEqual(remainingByCategory(planes), [
+    { label: "Financiacion", value: 1000000 },
+    { label: "Compras", value: 600000 },
+  ]);
+});
+
+test("una cuota sin categoria no desaparece del reparto", () => {
+  const planes = openPlans([
+    cuota({ categoryName: null, amount: 100000, cuotaCurrent: 1, cuotaTotal: 3 }),
+  ]);
+  assert.deepEqual(remainingByCategory(planes), [{ label: "Sin categoria", value: 200000 }]);
 });

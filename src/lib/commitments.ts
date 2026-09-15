@@ -221,3 +221,98 @@ export function committedShare(
 
   return [...porMoneda.values()].sort((a, b) => a.currency.localeCompare(b.currency));
 }
+
+/**
+ * Un mes, con la cuota mensual que se tomo y la que se libero.
+ *
+ * `taken` es la suma de las cuotas de los planes que arrancaron ese mes (su
+ * cuota 1); `released`, la de los que pagaron su ultima. El neto dice si el mes
+ * que viene arranca con mas o con menos compromiso que el anterior.
+ */
+export type MonthFlow = {
+  period: Period;
+  currency: Currency;
+  taken: Cents;
+  released: Cents;
+  /** taken - released. Positivo = quedaste mas comprometido que antes. */
+  net: Cents;
+  takenCount: number;
+  releasedCount: number;
+};
+
+/**
+ * Cuanto compromiso mensual entro y salio en cada mes.
+ *
+ * Es la pregunta que el calendario de compromisos no contesta: el calendario
+ * dice cuanto falta, esto dice si la cosa va para arriba o para abajo. Un mes
+ * con mucha cuota liberada y poca tomada es un mes en el que el futuro se
+ * descomprimio, aunque el total gastado haya sido alto.
+ *
+ * Un plan que empezo antes del primer resumen importado nunca aparece como
+ * tomado: no se lo vio arrancar. Eso es correcto —no se puede afirmar que se
+ * tomo en un mes que no se miro— pero hace que los primeros meses de historia
+ * subestimen lo tomado. Por eso la pantalla lo dice.
+ */
+export function installmentFlow(rows: InstallmentRow[]): MonthFlow[] {
+  const porClave = new Map<string, MonthFlow>();
+
+  const entrada = (period: Period, currency: Currency): MonthFlow => {
+    const clave = `${period}|${currency}`;
+    const previa = porClave.get(clave);
+    if (previa) return previa;
+    const fresca: MonthFlow = {
+      period,
+      currency,
+      taken: 0,
+      released: 0,
+      net: 0,
+      takenCount: 0,
+      releasedCount: 0,
+    };
+    porClave.set(clave, fresca);
+    return fresca;
+  };
+
+  for (const row of rows) {
+    if (!row.cuotaTotal || !row.cuotaCurrent) continue;
+    const mes = entrada(row.period, row.currency);
+
+    if (row.cuotaCurrent === 1) {
+      mes.taken += row.amount;
+      mes.takenCount += 1;
+    }
+    // Un plan de una sola cuota arranca y termina el mismo mes: cuenta en los
+    // dos lados y se neutraliza, que es exactamente lo que hace con la plata.
+    if (row.cuotaCurrent === row.cuotaTotal) {
+      mes.released += row.amount;
+      mes.releasedCount += 1;
+    }
+    mes.net = mes.taken - mes.released;
+  }
+
+  return [...porClave.values()].sort(
+    (a, b) => a.period.localeCompare(b.period) || a.currency.localeCompare(b.currency),
+  );
+}
+
+/**
+ * De lo que falta pagar, cuanto corresponde a cada categoria.
+ *
+ * Sirve sobre todo para separar lo que son cosas de lo que es costo de
+ * financiarse: una deuda de la que la mitad son intereses no es lo mismo que
+ * una del mismo tamano por compras.
+ */
+export function remainingByCategory(
+  planes: Plan[],
+  currency: Currency = "ARS",
+): { label: string; value: Cents }[] {
+  const porCategoria = new Map<string, Cents>();
+  for (const plan of planes) {
+    if (plan.currency !== currency) continue;
+    const clave = plan.categoryName ?? "Sin categoria";
+    porCategoria.set(clave, (porCategoria.get(clave) ?? 0) + plan.remainingTotal);
+  }
+  return [...porCategoria]
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value);
+}
