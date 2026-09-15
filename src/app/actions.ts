@@ -259,15 +259,19 @@ export async function updateTransaction(
   if (!/^\d{4}-\d{2}-\d{2}$/.test(occurredOn)) return fail("Fecha invalida.");
 
   const description = String(formData.get("description") ?? "").trim();
-  const categoryId = String(formData.get("category_id") ?? "");
   const cardLast4 = String(formData.get("card_last4") ?? "").trim();
 
   if (cardLast4 && !/^\d{4}$/.test(cardLast4)) {
     return fail("Los ultimos 4 de la tarjeta son 4 digitos.");
   }
 
+  const resuelta = await resolveCategoryId(supabase, formData, kind);
+  if ("error" in resuelta) return fail(resuelta.error);
+  const categoryId = resuelta.id;
+
   // La categoria tiene que pertenecer a la familia del tipo. El formulario ya
-  // filtra, pero una Server Action es alcanzable por POST directo.
+  // filtra y una categoria recien creada nace en la familia correcta, pero una
+  // Server Action es alcanzable por POST directo.
   if (categoryId) {
     const { data: categoria } = await supabase
       .from("finanzas_categories")
@@ -312,7 +316,7 @@ export async function updateTransaction(
     .from("finanzas_transactions")
     .update({
       account_id: accountId,
-      category_id: categoryId || null,
+      category_id: categoryId,
       occurred_on: occurredOn,
       amount: centsToNumeric(cents),
       currency,

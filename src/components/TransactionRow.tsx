@@ -108,6 +108,17 @@ function Editor({
   const [state, action] = useActionState<FormState, FormData>(updateTransaction, {});
   const [kind, setKind] = useState<Kind>(tx.kind);
   const [accountId, setAccountId] = useState(tx.account?.id ?? accounts[0]?.id ?? "");
+  // La categoria que trae el movimiento solo sirve si es de la familia de su
+  // tipo; si no, la fila arranca sin categoria y hay que elegir de nuevo.
+  const [categoryId, setCategoryId] = useState(() =>
+    categories.some(
+      (c) => c.id === tx.category?.id && c.kind === CATEGORY_KIND_FOR[tx.kind],
+    )
+      ? (tx.category?.id ?? "")
+      : "",
+  );
+  const [creandoCategoria, setCreandoCategoria] = useState(false);
+  const [nombreNuevo, setNombreNuevo] = useState("");
 
   const cuenta = accounts.find((a) => a.id === accountId);
 
@@ -115,6 +126,18 @@ function Editor({
     () => categories.filter((c) => c.kind === CATEGORY_KIND_FOR[kind]),
     [categories, kind],
   );
+
+  // Igual que en el alta: la categoria recien creada se reconoce por verla
+  // aparecer en la lista revalidada, no por un efecto que sincronice.
+  const recienCreada = useMemo(() => {
+    if (!creandoCategoria) return undefined;
+    const buscado = nombreNuevo.trim().toLowerCase();
+    if (!buscado) return undefined;
+    return visibles.find((c) => c.name.toLowerCase() === buscado);
+  }, [creandoCategoria, nombreNuevo, visibles]);
+
+  const creando = creandoCategoria && !recienCreada;
+  const categoriaElegida = recienCreada?.id ?? categoryId;
 
   // Guardar cierra la fila. El servidor ya revalido, asi que al cerrarse se ve
   // el valor nuevo y no el que se acaba de tipear.
@@ -136,7 +159,12 @@ function Editor({
           <button
             key={k}
             type="button"
-            onClick={() => setKind(k)}
+            onClick={() => {
+              setKind(k);
+              // La categoria elegida pertenece a la familia del tipo anterior.
+              setCategoryId("");
+              setCreandoCategoria(false);
+            }}
             className={`rounded-md border px-2.5 py-1 text-xs transition ${
               kind === k
                 ? "border-accent bg-accent text-background"
@@ -226,25 +254,65 @@ function Editor({
 
       <div className="grid grid-cols-2 gap-3 *:min-w-0">
         <div>
-          <label className={label} htmlFor={`cat-${tx.id}`}>
+          <label
+            className={label}
+            htmlFor={creando ? `new-cat-${tx.id}` : `cat-${tx.id}`}
+          >
             Categoria
           </label>
-          <select
-            id={`cat-${tx.id}`}
-            name="category_id"
-            key={kind}
-            defaultValue={
-              visibles.some((c) => c.id === tx.category?.id) ? (tx.category?.id ?? "") : ""
-            }
-            className={field}
-          >
-            <option value="">Sin categoria</option>
-            {visibles.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          {/* Corregir la categoria de un movimiento es donde mas se nota que
+              falta una: mandar a Ajustes en el medio es lo que hace que la
+              correccion no se haga. La familia la fija el tipo. */}
+          {creando ? (
+            <>
+              <input
+                id={`new-cat-${tx.id}`}
+                name="new_category"
+                required
+                autoComplete="off"
+                placeholder="Seguros"
+                value={nombreNuevo}
+                onChange={(e) => setNombreNuevo(e.target.value)}
+                className={`${field} border-accent`}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setCreandoCategoria(false);
+                  setNombreNuevo("");
+                }}
+                className="mt-1 text-[11px] text-muted transition hover:text-foreground"
+              >
+                Cancelar
+              </button>
+            </>
+          ) : (
+            <select
+              id={`cat-${tx.id}`}
+              name="category_id"
+              value={categoriaElegida}
+              onChange={(e) => {
+                if (e.target.value === "__nueva__") {
+                  setCreandoCategoria(true);
+                  // Vacio, o el nombre de la vuelta anterior ya estaria en la
+                  // lista y el campo se cerraria antes de poder tipear.
+                  setNombreNuevo("");
+                  return;
+                }
+                setCreandoCategoria(false);
+                setCategoryId(e.target.value);
+              }}
+              className={field}
+            >
+              <option value="">Sin categoria</option>
+              {visibles.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+              <option value="__nueva__">+ Nueva categoria...</option>
+            </select>
+          )}
         </div>
         {cuenta?.is_liability ? (
           <div>
