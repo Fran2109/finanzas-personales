@@ -129,7 +129,7 @@ export default async function Verificacion({
 
 function Mes() {
   return (
-    <Orquesta>
+    <Orquesta pantalla="mes">
       <MesView
         period={MES}
         filters={{ q: "", cuenta: [], categoria: [], tipo: [], moneda: [] }}
@@ -155,35 +155,37 @@ function Analisis() {
   const falta = remainingByCategory(planes);
 
   return (
-    <AnalisisView
-      flujo={installmentFlow(cuotas).filter((f) => f.currency === "ARS")}
-      faltaPorCategoria={falta}
-      variacion={[
-        { label: "Financiacion", before: 41000000, after: 51732748, delta: 10732748 },
-        { label: "Celular", before: 12000000, after: 8999991, delta: -3000009 },
-        { label: "Una categoria con nombre largo", before: 0, after: 6616668, delta: 6616668 },
-      ]}
-      comparados={{ anterior: "2026-08", ultimo: MES }}
-      ultimoEsProvisorio
-      planes={planes}
-      calendario={calendario}
-      historico={periodos.map((period) => ({
-        period,
-        share: committedShare(
-          cuotas
-            .filter((r) => r.period === period)
-            .map((r) => ({ amount: r.amount, currency: r.currency, kind: "installment" })),
-        ),
-        provisorios: period === MES ? 4 : 0,
-        total: cuotas.filter((r) => r.period === period).length,
-      }))}
-      categorias={falta}
-      totalCategorias={falta.reduce((t, c) => t + c.value, 0)}
-      faltaPorPagar={[
-        { currency: "ARS", amount: planes.reduce((t, x) => t + x.unpaidTotal, 0) },
-      ]}
-      periodos={periodos}
-    />
+    <Orquesta pantalla="analisis">
+      <AnalisisView
+        flujo={installmentFlow(cuotas).filter((f) => f.currency === "ARS")}
+        faltaPorCategoria={falta}
+        variacion={[
+          { label: "Financiacion", before: 41000000, after: 51732748, delta: 10732748 },
+          { label: "Celular", before: 12000000, after: 8999991, delta: -3000009 },
+          { label: "Una categoria con nombre largo", before: 0, after: 6616668, delta: 6616668 },
+        ]}
+        comparados={{ anterior: "2026-08", ultimo: MES }}
+        ultimoEsProvisorio
+        planes={planes}
+        calendario={calendario}
+        historico={periodos.map((period) => ({
+          period,
+          share: committedShare(
+            cuotas
+              .filter((r) => r.period === period)
+              .map((r) => ({ amount: r.amount, currency: r.currency, kind: "installment" })),
+          ),
+          provisorios: period === MES ? 4 : 0,
+          total: cuotas.filter((r) => r.period === period).length,
+        }))}
+        categorias={falta}
+        totalCategorias={falta.reduce((t, c) => t + c.value, 0)}
+        faltaPorPagar={[
+          { currency: "ARS", amount: planes.reduce((t, x) => t + x.unpaidTotal, 0) },
+        ]}
+        periodos={periodos}
+      />
+    </Orquesta>
   );
 }
 

@@ -21,7 +21,7 @@ function destapar() {
 }
 
 /**
- * La entrada corre una vez por carga de la pagina, y despues nunca mas.
+ * Cada pantalla entra una sola vez por carga, y despues nunca mas.
  *
  * Volver a Mes desde Analisis remonta la orquesta, y sin esto la secuencia se
  * repetiria en cada ida y vuelta. Una entrada que se ve una vez es una entrada;
@@ -29,10 +29,15 @@ function destapar() {
  * sus numeros. Un recargar de verdad la trae de nuevo, que es cuando tiene
  * sentido: ahi la pantalla se esta armando otra vez.
  *
- * Es una variable de modulo y no `sessionStorage` a proposito: lo que hay que
+ * **Por pantalla y no una sola para toda la app**, que es lo que parecia
+ * alcanzar: con una sola bandera, entrar a Analisis despues de Mes no animaba
+ * nada, porque el flag ya estaba gastado. Ver una pantalla por primera vez y
+ * volver a una que ya viste son cosas distintas.
+ *
+ * Es un `Set` de modulo y no `sessionStorage` a proposito: lo que hay que
  * recordar es "en esta carga", que es exactamente lo que dura un modulo.
  */
-let yaEntro = false;
+const yaEntraron = new Set<string>();
 
 /**
  * Arma la entrada de una pantalla y devuelve como deshacerla.
@@ -50,11 +55,11 @@ let yaEntro = false;
  * Y de paso: si cualquier cosa de aca para abajo tira, el contenido ya quedo
  * visible. La linea que rescata la pagina es la primera, no un catch.
  */
-export function entrada(scope: HTMLElement): () => void {
+export function entrada(scope: HTMLElement, pantalla: string): () => void {
   destapar();
 
-  if (yaEntro) return () => {};
-  yaEntro = true;
+  if (yaEntraron.has(pantalla)) return () => {};
+  yaEntraron.add(pantalla);
 
   const mm = gsap.matchMedia();
 

@@ -55,13 +55,13 @@ export default async function MonthPage({
   // `update` y no `enter`/`exit`: la clase se aplica solo cuando cambia el
   // contenido de esta misma pantalla, que es la flecha del mes. Entrar desde
   // Analisis o salir hacia el no anima, y eso no es cosmetico — es lo que
-  // mantiene los dos mecanismos en transiciones disjuntas. `<Orquesta>` se
+  // mantiene los dos mecanismos en transiciones disjuntas. `<Orquesta pantalla="mes">` se
   // monta en esa navegacion y aplica su estado inicial en el mismo commit en
   // que el navegador saca la foto: el crossfade fadearia hacia contenido en
   // opacidad 0 que despues vuelve a subir. Doble fade.
   return (
     <ViewTransition update="mes" enter="none" exit="none" share="none">
-      <Orquesta>
+      <Orquesta pantalla="mes">
         <MesView
           period={period}
           filters={filters}

@@ -106,12 +106,25 @@ async function chunks(url) {
   await p.close();
 }
 
-// 3 ------------------------------------------ y nada invisible cuando si llega
-{
+// 3, 4 y 5 ------------------------------ en cada pantalla que monta la orquesta
+//
+// Las tres preguntas van juntas y en ese orden a proposito: sin "anima", el
+// "nada invisible" lo estaria dando el watchdog y el ok seria mentira.
+for (const pantalla of ["mes", "analisis"]) {
   const p = await b.newPage();
-  await p.goto(`${BASE}/verificacion?p=mes`);
-  await p.waitForTimeout(1500);
-  const r = await p.evaluate(() => {
+  await p.goto(`${BASE}/verificacion?p=${pantalla}`);
+
+  // A los 120ms la secuencia esta arrancando.
+  await p.waitForTimeout(120);
+  const entrando = await p.evaluate(
+    () =>
+      [...document.querySelectorAll("[data-anim]")].filter(
+        (el) => Number(getComputedStyle(el).opacity) < 0.99,
+      ).length,
+  );
+
+  await p.waitForTimeout(1400);
+  const fin = await p.evaluate(() => {
     const todos = [...document.querySelectorAll("[data-anim]")];
     return {
       n: todos.length,
@@ -120,72 +133,66 @@ async function chunks(url) {
         .map((el) => el.getAttribute("data-anim")),
     };
   });
-  if (r.n === 0) mal("visibilidad", "no hay ningun [data-anim]: la coreografia no engancho a nada");
-  else if (r.malos.length) mal("visibilidad", `quedaron en opacidad < 1: ${r.malos.join(", ")}`);
-  else ok(`visibilidad: los ${r.n} [data-anim] terminan opacos`);
-  await p.close();
-}
 
-// 4 ------------------------------------------------ y que de verdad se anime
-{
-  const p = await b.newPage();
-  await p.goto(`${BASE}/verificacion?p=mes`);
-  // A los 120ms la secuencia esta arrancando: si ya esta todo opaco, GSAP no
-  // hizo nada y el "ok" de arriba lo estaria dando el watchdog.
-  await p.waitForTimeout(120);
-  const medio = await p.evaluate(
-    () =>
-      [...document.querySelectorAll("[data-anim]")].filter(
-        (el) => Number(getComputedStyle(el).opacity) < 0.99,
-      ).length,
-  );
-  if (medio === 0) mal("anima", "a los 120ms ya estaba todo opaco: no hubo animacion");
-  else ok(`anima: ${medio} elementos todavia entrando a los 120ms`);
+  if (fin.n === 0) mal(pantalla, "no hay ningun [data-anim]: la coreografia no engancho a nada");
+  else if (entrando === 0) mal(pantalla, "a los 120ms ya estaba todo opaco: no hubo animacion");
+  else if (fin.malos.length) mal(pantalla, `quedaron en opacidad < 1: ${fin.malos.join(", ")}`);
+  else ok(`${pantalla}: ${entrando} de ${fin.n} entrando a los 120ms, los ${fin.n} opacos al final`);
   await p.close();
-}
 
-// 5 ------------------------------------------------------- y bajo reduce, nada
-{
-  const p = await b.newPage({ reducedMotion: "reduce" });
-  await p.goto(`${BASE}/verificacion?p=mes`);
-  await p.waitForTimeout(120);
-  const r = await p.evaluate(() => {
+  const q = await b.newPage({ reducedMotion: "reduce" });
+  await q.goto(`${BASE}/verificacion?p=${pantalla}`);
+  await q.waitForTimeout(120);
+  const quietos = await q.evaluate(() => {
     const todos = [...document.querySelectorAll("[data-anim]")];
-    return {
-      n: todos.length,
-      malos: todos.filter((el) => {
-        const s = getComputedStyle(el);
-        return Number(s.opacity) < 0.99 || (s.transform !== "none" && s.transform !== "");
-      }).length,
-    };
+    return todos.filter((el) => {
+      const st = getComputedStyle(el);
+      return Number(st.opacity) < 0.99 || (st.transform !== "none" && st.transform !== "");
+    }).length;
   });
-  if (r.malos > 0) mal("reduce", `${r.malos} de ${r.n} elementos estaban movidos o transparentes`);
-  else ok(`reduce: los ${r.n} [data-anim] estan quietos y opacos desde el primer frame`);
-  await p.close();
+  if (quietos > 0) mal(`${pantalla} reduce`, `${quietos} elementos movidos o transparentes`);
+  else ok(`${pantalla} reduce: quietos y opacos desde el primer frame`);
+  await q.close();
 }
 
-// 6 -------------------------------------------- pero una sola vez por carga
+// 6 --------------------------- una vez por pantalla: ni de menos ni de mas
+//
+// Todo en una sola carga, que es donde vive el bug: los chequeos de arriba
+// abren una pestana nueva cada vez y por eso no lo verian nunca.
 {
   const p = await b.newPage();
+  const entrando = () =>
+    p.evaluate(
+      () =>
+        [...document.querySelectorAll("[data-anim]")].filter(
+          (el) => Number(getComputedStyle(el).opacity) < 0.99,
+        ).length,
+    );
+
   await p.goto(`${BASE}/verificacion?p=mes`);
   await p.waitForTimeout(1200);
-  // Ida y vuelta por una pantalla que no anima: al volver, la orquesta se
-  // remonta. Si la secuencia se repitiera, serian 700ms de espera cada vez que
-  // alguien va a Cuentas y vuelve.
-  await p.locator('nav a[href*="p=cuentas"]').click();
-  await p.waitForTimeout(600);
-  await p.locator('nav a[href*="p=mes"]').click();
-  await p.waitForTimeout(120);
-  const r = await p.evaluate(() => {
-    const todos = [...document.querySelectorAll("[data-anim]")];
-    return {
-      n: todos.length,
-      entrando: todos.filter((el) => Number(getComputedStyle(el).opacity) < 0.99).length,
-    };
-  });
-  if (r.n === 0) mal("una sola vez", "la vuelta no renderizo la pantalla del mes");
-  else if (r.entrando > 0) mal("una sola vez", `la entrada se repitio (${r.entrando} entrando)`);
-  else ok(`una sola vez: al volver, los ${r.n} [data-anim] ya estan puestos`);
+
+  // Se mide **desde que la pantalla nueva aparece**, no a los N ms del click:
+  // entre medio hay un viaje al servidor por el RSC y la view transition, que
+  // retrasa el commit hasta que el navegador saca la foto. Con un timeout fijo
+  // lo que se mide es la pantalla vieja, y el chequeo reporta "no animo" sobre
+  // una animacion que estaba por empezar. Paso.
+  const ir = async (destino, titulo) => {
+    await p.locator(`nav a[href*="p=${destino}"]`).click();
+    await p.locator(`h1:has-text("${titulo}")`).waitFor({ timeout: 5000 });
+    return entrando();
+  };
+
+  const primera = await ir("analisis", "Análisis");
+  await p.waitForTimeout(1200);
+  const vuelta = await ir("mes", "Septiembre");
+  await p.waitForTimeout(1200);
+  const revuelta = await ir("analisis", "Análisis");
+
+  if (primera === 0) mal("una por pantalla", "Analisis no animo la primera vez que se vio");
+  else if (vuelta > 0) mal("una por pantalla", `volver a Mes repitio la entrada (${vuelta})`);
+  else if (revuelta > 0) mal("una por pantalla", `volver a Analisis la repitio (${revuelta})`);
+  else ok(`una por pantalla: Analisis entro con ${primera}, y ninguna de las dos vueltas repitio`);
   await p.close();
 }
 

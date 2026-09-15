@@ -22,13 +22,20 @@ import { entrada } from "@/lib/motion";
  * contexto no colecta. O sea que su limpieza automatica no cubriria justo lo
  * que hay que limpiar; la de abajo si. Eran 1,4 KB por nada.
  */
-export function Orquesta({ children }: { children: React.ReactNode }) {
+export function Orquesta({
+  /** Cual pantalla es, para no repetirle la entrada al que vuelve. */
+  pantalla,
+  children,
+}: {
+  pantalla: string;
+  children: React.ReactNode;
+}) {
   const scope = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!scope.current) return;
-    return entrada(scope.current);
-  }, []);
+    return entrada(scope.current, pantalla);
+  }, [pantalla]);
 
   // `display: contents` para no meter una caja en el arbol. Un envoltorio de
   // mas es la forma mas probable de reintroducir los desbordes que costaron una

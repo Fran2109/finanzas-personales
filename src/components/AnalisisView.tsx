@@ -68,7 +68,7 @@ export function AnalisisView({
         </p>
       ) : (
         <>
-          <section>
+          <section data-anim="hero">
             <h2 className="mb-1 text-base font-semibold">Lo que falta pagar</h2>
             {faltaPorPagar.map((t) => (
               <p key={t.currency} className="mb-2 text-base leading-snug">
@@ -100,7 +100,7 @@ export function AnalisisView({
             ) : null}
           </section>
 
-          <section>
+          <section data-anim="seccion">
             <h2 className="mb-1 text-base font-semibold">¿Te estás soltando o atando?</h2>
             <p className="mb-3 text-sm leading-relaxed text-muted">
               Cada mes entra compromiso (compras nuevas en cuotas) y sale
@@ -128,7 +128,7 @@ export function AnalisisView({
             </div>
           </section>
 
-          <section>
+          <section data-anim="seccion">
             <h2 className="mb-1 text-base font-semibold">El mes en curso y los que vienen</h2>
             <p className="mb-3 text-sm leading-relaxed text-muted">
               Cada mes arranca con esto ya gastado, antes de que compres nada. El
@@ -191,7 +191,7 @@ export function AnalisisView({
             </ul>
           </section>
 
-          <section>
+          <section data-anim="seccion">
             <h2 className="mb-1 text-base font-semibold">Compras en curso</h2>
             <p className="mb-3 text-sm text-muted">
               Cuándo se libera cada una. Una que termina este mes sigue acá hasta
@@ -241,7 +241,7 @@ export function AnalisisView({
         </>
       )}
 
-      <section>
+      <section data-anim="seccion">
         <h2 className="mb-1 text-base font-semibold">Cuánto ya estaba decidido</h2>
         <p className="mb-3 text-sm leading-relaxed text-muted">
           De cada mes cerrado, qué parte eran cuotas de compras anteriores. Sobre
@@ -289,7 +289,7 @@ export function AnalisisView({
       </section>
 
       {variacion.length > 0 && comparados ? (
-        <section>
+        <section data-anim="seccion">
           <h2 className="mb-1 text-base font-semibold">Qué cambió respecto del mes anterior</h2>
           <p className="mb-3 text-sm leading-relaxed text-muted">
             {formatPeriod(comparados.ultimo)} contra{" "}
@@ -319,7 +319,7 @@ export function AnalisisView({
       ) : null}
 
       {categorias.length > 0 ? (
-        <section>
+        <section data-anim="seccion">
           <h2 className="mb-1 text-base font-semibold">En qué se va</h2>
           <p className="mb-3 text-sm leading-relaxed text-muted">
             Todo el historial, en pesos. Lo de arriba manda: apretarse con lo de

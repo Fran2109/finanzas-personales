@@ -1,4 +1,5 @@
 import { AnalisisView } from "@/components/AnalisisView";
+import { Orquesta } from "@/components/motion/Orquesta";
 import { getInstallmentRows, getMonthlyRows } from "@/lib/data";
 import {
   commitmentCalendar,
@@ -106,20 +107,22 @@ export default async function AnalisisPage() {
   const ultimoEsProvisorio = mensuales.some((r) => r.period === ultimo && r.isProjected);
 
   return (
-    <AnalisisView
-      flujo={flujo}
-      faltaPorCategoria={faltaPorCategoria}
-      variacion={variacion}
-      comparados={comparados}
-      ultimoEsProvisorio={ultimoEsProvisorio}
-      planes={planes}
-      calendario={calendario}
-      historico={historico}
-      categorias={categorias}
-      totalCategorias={totalCategorias}
-      faltaPorPagar={faltaPorPagar}
-      periodos={periodos}
-    />
+    <Orquesta pantalla="analisis">
+      <AnalisisView
+        flujo={flujo}
+        faltaPorCategoria={faltaPorCategoria}
+        variacion={variacion}
+        comparados={comparados}
+        ultimoEsProvisorio={ultimoEsProvisorio}
+        planes={planes}
+        calendario={calendario}
+        historico={historico}
+        categorias={categorias}
+        totalCategorias={totalCategorias}
+        faltaPorPagar={faltaPorPagar}
+        periodos={periodos}
+      />
+    </Orquesta>
   );
 }
 
