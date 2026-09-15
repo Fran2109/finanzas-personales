@@ -11,7 +11,7 @@ app simple: no hay que decidir si algo suma o resta, todo resta.
 ## Stack
 
 - Next.js (App Router, TypeScript, Tailwind)
-- Supabase (Postgres 17 + Auth + Storage), proyecto `finanzas-personales`
+- Supabase (Postgres 17 + Auth + Storage), proyecto `proyectos` — **compartido**
 - Deploy en Vercel
 
 ```
@@ -22,11 +22,27 @@ NEXT_PUBLIC_SUPABASE_URL = https://tqdjpnxidmypsrlnvmdv.supabase.co
 La key publishable va en `.env.local`, nunca commiteada. Usar la publishable
 (`sb_publishable_...`), no la anon legacy.
 
+**El proyecto se comparte con job-hunter, y por eso las tablas llevan prefijo.**
+El plan free permite solo 2 proyectos activos, asi que las dos apps viven en el
+mismo Postgres separadas por nombre: `finanzas_*` aca, `jobhunter_*` alla. El
+prefijo va en minusculas porque Postgres baja a minusculas todo identificador
+sin comillas. Tres cosas que se siguen de compartir:
+
+- **El historial de migraciones del proyecto es de esta app.** `supabase/migrations/`
+  es la unica fuente y `db push` el unico camino. El DDL de job-hunter se aplica
+  desde su `schema.sql` y **no se registra** aca: si se registrara, `db push`
+  fallaria al ver versiones remotas que no tiene localmente.
+- **La service_role key de job-hunter bypassa RLS sobre todo el proyecto**, estas
+  tablas incluidas. Antes el aislamiento lo daba el proyecto; ahora no lo da nada.
+  El RLS de aca sigue protegiendo al cliente, no a la otra app.
+- **Auth es una sola.** Un `auth.users`, un usuario, las mismas credenciales para
+  las dos apps. Las cookies no cruzan dominios, asi que cada una se loguea aparte.
+
 ## Estado actual
 
 - [x] Proyecto Supabase creado, región sa-east-1
 - [x] Migración inicial aplicada (versión remota `20260914112501`)
-- [x] 9 tablas con RLS, 9 políticas, vista `v_transactions_ars`
+- [x] 9 tablas con RLS, 9 políticas, vista `finanzas_v_transactions_ars`
 - [x] Usuario creado en auth + seed corrido (20 categorías de gasto)
 - [x] Scaffold de Next.js 16 (App Router, Tailwind v4, `@supabase/ssr`)
 - [x] Fase 1 construida: alta manual, vista del mes, filtros
@@ -40,8 +56,16 @@ La key publishable va en `.env.local`, nunca commiteada. Usar la publishable
 El esquema del remoto está versionado en `supabase/migrations/`. Los nombres de
 archivo coinciden con las versiones registradas (`20260914112501_init`,
 `20260914134533_add_installment_kind`, `20260914140347_add_statement_period`,
-`20260914170801_add_provisional_imports`, `20260914181405_add_cuota_total`), así
-que `db push` no los reaplica.
+`20260914170801_add_provisional_imports`, `20260914181405_add_cuota_total`,
+`20260915120000_rename_tables_prefix`), así que `db push` no los reaplica.
+
+El rename a `finanzas_*` es `alter table ... rename`: preserva datos, índices,
+constraints, foreign keys y políticas, no recrea ni mueve nada. Renombra también
+los índices, y eso no es cosmético — **el nombre de un índice es único por
+schema, no por tabla**, así que un `transactions_pkey` sin dueño es justo la
+colisión que el prefijo viene a evitar. Lo que sí rompe es el código deployado
+hasta que salga el que usa los nombres nuevos: aplicar y deployar en la misma
+ventana.
 
 ## Contexto de dominio: Argentina
 

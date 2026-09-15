@@ -28,14 +28,14 @@ export default async function ReviewImportPage({
 
   const supabase = await createClient();
   const [imported, rowsResult, categories, accounts, movimientos] = await Promise.all([
-    supabase.from("imports").select("*").eq("id", id).single(),
-    supabase.from("import_rows").select("*").eq("import_id", id).order("line_no"),
+    supabase.from("finanzas_imports").select("*").eq("id", id).single(),
+    supabase.from("finanzas_import_rows").select("*").eq("import_id", id).order("line_no"),
     getCategories(),
     getAccounts(),
     // Una vez confirmado, las filas de staging pasan a "accepted": lo que este
     // resumen dejo en las cuentas hay que contarlo en transactions.
     supabase
-      .from("transactions")
+      .from("finanzas_transactions")
       .select("id", { count: "exact", head: true })
       .eq("import_id", id),
   ]);

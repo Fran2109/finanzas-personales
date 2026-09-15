@@ -13,7 +13,7 @@ export default async function AccountsPage({
 
   const [accounts, imports] = await Promise.all([
     getAccountsWithActivity(),
-    supabase.from("imports").select("account_id"),
+    supabase.from("finanzas_imports").select("account_id"),
   ]);
 
   // Los resumenes caen con la cuenta (FK en cascada): hay que avisar cuantos.

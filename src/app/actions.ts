@@ -130,7 +130,7 @@ export async function createTransaction(
     return fail("Los ultimos 4 de la tarjeta son 4 digitos.");
   }
 
-  const { error } = await supabase.from("transactions").insert({
+  const { error } = await supabase.from("finanzas_transactions").insert({
     account_id: accountId,
     category_id: categoryId || null,
     occurred_on: occurredOn,
@@ -179,7 +179,7 @@ export async function updateTransaction(
   if (!id) return fail("Falta el movimiento.");
 
   const { data: actual } = await supabase
-    .from("transactions")
+    .from("finanzas_transactions")
     .select(
       "id, account_id, occurred_on, amount, currency, kind, description, card_last4, cuota_number, fingerprint",
     )
@@ -217,7 +217,7 @@ export async function updateTransaction(
   // filtra, pero una Server Action es alcanzable por POST directo.
   if (categoryId) {
     const { data: categoria } = await supabase
-      .from("categories")
+      .from("finanzas_categories")
       .select("kind")
       .eq("id", categoryId)
       .single();
@@ -256,7 +256,7 @@ export async function updateTransaction(
         : fingerprintOf(despues, 0);
 
   const { error } = await supabase
-    .from("transactions")
+    .from("finanzas_transactions")
     .update({
       account_id: accountId,
       category_id: categoryId || null,
@@ -291,7 +291,7 @@ export async function updateTransaction(
       // Sin ignoreDuplicates: si ya habia una regla para ese comercio y es la
       // que fallo, lo que se quiere es corregirla, no dejarla como estaba.
       const { error: ruleError } = await supabase
-        .from("merchant_rules")
+        .from("finanzas_merchant_rules")
         .upsert({ pattern, category_id: categoryId }, { onConflict: "user_id,pattern" });
       if (!ruleError) aprendido = ` "${pattern}" se va a categorizar asi de ahora en mas.`;
     }
@@ -306,7 +306,7 @@ export async function deleteTransaction(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  await supabase.from("transactions").delete().eq("id", id);
+  await supabase.from("finanzas_transactions").delete().eq("id", id);
   revalidatePath("/", "layout");
 }
 
@@ -329,7 +329,7 @@ export async function createAccount(
   const currency = String(formData.get("currency") ?? "ARS");
   if (!isCurrency(currency)) return fail("Moneda invalida.");
 
-  const { error } = await supabase.from("accounts").insert({
+  const { error } = await supabase.from("finanzas_accounts").insert({
     name,
     type,
     currency,
@@ -367,7 +367,7 @@ export async function updateAccount(
   if (!isCurrency(currency)) return fail("Moneda invalida.");
 
   const { error } = await supabase
-    .from("accounts")
+    .from("finanzas_accounts")
     .update({
       name,
       type,
@@ -407,7 +407,7 @@ export async function deleteAccount(formData: FormData) {
   if (!id) return;
 
   const { count } = await supabase
-    .from("transactions")
+    .from("finanzas_transactions")
     .select("id", { count: "exact", head: true })
     .eq("account_id", id);
 
@@ -420,7 +420,7 @@ export async function deleteAccount(formData: FormData) {
     );
   }
 
-  const { error } = await supabase.from("accounts").delete().eq("id", id);
+  const { error } = await supabase.from("finanzas_accounts").delete().eq("id", id);
   if (error) {
     redirect(`/cuentas?error=${encodeURIComponent(`No se pudo borrar: ${error.message}`)}`);
   }
@@ -435,7 +435,7 @@ export async function setAccountActive(formData: FormData) {
   const active = formData.get("active") === "true";
   if (!id) return;
 
-  await supabase.from("accounts").update({ active }).eq("id", id);
+  await supabase.from("finanzas_accounts").update({ active }).eq("id", id);
   revalidatePath("/", "layout");
 }
 
@@ -468,7 +468,7 @@ export async function createCategory(
     return fail("Tipo de categoria invalido.");
   }
 
-  const { error } = await supabase.from("categories").insert({ name, kind });
+  const { error } = await supabase.from("finanzas_categories").insert({ name, kind });
   if (error) {
     return fail(
       error.code === "23505"
@@ -485,6 +485,6 @@ export async function deleteCategory(formData: FormData) {
   const { supabase } = await requireUser();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
-  await supabase.from("categories").delete().eq("id", id);
+  await supabase.from("finanzas_categories").delete().eq("id", id);
   revalidatePath("/", "layout");
 }
