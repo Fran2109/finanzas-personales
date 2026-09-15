@@ -1,6 +1,7 @@
 import { ViewTransition } from "react";
 
 import { MesView } from "@/components/MesView";
+import { Orquesta } from "@/components/motion/Orquesta";
 import {
   getAccounts,
   getCategories,
@@ -53,25 +54,28 @@ export default async function MonthPage({
   //
   // `update` y no `enter`/`exit`: la clase se aplica solo cuando cambia el
   // contenido de esta misma pantalla, que es la flecha del mes. Entrar desde
-  // Analisis o salir hacia el no anima, y eso no es cosmetico — cuando la fase
-  // de GSAP monte su orquesta aca, montarse aplica su estado inicial en el
-  // mismo commit en que el navegador saca la foto, y el crossfade fadearia
-  // hacia contenido en opacidad 0 que despues vuelve a subir. Doble fade.
+  // Analisis o salir hacia el no anima, y eso no es cosmetico — es lo que
+  // mantiene los dos mecanismos en transiciones disjuntas. `<Orquesta>` se
+  // monta en esa navegacion y aplica su estado inicial en el mismo commit en
+  // que el navegador saca la foto: el crossfade fadearia hacia contenido en
+  // opacidad 0 que despues vuelve a subir. Doble fade.
   return (
     <ViewTransition update="mes" enter="none" exit="none" share="none">
-      <MesView
-        period={period}
-        filters={filters}
-        accounts={accounts}
-        categories={categories}
-        transactions={transactions}
-        totalSinFiltrar={todosLosMovimientos.length}
-        summary={summary}
-        currencies={currencies}
-        provisorios={provisorios}
-        reemplazo={reemplazo}
-        defaultDate={defaultDate}
-      />
+      <Orquesta>
+        <MesView
+          period={period}
+          filters={filters}
+          accounts={accounts}
+          categories={categories}
+          transactions={transactions}
+          totalSinFiltrar={todosLosMovimientos.length}
+          summary={summary}
+          currencies={currencies}
+          provisorios={provisorios}
+          reemplazo={reemplazo}
+          defaultDate={defaultDate}
+        />
+      </Orquesta>
     </ViewTransition>
   );
 }

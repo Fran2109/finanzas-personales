@@ -26,6 +26,7 @@ import { Aviso } from "@/components/ui/Aviso";
 import { CategoryForm } from "@/components/CategoryForm";
 import { LoginForm } from "@/components/LoginForm";
 import { MesView } from "@/components/MesView";
+import { Orquesta } from "@/components/motion/Orquesta";
 import { PasswordForm } from "@/components/PasswordForm";
 import { PasteStatementForm } from "@/components/PasteStatementForm";
 import { DeleteImportButton } from "@/components/DeleteImportButton";
@@ -128,19 +129,21 @@ export default async function Verificacion({
 
 function Mes() {
   return (
-    <MesView
-      period={MES}
-      filters={{ q: "", cuenta: [], categoria: [], tipo: [], moneda: [] }}
-      accounts={cuentas}
-      categories={categorias}
-      transactions={movimientos}
-      totalSinFiltrar={movimientos.length + 3}
-      summary={summary}
-      currencies={["ARS", "USD"]}
-      provisorios={2}
-      reemplazo={4}
-      defaultDate="2026-09-15"
-    />
+    <Orquesta>
+      <MesView
+        period={MES}
+        filters={{ q: "", cuenta: [], categoria: [], tipo: [], moneda: [] }}
+        accounts={cuentas}
+        categories={categorias}
+        transactions={movimientos}
+        totalSinFiltrar={movimientos.length + 3}
+        summary={summary}
+        currencies={["ARS", "USD"]}
+        provisorios={2}
+        reemplazo={4}
+        defaultDate="2026-09-15"
+      />
+    </Orquesta>
   );
 }
 

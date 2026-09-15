@@ -113,7 +113,7 @@ export function MesView({
         </div>
 
         <aside className="min-w-0">
-          <section>
+          <section data-anim="seccion">
             <h2 className="mb-3 text-base font-semibold">Nuevo movimiento</h2>
             <TransactionForm
               accounts={accounts.filter((a) => a.active)}
@@ -177,7 +177,7 @@ function Totales({
   const t = summary.totals.get(principal)!;
 
   return (
-    <section className="space-y-5">
+    <section data-anim="hero" className="space-y-5">
       <p className="text-base leading-snug">
         Gastaste{" "}
         <Amount
@@ -227,7 +227,7 @@ function CategoryBreakdown({
   const max = Math.max(...byCategory.map((c) => Math.abs(c.total)));
 
   return (
-    <section>
+    <section data-anim="seccion">
       <h2 className="mb-3 text-base font-semibold">En que se fue</h2>
       <ul className="space-y-2">
         {byCategory.map((category) => (
@@ -273,7 +273,7 @@ function TransactionList({
   if (transactions.length === 0) return null;
 
   return (
-    <section>
+    <section data-anim="seccion">
       <h2 className="mb-1 text-base font-semibold">
         Movimientos{" "}
         <span className="font-normal text-muted">({transactions.length})</span>
