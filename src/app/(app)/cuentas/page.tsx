@@ -43,9 +43,7 @@ export default async function AccountsPage({
           ) : null}
 
           {activas.length === 0 ? (
-            <p className={vacio}>
-              No tenes ninguna cuenta activa.
-            </p>
+            <p className={vacio}>No tenes ninguna cuenta activa.</p>
           ) : (
             <ul className={lista}>
               {activas.map((account) => (
@@ -63,7 +61,7 @@ export default async function AccountsPage({
 
         {archivadas.length > 0 ? (
           <div>
-            <h2 className="mb-3 text-sm font-semibold text-muted">
+            <h2 className="mb-3 text-base font-semibold text-muted">
               Archivadas ({archivadas.length})
             </h2>
             <ul className={lista}>
@@ -78,7 +76,7 @@ export default async function AccountsPage({
           </div>
         ) : null}
 
-        <p className="text-xs leading-relaxed text-muted">
+        <p className="text-sm text-muted">
           La tarjeta se modela a nivel resumen, no por plastico: si dos tarjetas
           se pagan con un solo pago son una sola cuenta, y el numero de cada
           plastico va en el movimiento. Una cuenta con movimientos se archiva,
@@ -89,7 +87,7 @@ export default async function AccountsPage({
       </section>
 
       <aside className="min-w-0">
-        <h2 className="mb-3 text-sm font-semibold">Nueva cuenta</h2>
+        <h2 className="mb-3 text-base font-semibold">Nueva cuenta</h2>
         <AccountForm />
       </aside>
     </div>

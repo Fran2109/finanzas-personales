@@ -37,7 +37,7 @@ export default async function SettingsPage() {
         </section>
 
         <section>
-          <h2 className="mb-3 text-sm font-semibold">Categorias ({categories.length})</h2>
+          <h2 className="mb-3 text-base font-semibold">Categorias ({categories.length})</h2>
           <ul className={lista}>
             {categories.map((c) => (
               <li key={c.id} className="flex items-center gap-3 px-3 py-2 text-sm">
@@ -61,10 +61,10 @@ export default async function SettingsPage() {
         </section>
 
         <section>
-          <h2 className="mb-1 text-sm font-semibold">
+          <h2 className="mb-1 text-base font-semibold">
             Reglas aprendidas ({(rules.data ?? []).length})
           </h2>
-          <p className="mb-3 text-xs leading-relaxed text-muted">
+          <p className="mb-3 text-sm text-muted">
             Cada vez que categorizás un comercio desconocido al revisar un
             resumen, se guarda una regla. El próximo resumen lo mapea solo.
           </p>
@@ -78,7 +78,12 @@ export default async function SettingsPage() {
                 <li key={r.id} className="flex items-center gap-3 px-3 py-2 text-sm">
                   <code className="min-w-0 flex-1 truncate text-xs">{r.pattern}</code>
                   <span className="shrink-0 text-xs text-muted">
-                    {categories.find((c) => c.id === r.category_id)?.name ?? "?"}
+                    {[
+                      categories.find((c) => c.id === r.category_id)?.name ?? "?",
+                      r.hit_count > 0 ? `${r.hit_count} usos` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </span>
                 </li>
               ))}
@@ -87,13 +92,13 @@ export default async function SettingsPage() {
         </section>
 
         <section>
-          <h2 className="mb-3 text-sm font-semibold">Contrasena</h2>
+          <h2 className="mb-3 text-base font-semibold">Contrasena</h2>
           <PasswordForm />
         </section>
       </div>
 
       <aside className="min-w-0">
-        <h2 className="mb-3 text-sm font-semibold">Nueva categoria</h2>
+        <h2 className="mb-3 text-base font-semibold">Nueva categoria</h2>
         <CategoryForm />
       </aside>
     </div>

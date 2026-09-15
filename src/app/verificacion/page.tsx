@@ -99,7 +99,7 @@ export default async function Verificacion({
         {p === "ajustes" ? <Ajustes /> : null}
         {p === "importar" ? <Importar /> : null}
         {p === "revision" ? <Revision /> : null}
-        {p === "login" ? <LoginForm next="/" /> : null}
+        {p === "login" ? <Login /> : null}
       </main>
     </div>
   );
@@ -163,6 +163,18 @@ function Analisis() {
   );
 }
 
+function Login() {
+  return (
+    <div className="flex flex-1 items-center justify-center p-6">
+      <div className="w-full max-w-sm">
+        <h1 className="font-display text-xl font-semibold tracking-tight">Finanzas</h1>
+        <p className="mt-1 mb-8 text-sm text-muted">En qué se va la plata.</p>
+        <LoginForm next="/" />
+      </div>
+    </div>
+  );
+}
+
 function Cuentas() {
   return (
     <div className={gridDosColumnas}>
@@ -179,9 +191,15 @@ function Cuentas() {
             ))}
           </ul>
         </div>
+        <p className="text-sm text-muted">
+          La tarjeta se modela a nivel resumen, no por plastico: si dos tarjetas
+          se pagan con un solo pago son una sola cuenta, y el numero de cada
+          plastico va en el movimiento. Una cuenta con movimientos se archiva,
+          no se borra: archivarla la saca del paso sin perder el historial.
+        </p>
       </section>
       <aside className="min-w-0">
-        <h2 className="mb-3 text-sm font-semibold">Nueva cuenta</h2>
+        <h2 className="mb-3 text-base font-semibold">Nueva cuenta</h2>
         <AccountForm />
       </aside>
     </div>
@@ -202,7 +220,7 @@ function Ajustes() {
           <p className="text-sm text-muted">Sesion iniciada como alguien@ejemplo.com.</p>
         </section>
         <section>
-          <h2 className="mb-3 text-sm font-semibold">Categorias ({categorias.length})</h2>
+          <h2 className="mb-3 text-base font-semibold">Categorias ({categorias.length})</h2>
           <ul className={lista}>
             {categorias.map((c) => (
               <li key={c.id} className="flex items-center gap-3 px-3 py-2 text-sm">
@@ -216,23 +234,23 @@ function Ajustes() {
           </ul>
         </section>
         <section>
-          <h2 className="mb-3 text-sm font-semibold">Reglas aprendidas ({reglas.length})</h2>
+          <h2 className="mb-3 text-base font-semibold">Reglas aprendidas ({reglas.length})</h2>
           <ul className={lista}>
             {reglas.map((r) => (
               <li key={r} className="flex items-center gap-3 px-3 py-2 text-sm">
                 <code className="min-w-0 flex-1 truncate text-xs">{r}</code>
-                <span className="shrink-0 text-xs text-muted">Supermercado</span>
+                <span className="shrink-0 text-xs text-muted">Supermercado · 12 usos</span>
               </li>
             ))}
           </ul>
         </section>
         <section>
-          <h2 className="mb-3 text-sm font-semibold">Contrasena</h2>
+          <h2 className="mb-3 text-base font-semibold">Contrasena</h2>
           <PasswordForm />
         </section>
       </div>
       <aside className="min-w-0">
-        <h2 className="mb-3 text-sm font-semibold">Nueva categoria</h2>
+        <h2 className="mb-3 text-base font-semibold">Nueva categoria</h2>
         <CategoryForm />
       </aside>
     </div>

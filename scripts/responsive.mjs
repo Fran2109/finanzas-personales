@@ -149,6 +149,27 @@ for (const tema of ["light", "dark"]) {
       revisar(await medir(f2), `${tema} ${w} mes · editor abierto`);
     }
 
+    // Cuentas tiene sus dos estados que se abren, y hasta ahora no los medía
+    // nadie: el editor en linea de la fila y el confirmar de borrado, que es
+    // donde vive el texto mas largo de la pantalla.
+    const f3 = await abrir("cuentas");
+    if (f3) {
+      await f3.locator('button:has-text("Editar")').first().click();
+      await p.waitForTimeout(300);
+      if ((await f3.locator('button:has-text("Cancelar")').count()) === 0) {
+        problemas.push({ donde: `${tema} ${w}`, tipo: "el editor de cuenta no abrio" });
+      }
+      revisar(await medir(f3), `${tema} ${w} cuentas · editor abierto`);
+
+      const f4 = await abrir("cuentas");
+      await f4.locator('button:has-text("Borrar")').first().click();
+      await p.waitForTimeout(300);
+      if ((await f4.locator('button:has-text("Si, borrar")').count()) === 0) {
+        problemas.push({ donde: `${tema} ${w}`, tipo: "el confirmar de borrado no abrio" });
+      }
+      revisar(await medir(f4), `${tema} ${w} cuentas · borrado por confirmar`);
+    }
+
     await p.close();
   }
 }

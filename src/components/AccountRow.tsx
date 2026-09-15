@@ -85,16 +85,16 @@ export function AccountRow({
           ) : null}
 
           <div className="flex items-center gap-3">
-            <SubmitButton className="px-3 py-1.5 text-xs">Guardar</SubmitButton>
+            <SubmitButton className="px-3 py-1.5 text-sm">Guardar</SubmitButton>
             <button
               type="button"
               onClick={() => setEditing(false)}
-              className="text-xs text-muted hover:text-foreground"
+              className="-my-1.5 py-1.5 text-sm text-muted transition hover:text-foreground"
             >
               Cancelar
             </button>
             {tieneMovimientos ? (
-              <span className="ml-auto text-xs text-muted">
+              <span className="ml-auto text-sm text-muted">
                 Cambiar la moneda no toca los movimientos ya cargados: cada uno
                 guarda la suya.
               </span>
@@ -128,7 +128,7 @@ export function AccountRow({
       </div>
 
       {confirming ? (
-        <span className="flex items-center gap-2 text-xs">
+        <span className="flex flex-wrap items-center gap-2 text-sm">
           <span className="text-muted">
             {importCount > 0
               ? `¿Borrar la cuenta y sus ${importCount} resumenes?`
@@ -146,13 +146,13 @@ export function AccountRow({
           <button
             type="button"
             onClick={() => setConfirming(false)}
-            className="text-muted hover:text-foreground"
+            className="-my-1.5 py-1.5 text-muted transition hover:text-foreground"
           >
             Cancelar
           </button>
         </span>
       ) : (
-        <span className="-my-1.5 flex flex-1 items-center justify-end gap-1 text-xs sm:flex-none">
+        <span className="-my-1.5 flex flex-1 items-center justify-end gap-1 text-sm sm:flex-none">
           {/* -my-1.5 para que el padding que hace tocables los botones no
               engorde la fila: el area crece, la altura visual queda igual. */}
           <button
