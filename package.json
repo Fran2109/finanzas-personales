@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node --test \"src/**/*.test.ts\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "motion:red": "node scripts/red-de-motion.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

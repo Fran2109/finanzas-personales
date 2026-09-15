@@ -54,6 +54,41 @@ body {
   font-family: var(--font-sans);
 }
 
+/* El estado inicial de lo que se anima.
+ *
+ * Depende de `data-motion`, que solo pone el script inline de `layout.tsx`: sin
+ * JS la regla no matchea y la pagina se ve exactamente como sin animaciones. Y
+ * se apaga sola cuando ese mismo script marca `data-motion-done`, asi que lo
+ * peor que puede pasar si el JS de la animacion no llega es que el contenido
+ * aparezca sin animar, tarde. Nunca que no aparezca.
+ *
+ * Esconder desde CSS y no desde JS es lo que evita el parpadeo al reves: con
+ * `gsap.set()` el contenido se ve un frame antes de desaparecer. */
+html[data-motion="on"]:not([data-motion-done]) [data-anim] {
+  opacity: 0;
+}
+
+/* El segundo de los tres lugares donde se respeta la preferencia: cubre las
+ * transiciones de CSS que ya existen y las view transitions, que el switch de
+ * GSAP no alcanza. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}
+
 /* Los montos se leen en columna: tabulares o no se pueden comparar de un vistazo. */
 .tabular {
   font-variant-numeric: tabular-nums;
