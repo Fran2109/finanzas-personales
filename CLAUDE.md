@@ -427,6 +427,29 @@ eje—, los segmentos se separan con 2px del color de la superficie y no con un
 borde, y se etiquetan **algunas** columnas, no todas: un número sobre cada barra
 deja de leerse.
 
+## El token que nace invertido en el tiempo
+
+La pantalla de "No se pudo cargar" que aparecía cada tanto era siempre lo mismo:
+`JWT issued at future`. Supabase Auth firma el access token con el `iat` de **su**
+reloj y PostgREST lo valida contra **el suyo**. Si el de Auth va unos segundos
+adelantado, el token nace inválido y todo lo que salga en esa ventana se
+rechaza. Como el token dura una hora, el síntoma aparece justo después de un
+refresh y después no vuelve por un rato: por eso se veía "a veces" y no había
+forma de reproducirlo.
+
+Esperar es lo único que lo arregla —pedir otro token traería un `iat` más
+adelantado todavía— pero **cuánto esperar no se adivina: lo dice el token**. Se
+lee el `iat`, se espera eso y nada más. Va en el proxy, que es donde pasa el
+refresh y por lo tanto donde puede nacer el token malo; hacerlo ahí evita que
+la página haga tres consultas a sa-east-1 para fallar tres veces igual.
+
+El payload se decodifica **sin verificar la firma**, y está bien: no se le cree
+nada al token, sólo se mira un número para saber cuánto dormir. La espera tiene
+tope (3s) y queda en los logs con el desfasaje medido: si toca el tope, el
+problema es de relojes y hay que mirarlo, no seguir subiendo la espera.
+`withRetry` sigue reconociendo el mismo error como red de atrás, para un token
+que se haya refrescado fuera del proxy.
+
 ## Responsive
 
 La app se usa en el teléfono tanto como en la compu, así que **nada puede

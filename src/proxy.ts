@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
+import { msUntilValid, TOPE_ESPERA_MS } from "@/lib/clock-skew";
 import { supabaseEnv } from "@/lib/supabase/env";
 
 /**
@@ -38,6 +39,28 @@ export async function proxy(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  // El refresh de sesion pasa por aca, asi que aca es donde puede nacer un
+  // token que PostgREST todavia no acepta. Si el `iat` esta adelantado se
+  // espera lo que el propio token dice que falta, en vez de dejar que la
+  // pagina haga tres consultas a sa-east-1 para fallar tres veces igual.
+  if (user) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const espera = session?.access_token ? msUntilValid(session.access_token) : 0;
+    if (espera > 0) {
+      // Queda en los logs: la proxima vez el desfasaje es un numero medido y no
+      // una hipotesis. Si toca el tope, el problema es de relojes y hay que
+      // mirarlo, no seguir subiendo la espera.
+      console.warn(
+        `[clock-skew] token emitido ${espera}ms en el futuro${
+          espera >= TOPE_ESPERA_MS ? " (tope alcanzado)" : ""
+        }`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, espera));
+    }
+  }
 
   const { pathname } = request.nextUrl;
   const isLogin = pathname === "/login";
