@@ -3,6 +3,7 @@ import { CategoryForm } from "@/components/CategoryForm";
 import { deleteCategory } from "@/app/actions";
 import { createClient } from "@/lib/supabase/server";
 import { getCategories } from "@/lib/data";
+import { botonIcono, gridDosColumnas, lista } from "@/components/ui/estilos";
 
 const CATEGORY_KIND_LABELS: Record<string, string> = {
   expense: "Gasto",
@@ -28,7 +29,7 @@ export default async function SettingsPage() {
   // contenido, asi que sin esto un nombre largo ensancha la columna entera y
   // desborda la pagina en un telefono.
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_20rem]">
+    <div className={gridDosColumnas}>
       <div className="min-w-0 space-y-8">
         <section>
           <h1 className="mb-1 text-lg font-semibold">Ajustes</h1>
@@ -37,7 +38,7 @@ export default async function SettingsPage() {
 
         <section>
           <h2 className="mb-3 text-sm font-semibold">Categorias ({categories.length})</h2>
-          <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
+          <ul className={lista}>
             {categories.map((c) => (
               <li key={c.id} className="flex items-center gap-3 px-3 py-2 text-sm">
                 <span className="min-w-0 flex-1 truncate">{c.name}</span>
@@ -49,7 +50,7 @@ export default async function SettingsPage() {
                   <button
                     type="submit"
                     aria-label="Borrar categoria"
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-muted transition hover:text-negative"
+                    className={botonIcono}
                   >
                     &times;
                   </button>
@@ -72,7 +73,7 @@ export default async function SettingsPage() {
               Todavía ninguna. Se escriben solas al importar.
             </p>
           ) : (
-            <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
+            <ul className={lista}>
               {(rules.data ?? []).map((r) => (
                 <li key={r.id} className="flex items-center gap-3 px-3 py-2 text-sm">
                   <code className="min-w-0 flex-1 truncate text-xs">{r.pattern}</code>

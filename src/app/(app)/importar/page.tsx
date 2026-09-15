@@ -6,6 +6,8 @@ import { DeleteImportButton } from "@/components/DeleteImportButton";
 import { getAccounts } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
 import { centsFromDb, formatCents } from "@/lib/money";
+import { lista as claseLista, vacio } from "@/components/ui/estilos";
+import { Aviso } from "@/components/ui/Aviso";
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Sin reconciliar",
@@ -73,17 +75,17 @@ export default async function ImportsPage({
         <h2 className="mb-3 text-sm font-semibold">Resumenes importados</h2>
 
         {error ? (
-          <p className="mb-3 rounded-md border border-negative/40 bg-negative/10 px-3 py-2 text-sm text-negative">
+          <Aviso tono="negativo" className="mb-3">
             {error}
-          </p>
+          </Aviso>
         ) : null}
 
         {lista.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted">
+          <p className={vacio}>
             Todavia no subiste ningun resumen.
           </p>
         ) : (
-          <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
+          <ul className={claseLista}>
             {lista.map((imp) => {
               const count = porImport.get(imp.id) ?? 0;
               return (

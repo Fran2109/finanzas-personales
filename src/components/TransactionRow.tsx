@@ -12,10 +12,9 @@ import {
   type Kind,
 } from "@/lib/domain";
 import type { Account, Category, Transaction } from "@/lib/data";
+import { botonIcono, campoCompacto as field, etiquetaCompacta as label, insignia } from "@/components/ui/estilos";
+import { Aviso } from "@/components/ui/Aviso";
 
-const field =
-  "w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm outline-none focus:border-accent";
-const label = "block text-[10px] font-medium uppercase tracking-wide text-muted mb-1";
 
 /**
  * Una fila del mes, que se abre para editarse.
@@ -58,7 +57,7 @@ export function TransactionRow({
                 lo que se recorta es la cola de los metadatos, como antes. */}
             <span className="flex items-center gap-2 text-xs text-muted">
               {tx.is_projected ? (
-                <span className="shrink-0 rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
+                <span className={insignia}>
                   provisorio
                 </span>
               ) : null}
@@ -85,7 +84,7 @@ export function TransactionRow({
           <button
             type="submit"
             aria-label="Borrar movimiento"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-muted transition hover:text-negative"
+            className={botonIcono}
           >
             &times;
           </button>
@@ -353,9 +352,9 @@ function Editor({
       </label>
 
       {state.error ? (
-        <p className="rounded-md border border-negative/40 bg-negative/10 px-2 py-1.5 text-xs text-negative">
+        <Aviso tono="negativo" compacto>
           {state.error}
-        </p>
+        </Aviso>
       ) : null}
 
       <div className="flex items-center gap-2">

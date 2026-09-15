@@ -12,10 +12,8 @@ import {
   type Kind,
 } from "@/lib/domain";
 import type { Account, Category } from "@/lib/data";
-
-const field =
-  "w-full rounded-md border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent";
-const label = "block text-xs font-medium uppercase tracking-wide text-muted mb-1.5";
+import { campo as field, chip, etiqueta as label } from "@/components/ui/estilos";
+import { Aviso } from "@/components/ui/Aviso";
 
 export function TransactionForm({
   accounts,
@@ -83,11 +81,7 @@ export function TransactionForm({
                 setCategoryId("");
                 setCreandoCategoria(false);
               }}
-              className={`rounded-md border px-2.5 py-1.5 text-xs transition ${
-                kind === k
-                  ? "border-accent bg-accent text-background"
-                  : "border-border bg-surface text-muted hover:text-foreground"
-              }`}
+              className={chip(kind === k)}
             >
               {KIND_LABELS[k]}
             </button>
@@ -259,14 +253,14 @@ export function TransactionForm({
       </div>
 
       {state.error ? (
-        <p className="rounded-md border border-negative/40 bg-negative/10 px-3 py-2 text-sm text-negative">
+        <Aviso tono="negativo">
           {state.error}
-        </p>
+        </Aviso>
       ) : null}
       {state.ok ? (
-        <p className="rounded-md border border-positive/40 bg-positive/10 px-3 py-2 text-sm text-positive">
+        <Aviso tono="positivo">
           {state.ok}
-        </p>
+        </Aviso>
       ) : null}
 
       <SubmitButton className="w-full">Agregar movimiento</SubmitButton>

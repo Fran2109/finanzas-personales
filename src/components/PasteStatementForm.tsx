@@ -7,10 +7,8 @@ import { SubmitButton } from "@/components/SubmitButton";
 import { UploadDiagnostico } from "@/components/UploadDiagnostico";
 import { periodOf, shiftPeriod, formatPeriod } from "@/lib/domain";
 import type { Account } from "@/lib/data";
-
-const field =
-  "w-full rounded-md border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent";
-const label = "block text-xs font-medium uppercase tracking-wide text-muted mb-1.5";
+import { campo as field, etiqueta as label } from "@/components/ui/estilos";
+import { Aviso } from "@/components/ui/Aviso";
 
 /**
  * Cargar el mes en curso pegando la lista de consumos del home banking.
@@ -86,9 +84,9 @@ export function PasteStatementForm({ accounts }: { accounts: Account[] }) {
       </form>
 
       {state.error && !state.diagnostico ? (
-        <p className="rounded-md border border-negative/40 bg-negative/10 px-3 py-2 text-sm text-negative">
+        <Aviso tono="negativo">
           {state.error}
-        </p>
+        </Aviso>
       ) : null}
 
       {state.diagnostico ? <UploadDiagnostico d={state.diagnostico} /> : null}

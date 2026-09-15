@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { botonAcento } from "@/components/ui/estilos";
 
 /**
  * Una consulta que falla no tiene por que dejar la pantalla en blanco. Casi
@@ -36,7 +37,7 @@ export default function AppError({
       <button
         type="button"
         onClick={reset}
-        className="mt-5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-background"
+        className={`${botonAcento} mt-5`}
       >
         Reintentar
       </button>

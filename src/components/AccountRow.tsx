@@ -5,6 +5,8 @@ import { useActionState, useState } from "react";
 import { deleteAccount, setAccountActive, updateAccount, type FormState } from "@/app/actions";
 import { SubmitButton } from "@/components/SubmitButton";
 import type { AccountActivity } from "@/lib/data";
+import { campoCompacto as field } from "@/components/ui/estilos";
+import { Aviso } from "@/components/ui/Aviso";
 
 export const ACCOUNT_TYPE_LABELS: Record<string, string> = {
   bank: "Banco",
@@ -12,9 +14,6 @@ export const ACCOUNT_TYPE_LABELS: Record<string, string> = {
   credit_card: "Tarjeta de credito",
   investment: "Inversion",
 };
-
-const field =
-  "w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm outline-none focus:border-accent";
 
 /**
  * Fila de cuenta con edicion en linea.
@@ -75,14 +74,14 @@ export function AccountRow({
           </div>
 
           {state.error ? (
-            <p className="rounded-md border border-negative/40 bg-negative/10 px-3 py-2 text-sm text-negative">
+            <Aviso tono="negativo">
               {state.error}
-            </p>
+            </Aviso>
           ) : null}
           {state.ok ? (
-            <p className="rounded-md border border-positive/40 bg-positive/10 px-3 py-2 text-sm text-positive">
+            <Aviso tono="positivo">
               {state.ok}
-            </p>
+            </Aviso>
           ) : null}
 
           <div className="flex items-center gap-3">

@@ -15,6 +15,8 @@ import {
 } from "@/lib/import/match-account";
 import { KIND_LABELS, type Kind } from "@/lib/domain";
 import { centsFromDb } from "@/lib/money";
+import { botonAcento, botonIcono, lista } from "@/components/ui/estilos";
+import { Aviso } from "@/components/ui/Aviso";
 
 export default async function ReviewImportPage({
   params,
@@ -84,9 +86,9 @@ export default async function ReviewImportPage({
       </div>
 
       {error ? (
-        <p className="rounded-md border border-negative/40 bg-negative/10 px-3 py-2 text-sm text-negative">
+        <Aviso tono="negativo">
           {error}
-        </p>
+        </Aviso>
       ) : null}
 
       <div className="rounded-lg border border-positive/40 bg-positive/10 px-3 py-2 text-sm">
@@ -201,7 +203,7 @@ export default async function ReviewImportPage({
             <button
               type="submit"
               disabled={porRevisar.length > 0}
-              className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-background disabled:opacity-40"
+              className={botonAcento}
             >
               {imported.data.provisional
                 ? `Cargar ${pending.length} movimientos provisorios`
@@ -268,7 +270,7 @@ function RowTable({
   }
 
   return (
-    <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
+    <ul className={lista}>
       {rows.map((row) => {
         const kind = row.kind as Kind;
         return (
@@ -318,7 +320,7 @@ function RowTable({
                 <button
                   type="submit"
                   aria-label="Descartar fila"
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-muted transition hover:text-negative"
+                  className={botonIcono}
                 >
                   &times;
                 </button>

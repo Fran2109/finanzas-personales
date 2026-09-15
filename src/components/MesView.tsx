@@ -8,6 +8,8 @@ import type { Account, Category, Transaction } from "@/lib/data";
 import { formatPeriod, shiftPeriod, type Currency } from "@/lib/domain";
 import { hasActiveFilters, monthQuery, type Filters } from "@/lib/filters";
 import { type Cents } from "@/lib/money";
+import { gridDosColumnas, lista, vacio } from "@/components/ui/estilos";
+import { Aviso } from "@/components/ui/Aviso";
 
 export type MonthSummary = {
   totals: Map<Currency, { total: Cents; purchases: Cents; installments: Cents }>;
@@ -65,25 +67,25 @@ export function MesView({
       />
 
       {reemplazo > 0 ? (
-        <p className="rounded-md border border-positive/40 bg-positive/10 px-3 py-2 text-sm">
+        <Aviso tono="positivo" sobrio>
           Llegó el resumen cerrado: reemplazó {reemplazo} movimiento
           {reemplazo === 1 ? "" : "s"} provisorio{reemplazo === 1 ? "" : "s"} de
           este mes.
-        </p>
+        </Aviso>
       ) : null}
 
       {provisorios > 0 ? (
-        <p className="rounded-md border border-accent/40 bg-accent/10 px-3 py-2 text-sm text-muted">
+        <Aviso tono="acento">
           <strong className="text-accent">
             {provisorios} de {transactions.length} movimientos son provisorios
           </strong>
           : salen de la lista del home banking, de un resumen que todavía no
           cerró. Cuando subas el PDF se reemplazan por lo definitivo.
-        </p>
+        </Aviso>
       ) : null}
 
       {currencies.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted">
+        <p className={vacio}>
           {hasActiveFilters(filters)
             ? "Ningun movimiento coincide con esos filtros."
             : `No hay movimientos en ${formatPeriod(period)}. Carga el primero abajo.`}
@@ -103,7 +105,7 @@ export function MesView({
       {/* min-w-0 en las dos columnas: un item de grid no baja de su ancho de
           contenido, asi que sin esto una descripcion larga ensancha la columna
           entera y se lleva puesta la pagina en un telefono. */}
-      <div className="grid gap-8 lg:grid-cols-[1fr_20rem]">
+      <div className={gridDosColumnas}>
         <div className="min-w-0 space-y-8">
           <CategoryBreakdown
             byCategory={summary.byCategory}
@@ -302,7 +304,7 @@ function TransactionList({
       <p className="mb-3 text-xs text-muted">
         Tocá cualquiera para corregirlo.
       </p>
-      <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
+      <ul className={lista}>
         {transactions.map((tx) => (
           <TransactionRow
             key={tx.id}

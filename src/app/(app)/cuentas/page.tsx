@@ -2,6 +2,8 @@ import { AccountForm } from "@/components/AccountForm";
 import { AccountRow } from "@/components/AccountRow";
 import { getAccountsWithActivity } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
+import { gridDosColumnas, lista, vacio } from "@/components/ui/estilos";
+import { Aviso } from "@/components/ui/Aviso";
 
 export default async function AccountsPage({
   searchParams,
@@ -29,23 +31,23 @@ export default async function AccountsPage({
   // contenido, asi que sin esto un nombre largo ensancha la columna entera y
   // desborda la pagina en un telefono.
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_20rem]">
+    <div className={gridDosColumnas}>
       <section className="min-w-0 space-y-6">
         <div>
           <h1 className="mb-3 text-lg font-semibold">Cuentas</h1>
 
           {error ? (
-            <p className="mb-3 rounded-md border border-negative/40 bg-negative/10 px-3 py-2 text-sm text-negative">
+            <Aviso tono="negativo" className="mb-3">
               {error}
-            </p>
+            </Aviso>
           ) : null}
 
           {activas.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted">
+            <p className={vacio}>
               No tenes ninguna cuenta activa.
             </p>
           ) : (
-            <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
+            <ul className={lista}>
               {activas.map((account) => (
                 <AccountRow
                   // Remonta la fila cuando el guardado cambio algo, y asi el
@@ -64,7 +66,7 @@ export default async function AccountsPage({
             <h2 className="mb-3 text-sm font-semibold text-muted">
               Archivadas ({archivadas.length})
             </h2>
-            <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
+            <ul className={lista}>
               {archivadas.map((account) => (
                 <AccountRow
                   key={`${account.id}-${account.name}-${account.type}-${account.currency}`}

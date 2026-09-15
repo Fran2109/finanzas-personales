@@ -9,6 +9,7 @@ import type { CommittedShare, FuturePeriod, MonthFlow, Plan } from "@/lib/commit
 import type { CategoryDelta } from "@/lib/analysis";
 import { formatPeriod, shiftPeriod, type Currency } from "@/lib/domain";
 import { formatCents, type Cents } from "@/lib/money";
+import { lista, vacio } from "@/components/ui/estilos";
 
 export type MesHistorico = {
   period: string;
@@ -61,7 +62,7 @@ export function AnalisisView({
       </div>
 
       {planes.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted">
+        <p className={vacio}>
           No hay cuotas en curso. Cuando importes un resumen con compras en
           cuotas, acá vas a ver cuánto de cada mes ya está comprometido.
         </p>
@@ -160,7 +161,7 @@ export function AnalisisView({
               />
             </div>
 
-            <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
+            <ul className={lista}>
               {calendario.map((mes) => (
                 <li key={mes.period} className="px-3 py-3">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -203,7 +204,7 @@ export function AnalisisView({
               Cuándo se libera cada una. Una que termina este mes sigue acá hasta
               que se pague el resumen.
             </p>
-            <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
+            <ul className={lista}>
               {planes.map((plan) => (
                 // El detalle va en su propia linea y envuelve. Compartiendola
                 // con el importe, en un telefono le quedaban ~180px y truncaba
@@ -256,7 +257,7 @@ export function AnalisisView({
         <div className="mb-3">
           <ShareLegend />
         </div>
-        <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
+        <ul className={lista}>
           {historico.map((mes) => (
             <li key={mes.period} className="px-3 py-3">
               <div className="flex flex-wrap items-baseline justify-between gap-2">

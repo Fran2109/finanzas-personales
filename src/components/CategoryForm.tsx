@@ -3,10 +3,8 @@
 import { useActionState } from "react";
 import { createCategory, type FormState } from "@/app/actions";
 import { SubmitButton } from "@/components/SubmitButton";
-
-const field =
-  "w-full rounded-md border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent";
-const label = "block text-xs font-medium uppercase tracking-wide text-muted mb-1.5";
+import { campo as field, etiqueta as label } from "@/components/ui/estilos";
+import { Aviso } from "@/components/ui/Aviso";
 
 export function CategoryForm() {
   const [state, action] = useActionState<FormState, FormData>(createCategory, {});
@@ -33,14 +31,14 @@ export function CategoryForm() {
       </div>
 
       {state.error ? (
-        <p className="rounded-md border border-negative/40 bg-negative/10 px-3 py-2 text-sm text-negative">
+        <Aviso tono="negativo">
           {state.error}
-        </p>
+        </Aviso>
       ) : null}
       {state.ok ? (
-        <p className="rounded-md border border-positive/40 bg-positive/10 px-3 py-2 text-sm text-positive">
+        <Aviso tono="positivo">
           {state.ok}
-        </p>
+        </Aviso>
       ) : null}
 
       <SubmitButton>Crear categoria</SubmitButton>

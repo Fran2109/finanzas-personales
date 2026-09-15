@@ -1,6 +1,7 @@
 "use client";
 
 import { useFormStatus } from "react-dom";
+import { botonAcento } from "@/components/ui/estilos";
 
 export function SubmitButton({
   children,
@@ -16,7 +17,7 @@ export function SubmitButton({
     <button
       type="submit"
       disabled={pending}
-      className={`rounded-md bg-accent px-4 py-2 text-sm font-medium text-background transition disabled:opacity-50 ${className}`}
+      className={`${botonAcento} ${className}`}
     >
       {pending ? (pendingLabel ?? "Guardando...") : children}
     </button>

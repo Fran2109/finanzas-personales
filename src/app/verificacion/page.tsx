@@ -27,6 +27,7 @@ import { PasteStatementForm } from "@/components/PasteStatementForm";
 import { RowCategorySelect } from "@/components/RowCategorySelect";
 import { UploadStatementForm } from "@/components/UploadStatementForm";
 import { cuentas, categorias, movimientos, summary, MES } from "./datos";
+import { botonIcono, gridDosColumnas, lista } from "@/components/ui/estilos";
 
 /**
  * Sin esto Next la prerenderiza y evalua `process.env` en el build, cuando la
@@ -99,11 +100,11 @@ function Mes() {
 
 function Cuentas() {
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_20rem]">
+    <div className={gridDosColumnas}>
       <section className="min-w-0 space-y-6">
         <div>
           <h1 className="mb-3 text-lg font-semibold">Cuentas</h1>
-          <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
+          <ul className={lista}>
             {cuentas.map((a, i) => (
               <AccountRow
                 key={a.id}
@@ -129,7 +130,7 @@ function Ajustes() {
     "kiosco",
   ];
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_20rem]">
+    <div className={gridDosColumnas}>
       <div className="min-w-0 space-y-8">
         <section>
           <h1 className="mb-1 text-lg font-semibold">Ajustes</h1>
@@ -137,12 +138,12 @@ function Ajustes() {
         </section>
         <section>
           <h2 className="mb-3 text-sm font-semibold">Categorias ({categorias.length})</h2>
-          <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
+          <ul className={lista}>
             {categorias.map((c) => (
               <li key={c.id} className="flex items-center gap-3 px-3 py-2 text-sm">
                 <span className="min-w-0 flex-1 truncate">{c.name}</span>
                 <span className="shrink-0 text-xs text-muted">Gasto</span>
-                <button className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-muted transition hover:text-negative">
+                <button className={botonIcono}>
                   &times;
                 </button>
               </li>
@@ -151,7 +152,7 @@ function Ajustes() {
         </section>
         <section>
           <h2 className="mb-3 text-sm font-semibold">Reglas aprendidas ({reglas.length})</h2>
-          <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
+          <ul className={lista}>
             {reglas.map((r) => (
               <li key={r} className="flex items-center gap-3 px-3 py-2 text-sm">
                 <code className="min-w-0 flex-1 truncate text-xs">{r}</code>
@@ -191,7 +192,7 @@ function Importar() {
 
 function Revision() {
   return (
-    <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
+    <ul className={lista}>
       {movimientos.map((t, i) => (
         <li key={t.id} className="flex flex-wrap items-center gap-3 px-3 py-2.5 text-sm">
           <span className="tabular w-14 shrink-0 text-xs text-muted">09-0{i + 1}</span>
@@ -206,7 +207,7 @@ function Revision() {
             defaultKind="installment"
             defaultValue={categorias[i % categorias.length].id}
           />
-          <button className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-muted transition hover:text-negative">
+          <button className={botonIcono}>
             &times;
           </button>
         </li>
