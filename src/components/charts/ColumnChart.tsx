@@ -28,9 +28,14 @@ const GAP = 2;
  * Columnas: una magnitud a lo largo del tiempo.
  *
  * Una sola serie, asi que no lleva leyenda —el titulo dice que se esta
- * mirando— y un solo tono. Se etiqueta la primera columna y la mas alta, no
- * todas: un numero sobre cada barra se vuelve ruido y deja de leerse. El resto
- * lo cargan el eje, el tooltip y la lista de abajo.
+ * mirando— y un solo tono. Cada columna lleva su total arriba: leerlos del eje
+ * es aproximar, y lo que se quiere saber de un mes es cuanto es, no mas o menos
+ * donde cae.
+ *
+ * Lo que los hace caber es el formato compacto y que **el simbolo de moneda va
+ * solo en la primera**. Repetirlo en cada columna no agrega nada —la moneda es
+ * la misma en todas— y son los dos caracteres que hacen que dos etiquetas
+ * vecinas se toquen.
  *
  * Una columna puede ir `muted` cuando no es de la misma naturaleza que el resto
  * —lo que ya paso al lado de lo que se proyecta—. Es la misma forma que usa
@@ -54,8 +59,6 @@ export function ColumnChart({
   const ancho = EJE + PAD + columns.length * paso;
   const alto = ALTO + ARRIBA + ABAJO;
   const base = ARRIBA + ALTO;
-
-  const destacadas = new Set([0, columns.findIndex((c) => c.value === maximo)]);
 
   return (
     <svg
@@ -104,7 +107,7 @@ export function ColumnChart({
             >
               <title>{col.title}</title>
             </path>
-            {destacadas.has(i) && h > 0 ? (
+            {h > 0 ? (
               <text
                 x={x + ANCHO_BARRA / 2}
                 y={y - 4}
@@ -113,7 +116,7 @@ export function ColumnChart({
                 fontSize={9}
                 fill="var(--foreground)"
               >
-                {formatCompact(col.value, currency)}
+                {formatCompact(col.value, i === 0 ? currency : undefined)}
               </text>
             ) : null}
             <text

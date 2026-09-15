@@ -444,9 +444,16 @@ cuesta más de lo que rinde.
 
 Las barras van **cuadradas contra el cero y redondeadas en la punta** —el
 extremo redondeado marca dónde termina el dato y la base cuadrada lo ancla al
-eje—, los segmentos se separan con 2px del color de la superficie y no con un
-borde, y se etiquetan **algunas** columnas, no todas: un número sobre cada barra
-deja de leerse.
+eje— y los segmentos se separan con 2px del color de la superficie y no con un
+borde.
+
+**Cada columna lleva su total arriba.** Antes se etiquetaban sólo la primera y la
+más alta, por miedo a que un número sobre cada barra dejara de leerse; el miedo
+era a la longitud de la etiqueta, no a la cantidad. Lo que las hace caber es el
+formato compacto y que **el símbolo de moneda vaya sólo en la primera**:
+repetirlo no agrega nada —la moneda es la misma en todas— y son los dos
+caracteres que hacen que dos etiquetas vecinas se toquen. Leer el valor del eje
+es aproximar, y de un mes se quiere saber cuánto es, no más o menos dónde cae.
 
 ## El token que nace invertido en el tiempo
 
