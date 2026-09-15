@@ -473,10 +473,23 @@ la página haga tres consultas a sa-east-1 para fallar tres veces igual.
 
 El payload se decodifica **sin verificar la firma**, y está bien: no se le cree
 nada al token, sólo se mira un número para saber cuánto dormir. La espera tiene
-tope (3s) y queda en los logs con el desfasaje medido: si toca el tope, el
-problema es de relojes y hay que mirarlo, no seguir subiendo la espera.
-`withRetry` sigue reconociendo el mismo error como red de atrás, para un token
-que se haya refrescado fuera del proxy.
+tope (3s) y queda en los logs con el desfasaje medido.
+
+**Pero esa espera sola no alcanza, y hace falta decir por qué.** El proxy mide
+el `iat` contra el reloj de **Vercel**, y el que rechaza es **PostgREST**: si el
+desfasaje está entre Supabase Auth y PostgREST, desde Vercel el token ya parece
+válido y el proxy no espera nada. Se vio en producción —un 500 a las 16:50 en un
+deploy que ya tenía el arreglo, sin una sola línea de `[clock-skew]` en los
+logs—. El proxy sólo cubre el caso en que Vercel también va atrasado.
+
+Lo que lo arregla de verdad es **el reintento de `withRetry`**, porque reacciona
+al rechazo en vez de predecirlo: el rechazo es la única evidencia que hay de
+cuándo el token empezó a valer, y no necesita saber de qué reloj es el problema.
+Por eso el desfasaje tiene ahí su propio presupuesto, más largo que el del resto
+—1s + 2s + 4s, siete segundos— mientras un 504 sigue con los suyos. Con los tres
+intentos comunes (~450ms) se rendía antes de tiempo. Si se agota, queda en los
+logs cuántos ms esperó: si pasa seguido, el desfasaje es más grande que un
+redondeo de relojes y hay que mirar el proyecto, no seguir subiendo el tope.
 
 ## Responsive
 

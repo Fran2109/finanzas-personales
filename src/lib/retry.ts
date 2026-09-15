@@ -30,6 +30,22 @@ const TRANSIENT =
  */
 const CLOCK_SKEW = /issued at future|not yet valid/i;
 
+/**
+ * Y se reintenta mas veces, porque **aca es donde se arregla de verdad**.
+ *
+ * El proxy tambien espera, leyendo el `iat` del token, pero mide contra el
+ * reloj de Vercel y el que rechaza es PostgREST: si el desfasaje esta entre
+ * Supabase Auth y PostgREST, desde Vercel el token ya parece valido y el proxy
+ * no espera nada. Se vio en produccion —un 500 a las 16:50 sin una sola linea
+ * de `[clock-skew]` en los logs— y es la razon de que esto exista aparte.
+ *
+ * El reintento no necesita saber de que reloj es el problema: reacciona al
+ * rechazo, que es la unica evidencia que hay de cuando el token empezo a
+ * valer. 1s + 2s + 4s cubre siete segundos de desfasaje, y el tope esta para
+ * que una pagina no cuelgue si el problema es mas grande que un redondeo.
+ */
+const CLOCK_SKEW_ATTEMPTS = 4;
+
 export function isTransient(error: { message?: string; code?: string } | null): boolean {
   if (!error) return false;
   if (error.code && /^(PGRST|22|23|42)/.test(error.code)) return false;
@@ -57,8 +73,9 @@ export async function withRetry<T>(
   { attempts = 3, baseDelayMs = 150 }: { attempts?: number; baseDelayMs?: number } = {},
 ): Promise<Result<T>> {
   let last: Result<T> = { data: null, error: { message: "sin intentos" } };
+  let esperado = 0;
 
-  for (let attempt = 0; attempt < attempts; attempt++) {
+  for (let attempt = 0; ; attempt++) {
     try {
       last = await run();
     } catch (thrown) {
@@ -71,11 +88,24 @@ export async function withRetry<T>(
 
     if (!last.error || !isTransient(last.error)) return last;
 
-    if (attempt < attempts - 1) {
-      const espera = retryDelayMs(last.error, attempt, baseDelayMs);
-      await new Promise((resolve) => setTimeout(resolve, espera));
+    // El desfasaje de reloj tiene su propio presupuesto: es el unico error de
+    // esta lista que no se arregla reintentando rapido, sino esperando.
+    const esSkew = CLOCK_SKEW.test(last.error.message ?? "");
+    const tope = esSkew ? Math.max(attempts, CLOCK_SKEW_ATTEMPTS) : attempts;
+    if (attempt >= tope - 1) {
+      if (esSkew) {
+        // Que quede el numero: si pasa seguido con esta espera, el desfasaje es
+        // mas grande que un redondeo de relojes y hay que mirar el proyecto, no
+        // seguir subiendo el tope.
+        console.warn(
+          `[clock-skew] el token seguia sin valer despues de ${esperado}ms en ${tope} intentos`,
+        );
+      }
+      return last;
     }
-  }
 
-  return last;
+    const espera = retryDelayMs(last.error, attempt, baseDelayMs);
+    esperado += espera;
+    await new Promise((resolve) => setTimeout(resolve, espera));
+  }
 }

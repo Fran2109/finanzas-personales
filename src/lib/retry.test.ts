@@ -107,3 +107,46 @@ test("un desfasaje de reloj espera segundos, no milisegundos", () => {
 test("sin error no se inventa una espera larga", () => {
   assert.equal(retryDelayMs(null, 0, 150), 150);
 });
+
+test("el desfasaje de reloj se reintenta mas veces que el resto", async () => {
+  // Es el unico error de la lista que no se arregla reintentando rapido: el
+  // token vale recien cuando el reloj que lo valida alcanza al iat. Con el
+  // presupuesto de los demas (3 intentos, ~450ms) se rendia antes de tiempo.
+  let corridas = 0;
+  const resultado = await withRetry(
+    async () => {
+      corridas += 1;
+      return { data: null, error: { message: "JWT issued at future" } };
+    },
+    { baseDelayMs: 0 },
+  );
+  assert.equal(corridas, 4, "cuatro intentos, no tres");
+  assert.equal(resultado.error?.message, "JWT issued at future");
+});
+
+test("un error transitorio comun conserva su presupuesto", async () => {
+  let corridas = 0;
+  await withRetry(
+    async () => {
+      corridas += 1;
+      return { data: null, error: { message: "gateway timeout" } };
+    },
+    { baseDelayMs: 0 },
+  );
+  assert.equal(corridas, 3);
+});
+
+test("el desfasaje que se resuelve no agota los intentos", async () => {
+  let corridas = 0;
+  const resultado = await withRetry(
+    async () => {
+      corridas += 1;
+      return corridas < 3
+        ? { data: null, error: { message: "JWT issued at future" } }
+        : { data: "listo", error: null };
+    },
+    { baseDelayMs: 0 },
+  );
+  assert.equal(resultado.data, "listo");
+  assert.equal(corridas, 3);
+});
