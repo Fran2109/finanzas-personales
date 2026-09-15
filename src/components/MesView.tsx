@@ -224,7 +224,9 @@ function Stat({
       <Amount
         cents={cents}
         currency={currency}
-        className={`mt-0.5 block font-medium ${destacado ? "text-xl" : "text-base"}`}
+        className={`mt-0.5 block ${
+          destacado ? "cifra text-2xl" : "font-medium text-base"
+        }`}
       />
     </div>
   );

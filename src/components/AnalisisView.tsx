@@ -88,7 +88,7 @@ export function AnalisisView({
                   <Amount
                     cents={t.amount}
                     currency={t.currency}
-                    className="mt-0.5 block text-xl font-medium"
+                    className="cifra mt-0.5 block text-2xl"
                   />
                 </div>
               ))}

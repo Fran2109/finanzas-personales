@@ -341,7 +341,10 @@ function Editor({
 
       {/* Apagado por defecto: corregir la categoria de UN movimiento no siempre
           quiere decir que el comercio entero este mal clasificado. */}
-      <label className="flex items-start gap-2 text-xs text-muted">
+      {/* -my-1.5 py-1.5: el label mide 18px de alto y es todo el area tocable
+          del checkbox. El padding lo lleva a target de dedo y el margen
+          negativo lo devuelve a su lugar, asi que la fila no engorda. */}
+      <label className="-my-1.5 flex cursor-pointer items-start gap-2 py-1.5 text-xs text-muted">
         <input type="checkbox" name="learn" className="mt-0.5 accent-current" />
         <span>
           Aplicar esta categoria a este comercio de ahora en mas. Escribe una

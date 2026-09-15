@@ -1,35 +1,46 @@
 @import "tailwindcss";
 
-/* Paleta sobria: la plata ya es estresante, la interfaz no ayuda gritando. */
+/* Tinta sobre papel.
+ *
+ * La app registra plata que sale, y lo que organiza la pantalla es cuanto del
+ * mes ya estaba decidido antes de empezar. Por eso hay **un solo saturado** y
+ * es el del compromiso: lo demas es tinta y papel. Pintar mas cosas gastaria el
+ * unico canal que queda para decir que algo ya no se puede cambiar.
+ *
+ * El acento es azul de tinta y no verde, y no es estetica: el verde contra el
+ * gris de contexto se cae bajo daltonismo (dE 17,3 a vista normal, 13,2 bajo
+ * protanopia — cuatro puntos perdidos). El azul aguanta: 25,9 y 23,6. Medido
+ * con el validador de la skill de dataviz, no estimado. */
 :root {
-  --background: #f7f7f5;
-  --surface: #ffffff;
-  --border: #e3e2dd;
-  --foreground: #1c1b19;
-  --muted: #6f6d67;
-  --accent: #2f6f4e;
-  --negative: #a13c2f;
-  --positive: #2f6f4e;
+  --background: #ebede8;
+  --surface: #f7f8f5;
+  --border: #ccd0c6;
+  --foreground: #161a17;
+  --muted: #5e655f;
+  --accent: #1f4b8f;
+  --negative: #a8321f;
+  --positive: #1f6b54;
   /* Gris de contexto de los graficos. No es --muted, que es color de texto:
-     este es tinta de dato y tiene que llegar a 3:1 contra la superficie para
-     que el segmento se vea. Validado con el script de la skill de dataviz:
-     contra el acento da dE 17,3 a vista normal y 13,2 bajo protanopia. */
+     este es tinta de dato y tiene que llegar a 3:1 contra la superficie.
+     Contra el acento da dE 25,9 a vista normal y 23,6 bajo protanopia. */
   --chart-track: #8f8d86;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #131313;
-    --surface: #1b1b1a;
-    --border: #2e2d2b;
-    --foreground: #ececea;
-    --muted: #9a9791;
-    --accent: #6fbf8f;
-    --negative: #e08573;
-    --positive: #6fbf8f;
-    /* El paso oscuro no es el claro invertido: se eligio contra #1b1b1a.
-       dE 24,5 contra el acento, 3:1 contra la superficie. */
-    --chart-track: #6b6864;
+    --background: #171a1d;
+    --surface: #1f2327;
+    --border: #333940;
+    --foreground: #e8e9e6;
+    --muted: #9aa0a0;
+    --accent: #8cb4ea;
+    --negative: #e8917c;
+    --positive: #6fc49e;
+    /* Elegido contra #1f2327, no invirtiendo el claro. El gris del tema
+       anterior (#6b6864) da 2,85:1 contra esta superficie y se perderia: por
+       eso el track se vuelve a elegir cada vez que cambia el fondo.
+       dE 22,2 contra el acento a vista normal, 21,5 bajo deuteranopia. */
+    --chart-track: #6e7379;
   }
 }
 
@@ -43,9 +54,42 @@
   --color-negative: var(--negative);
   --color-positive: var(--positive);
   --color-chart-track: var(--chart-track);
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
+
+  /* Las dos familias las carga `layout.tsx` con next/font, que las sirve desde
+     el propio dominio: sin pedido a Google en runtime y sin FOUT. */
+  --font-sans: var(--fuente-sans), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: var(--fuente-display), Georgia, "Times New Roman", serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  /* La escala.
+   *
+   * Antes eran dos pasos: de ~196 usos de tamano, 179 eran `text-sm` o
+   * `text-xs`. `text-sm` hacia de cuerpo, de dato, de etiqueta y de titulo de
+   * seccion a la vez, y por eso nada pesaba mas que nada. Ahora son seis, cada
+   * uno con su interlinea: los chicos respiran mas de lo que Tailwind trae por
+   * defecto (1,33 en xs es apretado para un dato) y los grandes menos, que es
+   * como se comporta el tipo de verdad. */
+  --text-micro: 0.6875rem; /* 11px — insignias. Reemplaza los text-[10px] sueltos */
+  --text-micro--line-height: 1.3;
+  --text-xs: 0.78rem; /* 12,5px — metadatos */
+  --text-xs--line-height: 1.45;
+  --text-sm: 0.905rem; /* 14,5px — cuerpo */
+  --text-sm--line-height: 1.5;
+  --text-base: 1rem; /* 16px — titulo de seccion */
+  --text-base--line-height: 1.5;
+  --text-lg: 1.375rem; /* 22px — titulo de pagina */
+  --text-lg--line-height: 1.25;
+  --text-xl: 1.75rem; /* 28px */
+  --text-xl--line-height: 1.2;
+  --text-2xl: 2.5rem; /* 40px — la cifra que es el argumento de la pantalla */
+  --text-2xl--line-height: 1.05;
+
+  /* Tres radios, y cada uno dice de que jerarquia es la cosa. Antes habia
+     cuatro elegidos por sitio, y el mismo para un input que para un panel. */
+  --radius-control: 0.375rem;
+  --radius-contenedor: 0.625rem;
+  --radius-pildora: 999px;
 }
 
 body {
@@ -92,6 +136,16 @@ html[data-motion="on"]:not([data-motion-done]) [data-anim] {
 /* Los montos se leen en columna: tabulares o no se pueden comparar de un vistazo. */
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/* La cifra que es el argumento de una pantalla: el total del mes, lo que falta
+   pagar. Va en la display y con las cifras alineadas a la caja de texto, que es
+   lo que hace que un numero grande se lea como una imagen y no como un parrafo
+   que crecio. */
+.cifra {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -0.02em;
 }
 
 input,

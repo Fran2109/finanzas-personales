@@ -1,6 +1,42 @@
 import type { Metadata } from "next";
+import { Fraunces, IBM_Plex_Sans } from "next/font/google";
+
 import "./globals.css";
 import { WATCHDOG_MS } from "@/lib/motion-plan";
+
+/**
+ * Las dos familias, servidas desde el propio dominio.
+ *
+ * next/font baja los archivos en el build y los sirve locales: no hay pedido a
+ * Google en runtime —ni el rastreo que eso implica— ni el parpadeo de texto que
+ * deja una fuente que llega tarde.
+ *
+ * **IBM Plex Sans** para todo: tiene cifras tabulares de verdad, que en una app
+ * que apila importes en columna no es un detalle, y es tecnica sin ser fria. No
+ * es Inter a proposito: Inter es el default de todo el mundo.
+ */
+const sans = IBM_Plex_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--fuente-sans",
+  display: "swap",
+});
+
+/**
+ * **Fraunces** solo para las cifras que son el argumento de una pantalla: el
+ * total del mes, lo que falta pagar. Es variable y el eje optico la hace
+ * distinta en tamano grande, que es donde se usa; un numero asi deja de ser
+ * texto y pasa a ser la imagen de la pagina.
+ *
+ * Tres o cuatro numeros en toda la app. Usarla para mas seria convertir una
+ * decision en un default.
+ */
+const display = Fraunces({
+  subsets: ["latin"],
+  axes: ["SOFT", "WONK", "opsz"],
+  variable: "--fuente-display",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Finanzas",
@@ -38,7 +74,10 @@ setTimeout(function(){d.setAttribute("data-motion-done","")},${WATCHDOG_MS})}cat
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="es" className="h-full antialiased">
+    <html
+      lang="es"
+      className={`h-full antialiased ${sans.variable} ${display.variable}`}
+    >
       <head>
         <script dangerouslySetInnerHTML={{ __html: INTERRUPTOR }} />
       </head>

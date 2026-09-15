@@ -84,7 +84,8 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Todo menos assets estaticos y archivos con extension.
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Todo menos assets estaticos, archivos con extension, y el banco de
+    // pruebas visual, que ya devuelve 404 salvo con VERIFICACION=1.
+    "/((?!verificacion|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
