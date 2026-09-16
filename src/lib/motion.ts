@@ -13,7 +13,8 @@
  */
 import { gsap } from "gsap";
 
-import { plan } from "./motion-plan";
+import { formatCents } from "./money";
+import { plan, tramoContador, valorEn } from "./motion-plan";
 
 /** Lo que hay que llamar para que el escondite del CSS deje de aplicar. */
 function destapar() {
@@ -61,6 +62,9 @@ export function entrada(scope: HTMLElement, pantalla: string): () => void {
   if (yaEntraron.has(pantalla)) return () => {};
   yaEntraron.add(pantalla);
 
+  /** Lo que hay que deshacer a mano porque GSAP no lo tiene anotado. */
+  const restaurar: (() => void)[] = [];
+
   const mm = gsap.matchMedia();
 
   // El segundo de los tres lugares donde se respeta la preferencia. Con
@@ -91,10 +95,83 @@ export function entrada(scope: HTMLElement, pantalla: string): () => void {
         paso.at / 1000,
       );
     }
+
+    for (const el of scope.querySelectorAll<HTMLElement>("[data-contador]")) {
+      contar(tl, el, restaurar);
+    }
   });
 
   // `revert()` borra **todo** estilo inline que GSAP haya escrito, asi que
   // desmontar a mitad de tween —dos toques rapidos en la flecha del mes— no
   // deja una fila en opacidad 0,3 para siempre.
-  return () => mm.revert();
+  //
+  // Lo que **no** deshace es el texto de los contadores: eso lo escribe un
+  // `onUpdate` y GSAP no lo sabe. Por eso se restaura a mano, y por eso
+  // `restaurar` existe: un numero parcial congelado es la unica forma que tiene
+  // este paso de mentir.
+  return () => {
+    mm.revert();
+    for (const f of restaurar) f();
+  };
+}
+
+/**
+ * El numero que rueda de cero hasta el suyo, en el mismo reloj que el resto.
+ *
+ * Dos detalles que no son decoracion:
+ *
+ * **Se fija el ancho antes de arrancar.** `.cifra` ya trae `tabular-nums`, o
+ * sea que los digitos miden todos igual — pero la *cantidad* de digitos cambia,
+ * de "$ 0,00" a "$ 1.664.654,03", y el numero vive adentro de una oracion. Sin
+ * esto, el punto final de "Gastaste $ X." se pasea por la pantalla durante medio
+ * segundo. El elemento ya tiene el texto final puesto por el servidor, asi que
+ * medirlo es leer el ancho de llegada; se descarta al terminar.
+ *
+ * **El valor lo redondea `valorEn`**, que es una funcion pura y testeada: lo que
+ * se escribe en pantalla es plata, y un contador que pasa por 12.895,3947 y
+ * despues corrige es peor que uno que no anima.
+ */
+function contar(
+  tl: gsap.core.Timeline,
+  el: HTMLElement,
+  restaurar: (() => void)[],
+): void {
+  const cents = Number(el.dataset.contador);
+  if (!Number.isFinite(cents)) return;
+  const moneda = el.dataset.moneda || "ARS";
+  const final = formatCents(cents, moneda);
+
+  const ancho = el.getBoundingClientRect().width;
+  const soltarAncho = () => {
+    el.style.removeProperty("display");
+    el.style.removeProperty("min-width");
+  };
+  el.style.display = "inline-block";
+  el.style.minWidth = `${ancho}px`;
+
+  restaurar.push(() => {
+    soltarAncho();
+    el.textContent = final;
+  });
+
+  const tramo = tramoContador();
+  const reloj = { t: 0 };
+  tl.to(
+    reloj,
+    {
+      t: 1,
+      duration: tramo.dur / 1000,
+      ease: "power2.out",
+      onUpdate: () => {
+        el.textContent = formatCents(valorEn(reloj.t, cents), moneda);
+      },
+      onComplete: () => {
+        // El ultimo frame no siempre cae justo en 1: se escribe el final tal
+        // cual lo mando el servidor, no el que salga de redondear.
+        el.textContent = final;
+        soltarAncho();
+      },
+    },
+    tramo.at / 1000,
+  );
 }

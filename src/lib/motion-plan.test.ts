@@ -1,7 +1,25 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { duracionTotal, plan, valorEn, WATCHDOG_MS } from "./motion-plan.ts";
+import { duracionTotal, plan, tramoContador, valorEn, WATCHDOG_MS } from "./motion-plan.ts";
+
+test("el contador arranca con el hero y no se le puede desfasar", () => {
+  // El `at` sale del paso `hero` y no de un numero escrito de nuevo: es el
+  // mismo elemento, asi que retunear la entrada tiene que moverlos juntos.
+  const hero = plan().find((p) => p.target === "hero");
+  assert.ok(hero, "sin paso `hero` el contador no tendria de donde salir");
+  assert.equal(tramoContador().at, hero.at);
+});
+
+test("el contador tambien entra en la duracion total", () => {
+  // Si quedara afuera, alargarlo por encima del watchdog no rompería ningun
+  // test y el numero se cortaria a mitad de cuenta en un telefono lento.
+  const c = tramoContador();
+  assert.ok(
+    duracionTotal() >= c.at + c.dur,
+    `el contador termina a los ${c.at + c.dur}ms y la duracion total dice ${duracionTotal()}ms`,
+  );
+});
 
 test("la secuencia termina antes de que el watchdog la interrumpa", () => {
   // Es el unico bug que un test unitario puede atrapar aca, y ata dos numeros

@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { Amount } from "@/components/Amount";
+import { Contador } from "@/components/motion/Contador";
 import { MonthFilters } from "@/components/MonthFilters";
 import { TransactionForm } from "@/components/TransactionForm";
 import { StackedShare } from "@/components/charts/StackedShare";
@@ -180,7 +181,7 @@ function Totales({
     <section data-anim="hero" className="space-y-5">
       <p className="text-base leading-snug">
         Gastaste{" "}
-        <Amount
+        <Contador
           cents={t.total}
           currency={principal}
           className="cifra align-baseline text-2xl"

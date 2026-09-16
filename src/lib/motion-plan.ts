@@ -62,13 +62,27 @@ export function plan(): readonly Paso[] {
 }
 
 /**
+ * El tramo del contador del numero hero.
+ *
+ * Arranca **con** el hero porque es el mismo elemento, y por eso el `at` sale
+ * de ahi y no de un numero escrito de nuevo: retunear la entrada mueve las dos
+ * cosas juntas y no se pueden desfasar. Dura mas que el fade porque un numero
+ * que rueda necesita tiempo para leerse y un fade no.
+ */
+export function tramoContador(): { at: number; dur: number } {
+  const hero = PASOS.find((p) => p.target === "hero");
+  return { at: hero ? hero.at : 0, dur: 620 };
+}
+
+/**
  * Cuanto tarda la secuencia entera.
  *
  * No depende de cuantos elementos haya —por `spread`— y eso es justamente lo
  * que hace que se pueda comparar contra el watchdog de una vez y para siempre.
  */
 export function duracionTotal(): number {
-  return Math.max(...PASOS.map((p) => p.at + p.spread + p.dur));
+  const c = tramoContador();
+  return Math.max(c.at + c.dur, ...PASOS.map((p) => p.at + p.spread + p.dur));
 }
 
 /**

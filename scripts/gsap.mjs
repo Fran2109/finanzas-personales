@@ -177,10 +177,19 @@ for (const pantalla of ["mes", "analisis"]) {
   // retrasa el commit hasta que el navegador saca la foto. Con un timeout fijo
   // lo que se mide es la pantalla vieja, y el chequeo reporta "no animo" sobre
   // una animacion que estaba por empezar. Paso.
+  //
+  // Y no alcanza con una sola lectura al aparecer: entre que React commitea el
+  // DOM y que corre el efecto que arranca GSAP hay una ventana en la que todo
+  // esta en opacidad 1. Una muestra sola cae ahi una de cada tres veces, y el
+  // chequeo miente en las dos direcciones. Se muestrea la ventana entera y se
+  // pregunta si **en algun momento** hubo algo entrando.
   const ir = async (destino, titulo) => {
     await p.locator(`nav a[href*="p=${destino}"]`).click();
     await p.locator(`h1:has-text("${titulo}")`).waitFor({ timeout: 5000 });
-    return entrando();
+    let maximo = 0;
+    const hasta = Date.now() + 500;
+    while (Date.now() < hasta) maximo = Math.max(maximo, await entrando());
+    return maximo;
   };
 
   const primera = await ir("analisis", "Análisis");
@@ -194,6 +203,47 @@ for (const pantalla of ["mes", "analisis"]) {
   else if (revuelta > 0) mal("una por pantalla", `volver a Analisis la repitio (${revuelta})`);
   else ok(`una por pantalla: Analisis entro con ${primera}, y ninguna de las dos vueltas repitio`);
   await p.close();
+}
+
+// 7 ----------------------------------------------------------- el contador
+//
+// Tres preguntas, una por cada forma que tiene de fallar. Y en este orden: sin
+// la primera, las otras dos pasan con el contador roto.
+for (const pantalla of ["mes", "analisis"]) {
+  // Lo que mando el servidor, que es lo que se ve sin JS y lo que tiene que
+  // quedar al final. Se lee con el JS apagado para que sea el HTML y no el DOM
+  // ya tocado por la animacion.
+  const ctx = await b.newContext({ javaScriptEnabled: false });
+  const sinJs = await ctx.newPage();
+  await sinJs.goto(`${BASE}/verificacion?p=${pantalla}`);
+  const servidor = (await sinJs.locator("[data-contador]").first().textContent())?.trim();
+  await ctx.close();
+
+  const p = await b.newPage();
+  await p.goto(`${BASE}/verificacion?p=${pantalla}`);
+
+  const medir = () =>
+    p.evaluate(() => {
+      const el = document.querySelector("[data-contador]");
+      const linea = el?.closest("p");
+      return {
+        texto: (el?.textContent ?? "").trim(),
+        ancho: linea ? Math.round(linea.getBoundingClientRect().width) : 0,
+      };
+    });
+
+  // A los 200ms el tramo va por la mitad.
+  await p.waitForTimeout(200);
+  const medio = await medir();
+  await p.waitForTimeout(1400);
+  const fin = await medir();
+  await p.close();
+
+  if (!servidor || servidor === "$ 0,00") mal(`contador ${pantalla}`, `el servidor mando "${servidor}"`);
+  else if (medio.texto === fin.texto) mal(`contador ${pantalla}`, `no conto: a los 200ms ya decia "${fin.texto}"`);
+  else if (fin.texto !== servidor) mal(`contador ${pantalla}`, `termino en "${fin.texto}" y el servidor mando "${servidor}"`);
+  else if (medio.ancho !== fin.ancho) mal(`contador ${pantalla}`, `la oracion se movio: ${medio.ancho}px a mitad de cuenta, ${fin.ancho}px al final`);
+  else ok(`contador ${pantalla}: "${medio.texto}" -> "${fin.texto}", la linea quieta en ${fin.ancho}px`);
 }
 
 await b.close();

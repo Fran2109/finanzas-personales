@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { Amount } from "@/components/Amount";
+import { Contador } from "@/components/motion/Contador";
 import { BarList, type Bar } from "@/components/charts/BarList";
 import { DivergingBars } from "@/components/charts/DivergingBars";
 import { ColumnChart } from "@/components/charts/ColumnChart";
@@ -73,7 +74,7 @@ export function AnalisisView({
             {faltaPorPagar.map((t) => (
               <p key={t.currency} className="mb-2 text-base leading-snug">
                 Te falta pagar{" "}
-                <Amount
+                <Contador
                   cents={t.amount}
                   currency={t.currency}
                   className="cifra align-baseline text-2xl"
