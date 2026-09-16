@@ -55,6 +55,11 @@ sin comillas. Tres cosas que se siguen de compartir:
       de reconciliación, con la cuenta inferida del propio resumen
 - [x] Carga provisoria del mes en curso pegando la lista del home banking
 - [x] Calendario de compromisos: cuánto de cada mes que viene ya está gastado
+- [x] Rediseño visual y motion: tipografía propia, paleta validada, escala de
+      seis pasos, listas en bandas y una secuencia de entrada por pantalla. El
+      único costo nuevo es GSAP —27 KB gzip— y lo bajan **sólo** `/` y
+      `/analisis`; las otras cinco rutas no pagan un byte. Ver `## El sistema
+      visual`, `## Motion` y `## Cómo se verifica`.
 - [ ] Fase 1 aceptada: una semana de gastos reales cargados sin que dé fastidio
 - [x] Deploy en Vercel: https://finanzas-personales-rouge-eta.vercel.app
 
@@ -414,10 +419,18 @@ cerró y va a seguir subiendo.
 ### Los gráficos
 
 **SVG y HTML a mano, del lado del servidor.** No hay librería de gráficos: son
-cuatro formas simples, y una dependencia pesa más que todo esto junto y encima
-obliga a mandar JavaScript al cliente para dibujar números que el servidor ya
-calculó. El hover son `title` nativos; la lista que acompaña a cada gráfico es
-la vista de tabla.
+cuatro formas simples, y una librería de **dibujo** obliga a mandar JavaScript
+al cliente para dibujar números que el servidor ya calculó. Reemplaza trabajo ya
+hecho. El hover son `title` nativos; la lista que acompaña a cada gráfico es la
+vista de tabla.
+
+Eso sigue siendo cierto con GSAP adentro del proyecto, y conviene decir por qué
+no se contradicen. GSAP es una librería de **movimiento**: recibe el DOM ya
+pintado y lo mueve, así que los cuatro gráficos siguen siendo server components
+byte por byte. No reemplaza trabajo del servidor, se le suma. Lo que sí es cierto
+—y la regla vieja lo decía bien— es que **pesa**: 27 KB gzip, más que todos los
+componentes cliente de la app sumados. Por eso vive en dos rutas y no en el
+layout (ver `## Motion`), y por eso el costo está medido y no estimado.
 
 **El color se elige por el trabajo que hace, y se valida, no se estima.** Acá
 casi todo es magnitud, así que va un solo tono —el acento— y el largo de la
@@ -429,18 +442,23 @@ acento lleva la parte que cuenta la historia y el resto queda en un gris de
 contexto. Ese gris es `--chart-track` y **no** es `--muted`: `--muted` es color
 de texto y a 1,68:1 contra la superficie el segmento era casi invisible. Los dos
 pasos se eligieron corriendo el validador de la skill de dataviz contra cada
-superficie: claro `#8f8d86` (ΔE 17,3 a vista normal, 13,2 bajo protanopia) y
-oscuro `#6b6864` (ΔE 24,5), los dos ≥3:1. El paso oscuro no es el claro
-invertido: se eligió contra `#1b1b1a`.
+superficie: claro `#8f8d86` (ΔE 25,9 a vista normal, 23,6 bajo protanopía) y
+oscuro `#6e7379` (22,2 y 21,5 bajo deuteranopía), los dos ≥3:1. El paso oscuro no
+es el claro invertido: se eligió contra `#1f2327`, que es la superficie oscura.
 
 **El verde contra el rojo no se puede usar para el signo.** Es lo natural para
 "subió / bajó" y el validador lo rechaza: ese par da ΔE 5,5 en claro y 4,0 en
 oscuro bajo deuteranopía, o sea que un daltónico ve dos barras del mismo color y
 pierde el signo. En `DivergingBars` el signo lo lleva **de qué lado del cero cae
 la barra**, que no se pierde nunca, más el número con signo al lado; el color
-queda sólo como magnitud, un tono. El par azul/rojo que propone la skill pasaría
-el chequeo, pero meter un tono nuevo en una app cuya paleta entera es un verde
-cuesta más de lo que rinde.
+queda sólo como magnitud, un tono.
+
+**Y el acento dejó de ser verde por la misma clase de medición.** El verde
+contra el gris de contexto daba ΔE 17,3 a vista normal y 13,2 bajo protanopía:
+cuatro puntos perdidos justo donde el gráfico tiene que seguir diciendo cuál
+segmento es cuál. El azul de tinta aguanta 25,9 y 23,6. No fue un cambio de
+gusto — fue el validador rechazando el par, igual que rechazó el verde/rojo del
+signo.
 
 Las barras van **cuadradas contra el cero y redondeadas en la punta** —el
 extremo redondeado marca dónde termina el dato y la base cuadrada lo ancla al
@@ -454,6 +472,148 @@ formato compacto y que **el símbolo de moneda vaya sólo en la primera**:
 repetirlo no agrega nada —la moneda es la misma en todas— y son los dos
 caracteres que hacen que dos etiquetas vecinas se toquen. Leer el valor del eje
 es aproximar, y de un mes se quiere saber cuánto es, no más o menos dónde cae.
+
+## El sistema visual
+
+Antes de esto la jerarquía la cargaban el color y el espaciado, nunca el tipo:
+de ~196 usos de tamaño, **179 eran `text-sm` o `text-xs`**. `text-sm` hacía de
+cuerpo, de dato, de etiqueta y de título de sección a la vez, y por eso nada
+pesaba más que nada.
+
+**Dos familias, servidas desde el propio dominio** con `next/font/google`, que
+baja los archivos en el build: ni un pedido a Google en runtime —ni el rastreo
+que eso implica— ni el parpadeo de una fuente que llega tarde.
+
+- **IBM Plex Sans** para todo. Tiene cifras tabulares de verdad, que en una app
+  que apila importes en columna no es un detalle. No es Inter a propósito.
+- **Fraunces** para las cifras que son el argumento de una pantalla, y **para
+  nada más**. Hoy son dos lugares: el total del mes y lo que falta pagar. Más el
+  nombre de la app en el login, que es la única pantalla sin datos que mostrar.
+  Los dos usos dicen lo mismo: esto es la cosa misma. Usarla para más la
+  convertiría en un default.
+
+**La escala es de seis pasos, cada uno con su interlínea** (`--text-micro` 11px
+para insignias, `xs` 12,5 metadatos, `sm` 14,5 cuerpo, `base` 16 título de
+sección, `lg` 22 título de página, `xl` 28, `2xl` 40 la cifra). Los chicos
+respiran más de lo que Tailwind trae por defecto —1,33 en `xs` es apretado para
+un dato— y los grandes menos, que es como se comporta el tipo de verdad.
+
+**Tres radios, y cada uno dice de qué jerarquía es la cosa**: `--radius-control`
+para un input o un botón, `--radius-contenedor` para un panel,
+`--radius-pildora` para una insignia. Antes había cuatro elegidos por sitio, y
+el mismo para un input que para un panel.
+
+**Las listas son bandas, no cajas.** La regla separa, no encierra. Una caja
+redondeada alrededor de cada fila es el "kit de tarjetas" que delata una
+pantalla armada sin decidir nada, y encima gasta el borde —que es tinta— en
+repetir lo que el espaciado ya dice.
+
+**Un solo saturado, y es el del compromiso.** Lo que organiza esta app es cuánto
+del mes ya estaba decidido, así que eso es lo que lleva color; el resto es tinta
+y papel. Pintar más cosas gastaría el único canal que queda para decir que algo
+ya no se puede cambiar. Los hexadecimales están en `src/app/globals.css` con sus
+ΔE medidos al lado: **el color se valida, no se estima**, y el paso oscuro se
+elige contra el fondo oscuro en vez de invertir el claro.
+
+## Motion
+
+Una sola secuencia al entrar por pantalla, y después movimiento sólo como
+respuesta a algo que hiciste. Un fade en cada sección más una transición en cada
+hover es el default genérico, el que se lee como generado.
+
+### La falla que hay que hacer imposible
+
+Que un elemento quede en `opacity: 0` y no se muestre nunca. Es una app de plata
+en un teléfono con datos móviles: media página cargada no es hipotético. Son
+cuatro capas y **ninguna alcanza sola**:
+
+1. **El estado inicial depende de un atributo que sólo pone el JS.** El script
+   inline de `layout.tsx` marca `<html data-motion="on">`, y la regla que
+   esconde es `html[data-motion="on"]:not([data-motion-done]) [data-anim]`. Sin
+   JS el atributo nunca se pone, la regla nunca matchea y la página se ve como
+   si nada de esto existiera. Es estructural, no una promesa.
+2. **El escondite se vence solo.** El mismo script programa `data-motion-done` a
+   los 900ms pase lo que pase. `<html>` no lo reemplaza ninguna navegación del
+   App Router, así que es un flip permanente: todo nodo que aparezca después ya
+   no se esconde, y no hay que resolver "los nodos que llegan tarde".
+3. **La primera línea del orquestador mata la regla**, antes de construir nada.
+   Si algo de ahí para abajo tira, el contenido ya quedó visible. Lo que rescata
+   la página es esa línea, no un catch.
+4. **`gsap.from()` siempre, nunca `gsap.set()`**, más `revert()` al desmontar.
+
+**Y la trampa que hace todo esto necesario, escrita porque no da ningún error:**
+si el CSS ya puso `opacity: 0` y después corre `gsap.from(el, {opacity: 0})`,
+GSAP lee el computado de ahora —0— como el valor **final** y anima de 0 a 0.
+Invisible para siempre, en todos los navegadores, sin una línea en la consola.
+Por eso el orden de la capa 3 importa: destapar primero deja el computado en 1,
+que es el final que corresponde.
+
+`prefers-reduced-motion` se respeta en **tres** lugares, porque ninguno cubre a
+los otros: el script inline no pone `data-motion`; un bloque global de CSS anula
+las duraciones —que cubre los `transition` sueltos y las view transitions, que
+el switch de GSAP no alcanza—; y `gsap.matchMedia()` en `src/lib/motion.ts`, que
+en la rama que no matchea no crea ni una tween.
+
+### Qué hace cada mecanismo, y por qué no es el mismo
+
+| Qué | Con qué | Por qué |
+| --- | --- | --- |
+| El editor en línea, el panel del filtro | CSS + `@starting-style` | `grid-template-rows: 0fr→1fr` anima hasta el alto real del contenido **sin medirlo**, que es lo que ninguna librería puede hacer sin volver a medir en cada resize. Acá CSS no es lo barato, es lo mejor |
+| El mes que cambia | `<ViewTransition>` | Es un round-trip al servidor: el DOM viejo se destruye y no hay nada entre qué interpolar. GSAP sólo podría fadear lo nuevo *después* de la espera, que hace sentir más lenta una navegación que ya lo es |
+| La entrada de `/` y `/analisis` | GSAP | Un reloj compartido: la coreografía se retunea en un lugar y las piezas no se desfasan |
+
+**El panel del filtro anima `translate` y no `transform`**, y eso no es un
+detalle de estilo: el `transform` de ese panel lo escribe el JS que lo corre
+para que no se salga de la pantalla en un teléfono. Son dos propiedades que el
+navegador compone, así que la corrección de layout y la animación conviven; con
+las dos en `transform` la escritura inline gana y no queda animación ninguna.
+
+`<ViewTransition>` va con `update="mes"` y `enter`/`exit`/`share` en `"none"`.
+O sea: sólo cuando cambia el contenido de esa misma pantalla, nunca al entrar o
+salir de ella. Mantiene los dos mecanismos en transiciones disjuntas — al montar,
+la orquesta aplica su estado inicial en el mismo commit en que el navegador saca
+la foto, y el crossfade fadearía hacia opacidad 0 para después volver a subir.
+
+### Lo que anima GSAP, y lo que deliberadamente no
+
+**`src/lib/motion.ts` es el único lugar que importa `gsap`**, y lo sostiene una
+regla de ESLint. La coreografía vive aparte en `src/lib/motion-plan.ts`, sin
+importar GSAP, para que los números se puedan testear con `node --test`: un test
+ata la duración de la secuencia contra el watchdog, que es el único bug que un
+test unitario puede atrapar acá.
+
+El `spread` de cada paso es un **total y no un incremento por elemento**. Con un
+incremento, una lista de 40 movimientos tardaría 1,8s sólo en arrancar y se
+pasaría del watchdog. Repartido, la secuencia dura lo mismo con 3 elementos que
+con 300. En GSAP es `stagger: { amount }`, no `each`.
+
+**Las barras y las columnas no animan opacidad, y no es un olvido.** Las cuatro
+viven adentro de una sección que ya hace su fade, y dos opacidades anidadas se
+multiplican: a mitad de camino 0,5 por 0,5 da 0,25 y el gráfico se ve sucio en
+vez de entrando. Lo que una barra tiene para decir es su largo, así que lo que
+se anima es el largo — y el eje es el de la magnitud: una barra acostada crece en
+X y una columna en Y. El origen sale del dato, no de un default: en
+`DivergingBars` el cero está a la **derecha** de las barras que caen del lado de
+"te soltaste", así que ésas crecen al revés.
+
+**El contador es un server component**, y ahí está toda la decisión. Renderiza
+el número final más un par de atributos `data-`; el "0" no existe en ningún
+HTML. Acá la falla que hay que hacer imposible no es "algo queda invisible", es
+**un número equivocado en pantalla**: una app de plata que muestra `$ 0,00`
+donde se gastaron 1,6 millones no está degradada, está mintiendo. Por eso la
+limpieza reescribe el valor final a mano — el texto lo pone un `onUpdate` y GSAP
+no lo tiene anotado, así que `revert()` no lo desharía.
+
+Se le fija el ancho antes de arrancar. `.cifra` ya trae `tabular-nums`, o sea
+que los dígitos miden todos igual, pero la *cantidad* de dígitos cambia y el
+número vive adentro de una oración: sin eso, el punto final de "Gastaste $ X."
+se pasea por la pantalla medio segundo.
+
+**Cada pantalla entra una sola vez por carga**, y es un `Set` por pantalla y no
+una bandera para toda la app. Con una sola bandera, entrar a Análisis después de
+Mes no animaba nada porque ya estaba gastada: ver una pantalla por primera vez y
+volver a una que ya viste son cosas distintas. Un recargar de verdad trae la
+entrada de nuevo, que es cuando tiene sentido.
 
 ## El token que nace invertido en el tiempo
 
@@ -526,6 +686,22 @@ destructivo cuando se acierta. Los borrados pasan a un cuadrado de 32px; a los
 botones de texto les alcanza con padding vertical más un margen negativo que lo
 compensa, así el área crece y la altura visual queda igual.
 
+**Salvo en una barra que envuelve, donde el margen negativo es el problema.** En
+el header, compensar el padding con `-my-*` se come el gap entre las filas
+envueltas hasta montar una sobre otra. Ahí el padding va solo y se compensa
+achicando el del contenedor: el header queda 4px más alto y la navegación entera
+pasa a ser tocable.
+
+**Los dos targets que faltaban aparecieron al hacer fiel el banco de pruebas, no
+al mirar la pantalla.** Los cinco items de navegación medían 22px de alto —la
+navegación principal de la app, en todas las pantallas— y no los veía nadie
+porque en el banco eran `span` y la auditoría sólo mide `button, a, select,
+input, textarea`. El link que abre un resumen, lo mismo: apareció al extraer
+`StatementRow` a un componente que el banco pudiera renderizar. La moraleja no
+es sobre targets: **una auditoría sólo cubre lo que el banco renderiza de
+verdad**, así que cada vez que el banco se parece más al original, encuentra
+cosas.
+
 **Una insignia adentro de un `truncate` no existe en un teléfono.** El badge
 "provisorio" vivía dentro del span que trunca la descripción, así que una
 descripción larga se lo comía entero: no se veía nunca, justo donde más hace
@@ -552,29 +728,80 @@ breakpoints de Tailwind miran el viewport: achicar un `div` deja los `sm:` y
 clampea la ventana en ~500px— así que el teléfono se mira metiendo la página en
 un `<iframe width="375">`, que sí crea su propio viewport.
 
-Dos trampas que hicieron mirar capturas viejas y sacar conclusiones falsas: un
-**`next-server` que quedó vivo** sigue sirviendo el build anterior —verificar
-que el HTML servido tenga el markup nuevo antes de medir— y un **`| head` sobre
-el script de capturas** lo mata por SIGPIPE antes de que escriba las últimas.
-
-Y como no hay base de datos alcanzable desde el contenedor, la página se mira
-renderizando el **componente real** con datos inventados en una página
-descartable fuera del proxy. Una copia del markup en un banco de pruebas se
-desfasa del original y termina verificando algo que no existe: por eso la vista
-del mes vive en `MesView` y la de análisis en `AnalisisView`, separadas de sus
-páginas, que se quedan con los datos. En la auditoría punta a punta esto pasó de
-verdad —el banco reportó un `×` de 12px que las páginas reales ya no tenían,
-porque la copia del banco no se había actualizado—.
+La página se mira renderizando el **componente real** con datos inventados (ver
+`## Cómo se verifica`). Una copia del markup en un banco de pruebas se desfasa
+del original y termina verificando algo que no existe: por eso la vista del mes
+vive en `MesView`, la de análisis en `AnalisisView`, las filas de un resumen en
+`ImportRowList` y la de un import en `StatementRow`, todas separadas de sus
+páginas, que se quedan con los datos. Esto pasó de verdad dos veces — una el
+banco reportó un `×` de 12px que las páginas reales ya no tenían, y otra la
+revisión de un resumen se verificó durante meses contra una copia a mano.
 
 La auditoría se corre a **320, 375, 414, 667, 768, 1024, 1280 y 1920**, en claro
 y en oscuro, midiendo `scrollWidth` contra el viewport **y** elemento por
 elemento (un hijo puede salirse sin que la página scrollee, si un ancestro lo
 recorta: eso no es un desborde, es información que desaparece). Y no alcanza con
 el estado inicial: los desbordes que quedaban estaban en lo que se abre —el
-desplegable del filtro, el editor en línea, el confirmar de borrado—, así que
-hay que hacer click y volver a medir. Un click que no encuentra nada no falla,
-simplemente no hace nada: conviene afirmar que la interacción ocurrió antes de
-creerle al "sin problemas".
+desplegable del filtro, el editor en línea de un movimiento, el editor de una
+cuenta y el confirmar de borrado—, así que hay que hacer click y volver a medir.
+Un click que no encuentra nada no falla, simplemente no hace nada: conviene
+afirmar que la interacción ocurrió antes de creerle al "sin problemas".
+
+## Cómo se verifica
+
+Cinco scripts en `scripts/`, todos contra el banco de pruebas levantado con
+`VERIFICACION=1 npx next start -p 3210`:
+
+| `npm run` | Qué prueba |
+| --- | --- |
+| `responsive` | 7 pantallas × 8 anchos × 2 temas, desborde y targets, más lo que se abre |
+| `motion:red` | Que el contenido **no pueda** quedar invisible: con JS, bajo reduced-motion y sin JS |
+| `gsap` | Que GSAP anime donde tiene que animar, no se cobre donde no, y no deje nada a medias |
+| `abre` | Que el editor, el panel del filtro y el crossfade del mes de verdad animen |
+| `capturas` | Diff pixel a pixel contra una baseline, para probar que algo **no** cambió |
+
+**Todos miden a mitad de la animación, y ésa es la regla que hay que entender.**
+Una animación que no engancha no tira ningún error: el elemento aparece de golpe
+y nadie se entera. Un assert del estado final pasaría igual con todo roto. Por
+eso cada chequeo afirma que el valor a mitad de camino cayó *entre* el de
+arranque y el final, sin fijar cuál: el editor abre de 61 a 321px y a los 100ms
+tiene que estar en el medio; el contador tiene que decir algo distinto del total
+a los 200ms y **exactamente** el total al final; las 27 barras tienen que estar
+en escala < 1 a los 260ms y en 1 al terminar. La muestra del medio cambia en
+cada corrida y por eso no se compara contra un número: se compara contra el
+intervalo. Y el par "anima" / "nada quedó invisible" va junto a propósito: sin el
+primero, el segundo lo estaría dando el watchdog.
+
+Tres preguntas que se contestan contra el navegador porque leyendo un archivo se
+contestan mal:
+
+- **Qué rutas pagan GSAP.** Los manifiestos por ruta de Turbopack no listan los
+  chunks de página, así que un chequeo que los lee responde que sí a todo. Se
+  mira qué pide cada página y cuál de esos chunks trae GSAP: `/login` baja cero.
+- **Qué pasa si el chunk no llega.** Se bloquea por contenido —el nombre lo pone
+  un hash— y se afirma que la página se lee igual.
+- **Que reduced-motion no tenga agujeros.** Las capturas bajo `reduce` tienen que
+  salir idénticas pixel a pixel contra el build sin GSAP. Cualquier diferencia
+  ahí es un agujero en el switch.
+
+**La verificación mintió tres veces, y las tres valen recordarse:**
+
+- Un **`next-server` que quedó vivo** sirve el build anterior. Verificar que el
+  HTML servido tenga el markup nuevo **antes** de medir.
+- Un **`| head` sobre el build o un script** lo mata por SIGPIPE antes de que
+  termine de escribir. Pasó dos veces, y la segunda dejó un build a medias que
+  se sirvió como si fuera nuevo.
+- Una **muestra única de una animación es una moneda al aire.** Medir "a los N ms
+  del click" reporta sobre la pantalla vieja: entre medio hay un viaje al
+  servidor por el RSC y una view transition que retrasa el commit. Y aun midiendo
+  desde que la pantalla aparece, entre el commit de React y el primer frame de
+  GSAP hay una ventana en la que todo está en opacidad 1. Se muestrea la ventana
+  entera y se pregunta si **en algún momento** hubo algo entrando.
+
+Y como no hay base de datos alcanzable desde el contenedor, todo esto corre
+contra `/verificacion`, que arma cada pantalla con sus **componentes reales** y
+datos inventados. Devuelve 404 sin `VERIFICACION=1`, así que el deploy no lo
+expone.
 
 ## Plan por fases
 
@@ -595,6 +822,13 @@ hilo. Si una fase lleva más de dos fines de semana, se le recorta el alcance.
 No empezar por el importador. Sin haber cargado transacciones a mano no se sabe
 qué campos molestan de verdad.
 
+**El rediseño visual no fue una fase, y está bien que no lo haya sido.** No
+mueve el modelo de datos ni el criterio de aceptación de ninguna: la fase 1 se
+acepta cargando una semana de gastos sin que dé fastidio, y eso no depende de la
+tipografía. Se hizo en ocho pasos que se pushearon de a uno, cada uno deployado
+y reversible: los primeros cuatro no agregaron una dependencia ni un byte de JS,
+y los últimos cuatro se borran quitando un import.
+
 ## Convenciones
 
 - Los nombres de archivo en `supabase/migrations/` tienen que coincidir con las
@@ -608,3 +842,15 @@ qué campos molestan de verdad.
   evalúa una vez por fila en vez de una por consulta.
 - Los resúmenes contienen CUIT y domicilio. Si se manda el PDF a una API, sacar
   el bloque de cabecera antes.
+- **`gsap` se importa en `src/lib/motion.ts` y en ningún otro archivo**, y lo
+  obliga una regla de `no-restricted-imports` en `eslint.config.mjs`. Va como
+  lint y no como convención a propósito: lo único que sostiene una regla así por
+  meses en un proyecto de una sola persona es que falle sola. Es lo que hace que
+  `prefers-reduced-motion` se respete en un `matchMedia` único en vez de en cada
+  sitio de uso, y que el día que GSAP sobre se lo saque borrando un archivo.
+- Las clases de Tailwind que se repetían viven en `src/components/ui/estilos.ts`
+  como **strings y no como componentes**. Envolver una cadena de utilidades en
+  un componente agrega un `<div>` al árbol, y en esta app eso es la forma más
+  probable de reintroducir los desbordes que costaron una auditoría entera. Lo
+  único que se ganó ser componente es `Aviso`, porque el mapeo tono → clases es
+  lógica y no un string.
