@@ -102,6 +102,7 @@ export function ColumnChart({
         return (
           <g key={col.label}>
             <path
+              data-anim="col"
               d={columnPath(x, y, ANCHO_BARRA, h)}
               fill={col.muted ? "var(--chart-track)" : "var(--accent)"}
             >

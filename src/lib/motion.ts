@@ -80,12 +80,7 @@ export function entrada(scope: HTMLElement, pantalla: string): () => void {
       tl.from(
         elementos,
         {
-          opacity: 0,
-          y: paso.target === "seccion" ? 8 : 0,
-          // `scaleY` desde el cero para lo que es una magnitud: ver crecer la
-          // barra es ver el dato, porque el largo **es** el dato. El origen lo
-          // fija el CSS del grafico, no esto.
-          scaleY: paso.target === "bar" || paso.target === "col" ? 0 : 1,
+          ...formaDe(paso.target),
           duration: paso.dur / 1000,
           // `amount` y no `each`: reparte el arranque entre todos, asi la
           // secuencia dura lo mismo con 3 elementos que con 300 y no se pasa
@@ -113,6 +108,35 @@ export function entrada(scope: HTMLElement, pantalla: string): () => void {
     mm.revert();
     for (const f of restaurar) f();
   };
+}
+
+/**
+ * De donde sale cada grupo, que es una decision distinta por grupo.
+ *
+ * **Las barras y las columnas no animan opacidad, y no es un olvido.** Las
+ * cuatro viven adentro de una seccion que ya hace su fade, y dos opacidades
+ * anidadas se multiplican: a mitad de camino 0,5 por 0,5 da 0,25 y el grafico
+ * se ve sucio en vez de entrando. Ademas no compra nada: lo que tiene para
+ * decir una barra es su largo, asi que lo que se anima es el largo.
+ *
+ * Y el eje es el de la magnitud, no siempre el mismo. Una barra acostada crece
+ * en X —el largo es horizontal— y una columna en Y. `scaleY` en una barra
+ * acostada la aplastaria de canto, que no es ver crecer un dato: es un efecto.
+ *
+ * El origen tambien sale del dato. Una barra crece desde el cero del eje, y en
+ * `DivergingBars` el cero esta a la **derecha** de las barras que caen del lado
+ * de "gastaste menos": esas crecen al reves y lo dicen con `data-crece`.
+ */
+function formaDe(target: string): gsap.TweenVars {
+  if (target === "bar") {
+    return {
+      scaleX: 0,
+      transformOrigin: (_i: number, el: Element) =>
+        (el as HTMLElement).dataset.crece === "izquierda" ? "100% 50%" : "0% 50%",
+    };
+  }
+  if (target === "col") return { scaleY: 0, transformOrigin: "50% 100%" };
+  return { opacity: 0, y: target === "seccion" ? 8 : 0 };
 }
 
 /**

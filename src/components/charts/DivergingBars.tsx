@@ -75,13 +75,22 @@ export function DivergingBars({
                   {!sube ? (
                     // Redondeada en la punta y cuadrada contra el cero, igual
                     // que en el resto de los graficos.
-                    <div className="h-full rounded-l bg-accent" style={{ width: `${ancho * 2}%` }} />
+                    <div
+                      data-anim="bar"
+                      data-crece="izquierda"
+                      className="h-full rounded-l bg-accent"
+                      style={{ width: `${ancho * 2}%` }}
+                    />
                   ) : null}
                 </div>
                 <div className="w-px shrink-0 bg-border" aria-hidden />
                 <div className="flex w-1/2 justify-start">
                   {sube ? (
-                    <div className="h-full rounded-r bg-accent" style={{ width: `${ancho * 2}%` }} />
+                    <div
+                      data-anim="bar"
+                      className="h-full rounded-r bg-accent"
+                      style={{ width: `${ancho * 2}%` }}
+                    />
                   ) : null}
                 </div>
               </div>

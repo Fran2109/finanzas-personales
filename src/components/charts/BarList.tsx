@@ -55,6 +55,7 @@ export function BarList({
               {/* Cuadrada contra el cero y redondeada en la punta: el extremo
                   redondeado marca donde termina el dato. */}
               <div
+                data-anim="bar"
                 className="h-full rounded-r bg-accent"
                 style={{ width: `${ancho}%` }}
               />

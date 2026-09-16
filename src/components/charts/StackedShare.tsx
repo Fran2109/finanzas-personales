@@ -36,7 +36,11 @@ export function StackedShare({
         </span>
       </div>
 
+      {/* `data-anim` en el track y no en cada segmento: los dos son una parte
+          sobre un todo, y lo que crece es el todo. Marcados por separado, cada
+          uno arrancaria desde su propio borde y se leerian como dos barras. */}
       <div
+        data-anim="bar"
         className="mt-1.5 flex h-3.5 w-full gap-0.5"
         role="img"
         aria-label={`${pct}% del mes ya estaba comprometido`}

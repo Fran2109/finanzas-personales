@@ -95,6 +95,8 @@ async function chunks(url) {
   await p.goto(`${BASE}/verificacion?p=mes`);
   await p.waitForTimeout(1600);
   const invisibles = await p.evaluate(() =>
+    // Aca si van todos: la pregunta es si la regla del CSS dejo algo escondido,
+    // y esa regla aplica a cualquier [data-anim].
     [...document.querySelectorAll("[data-anim]")].filter(
       (el) => Number(getComputedStyle(el).opacity) < 0.99,
     ).length,
@@ -118,14 +120,14 @@ for (const pantalla of ["mes", "analisis"]) {
   await p.waitForTimeout(120);
   const entrando = await p.evaluate(
     () =>
-      [...document.querySelectorAll("[data-anim]")].filter(
+      [...document.querySelectorAll('[data-anim="seccion"], [data-anim="hero"]')].filter(
         (el) => Number(getComputedStyle(el).opacity) < 0.99,
       ).length,
   );
 
   await p.waitForTimeout(1400);
   const fin = await p.evaluate(() => {
-    const todos = [...document.querySelectorAll("[data-anim]")];
+    const todos = [...document.querySelectorAll('[data-anim="seccion"], [data-anim="hero"]')];
     return {
       n: todos.length,
       malos: todos
@@ -137,14 +139,14 @@ for (const pantalla of ["mes", "analisis"]) {
   if (fin.n === 0) mal(pantalla, "no hay ningun [data-anim]: la coreografia no engancho a nada");
   else if (entrando === 0) mal(pantalla, "a los 120ms ya estaba todo opaco: no hubo animacion");
   else if (fin.malos.length) mal(pantalla, `quedaron en opacidad < 1: ${fin.malos.join(", ")}`);
-  else ok(`${pantalla}: ${entrando} de ${fin.n} entrando a los 120ms, los ${fin.n} opacos al final`);
+  else ok(`${pantalla}: ${entrando} de ${fin.n} secciones entrando a los 120ms, las ${fin.n} opacas al final`);
   await p.close();
 
   const q = await b.newPage({ reducedMotion: "reduce" });
   await q.goto(`${BASE}/verificacion?p=${pantalla}`);
   await q.waitForTimeout(120);
   const quietos = await q.evaluate(() => {
-    const todos = [...document.querySelectorAll("[data-anim]")];
+    const todos = [...document.querySelectorAll('[data-anim="seccion"], [data-anim="hero"]')];
     return todos.filter((el) => {
       const st = getComputedStyle(el);
       return Number(st.opacity) < 0.99 || (st.transform !== "none" && st.transform !== "");
@@ -164,7 +166,7 @@ for (const pantalla of ["mes", "analisis"]) {
   const entrando = () =>
     p.evaluate(
       () =>
-        [...document.querySelectorAll("[data-anim]")].filter(
+        [...document.querySelectorAll('[data-anim="seccion"], [data-anim="hero"]')].filter(
           (el) => Number(getComputedStyle(el).opacity) < 0.99,
         ).length,
     );
@@ -244,6 +246,55 @@ for (const pantalla of ["mes", "analisis"]) {
   else if (fin.texto !== servidor) mal(`contador ${pantalla}`, `termino en "${fin.texto}" y el servidor mando "${servidor}"`);
   else if (medio.ancho !== fin.ancho) mal(`contador ${pantalla}`, `la oracion se movio: ${medio.ancho}px a mitad de cuenta, ${fin.ancho}px al final`);
   else ok(`contador ${pantalla}: "${medio.texto}" -> "${fin.texto}", la linea quieta en ${fin.ancho}px`);
+}
+
+// 8 ------------------------------------------------- los graficos creciendo
+//
+// Un largo que se queda a mitad de camino es un grafico que dice otra cosa, asi
+// que las dos preguntas son "crece" y "termina entero". La segunda es la que
+// importa: una barra clavada en scaleX(0,3) miente igual que un contador
+// clavado en la mitad.
+for (const pantalla of ["mes", "analisis"]) {
+  const p = await b.newPage({ viewport: { width: 900, height: 1400 } });
+  await p.goto(`${BASE}/verificacion?p=${pantalla}`);
+
+  // Se mide la escala aplicada y no el ancho en pantalla: el ancho depende del
+  // dato y de la ventana, la escala es lo que la animacion pone y saca.
+  const escalas = () =>
+    p.evaluate(() =>
+      [...document.querySelectorAll('[data-anim="bar"], [data-anim="col"]')].map((el) => {
+        const m = new DOMMatrixReadOnly(getComputedStyle(el).transform);
+        return el.getAttribute("data-anim") === "col" ? m.d : m.a;
+      }),
+    );
+
+  await p.waitForTimeout(260);
+  const medio = await escalas();
+  await p.waitForTimeout(1400);
+  const fin = await escalas();
+
+  const creciendo = medio.filter((e) => e < 0.98).length;
+  const clavadas = fin.filter((e) => e < 0.999).length;
+
+  if (fin.length === 0) mal(`graficos ${pantalla}`, "no hay ninguna barra ni columna marcada");
+  else if (creciendo === 0) mal(`graficos ${pantalla}`, "a los 260ms ya estaban todas enteras: no crecieron");
+  else if (clavadas > 0) mal(`graficos ${pantalla}`, `${clavadas} de ${fin.length} quedaron a mitad de camino`);
+  else ok(`graficos ${pantalla}: ${creciendo} de ${fin.length} creciendo a los 260ms, las ${fin.length} enteras al final`);
+  await p.close();
+
+  const q = await b.newPage({ viewport: { width: 900, height: 1400 }, reducedMotion: "reduce" });
+  await q.goto(`${BASE}/verificacion?p=${pantalla}`);
+  await q.waitForTimeout(120);
+  const quietas = await q.evaluate(
+    () =>
+      [...document.querySelectorAll('[data-anim="bar"], [data-anim="col"]')].filter((el) => {
+        const t = getComputedStyle(el).transform;
+        return t !== "none" && t !== "";
+      }).length,
+  );
+  if (quietas > 0) mal(`graficos ${pantalla} reduce`, `${quietas} con transform aplicado`);
+  else ok(`graficos ${pantalla} reduce: enteras desde el primer frame`);
+  await q.close();
 }
 
 await b.close();
