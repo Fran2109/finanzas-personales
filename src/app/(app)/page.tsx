@@ -5,6 +5,7 @@ import { Orquesta } from "@/components/motion/Orquesta";
 import {
   getAccounts,
   getCategories,
+  getNotas,
   getTransactionsForPeriod,
   summarize,
 } from "@/lib/data";
@@ -21,10 +22,11 @@ export default async function MonthPage({
   const period = params.mes && isPeriod(params.mes) ? params.mes : periodOf(today);
   const filters = readFilters(params);
 
-  const [todosLosMovimientos, categories, accounts] = await Promise.all([
+  const [todosLosMovimientos, categories, accounts, notas] = await Promise.all([
     getTransactionsForPeriod(period),
     getCategories(),
     getAccounts(),
+    getNotas(),
   ]);
 
   // Los filtros se aplican sobre el mes ya traido: el volumen de un mes es
@@ -68,6 +70,7 @@ export default async function MonthPage({
           accounts={accounts}
           categories={categories}
           transactions={transactions}
+          notas={notas}
           totalSinFiltrar={todosLosMovimientos.length}
           summary={summary}
           currencies={currencies}

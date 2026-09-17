@@ -428,11 +428,18 @@ export async function setRowCategory(formData: FormData) {
   // registra gastos.
   const esGasto = isExpenseKind(kind);
 
+  // La nota se guarda con el resto: es el mismo gesto de clasificar la fila, y
+  // un boton aparte para ella seria un guardado de mas por movimiento.
+  const nota = String(formData.get("nota") ?? "")
+    .trim()
+    .slice(0, 80);
+
   await supabase
     .from("finanzas_import_rows")
     .update({
       suggested_category_id: esGasto ? categoryId || null : null,
       kind,
+      nota: nota || null,
       needs_review: esGasto && !categoryId,
       status: esGasto ? "pending" : "discarded",
     })
@@ -567,6 +574,10 @@ export async function commitImport(formData: FormData): Promise<void> {
       cuotaTotal: r.cuota_total,
       kind,
       categoryId: r.suggested_category_id,
+      // La nota se anota al revisar y viaja con la fila. No entra en la huella
+      // —`withFingerprints` solo mira los campos de `Fingerprintable`— asi que
+      // anotar no cambia a que linea del resumen corresponde el movimiento.
+      nota: r.nota,
     };
   });
 
@@ -581,6 +592,7 @@ export async function commitImport(formData: FormData): Promise<void> {
       currency: r.currency,
       kind: r.kind,
       description: r.description,
+      nota: r.nota,
       merchant_normalized: normalizeMerchant(r.description),
       card_last4: r.cardLast4,
       cuota_number: r.cuotaCurrent,

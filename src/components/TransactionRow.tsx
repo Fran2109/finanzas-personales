@@ -11,7 +11,8 @@ import {
   MANUAL_KINDS,
   type Kind,
 } from "@/lib/domain";
-import type { Account, Category, Transaction } from "@/lib/data";
+import type { Account, Category, NotasPorCategoria, Transaction } from "@/lib/data";
+import { NotaInput } from "@/components/NotaInput";
 import { botonIcono, campoCompacto as field, etiquetaCompacta as label, insignia } from "@/components/ui/estilos";
 import { Aviso } from "@/components/ui/Aviso";
 
@@ -27,10 +28,12 @@ export function TransactionRow({
   tx,
   accounts,
   categories,
+  notas,
 }: {
   tx: Transaction;
   accounts: Account[];
   categories: Category[];
+  notas: NotasPorCategoria;
 }) {
   const [abierto, setAbierto] = useState(false);
 
@@ -47,8 +50,23 @@ export function TransactionRow({
             {tx.occurred_on.slice(8)}/{tx.occurred_on.slice(5, 7)}
           </span>
           <span className="min-w-0 flex-1">
+            {/* Las dos en la misma linea, y **la nota primero**. El orden no
+                es estetico: esta linea trunca, y lo que se corta es la cola.
+                Adelante va lo que uno escribio —que es lo legible— y atras el
+                texto del resumen, en gris porque es contexto y no el dato. Al
+                reves, en un telefono la nota seria lo primero en desaparecer,
+                que es el mismo error que la insignia adentro del truncate. */}
             <span className="block truncate">
-              {tx.description || KIND_LABELS[tx.kind]}
+              {tx.nota ? (
+                <>
+                  {tx.nota}
+                  {tx.description ? (
+                    <span className="text-muted"> · {tx.description}</span>
+                  ) : null}
+                </>
+              ) : (
+                tx.description || KIND_LABELS[tx.kind]
+              )}
             </span>
             {/* El badge va en la linea de metadatos y primero, no pegado a la
                 descripcion. Adentro del truncate de la descripcion no se veia
@@ -105,6 +123,7 @@ export function TransactionRow({
               tx={tx}
               accounts={accounts}
               categories={categories}
+              notas={notas}
               cerrar={() => setAbierto(false)}
             />
           </div>
@@ -118,11 +137,13 @@ function Editor({
   tx,
   accounts,
   categories,
+  notas,
   cerrar,
 }: {
   tx: Transaction;
   accounts: Account[];
   categories: Category[];
+  notas: NotasPorCategoria;
   cerrar: () => void;
 }) {
   const [state, action] = useActionState<FormState, FormData>(updateTransaction, {});
@@ -350,6 +371,19 @@ function Editor({
             />
           </div>
         ) : null}
+      </div>
+
+      {/* Despues de la categoria: las sugerencias salen de ella. */}
+      <div>
+        <label className={label} htmlFor={`nota-${tx.id}`}>
+          Nota
+        </label>
+        <NotaInput
+          notas={notas}
+          categoryId={categoriaElegida}
+          defaultValue={tx.nota ?? ""}
+          id={`nota-${tx.id}`}
+        />
       </div>
 
       {/* Apagado por defecto: corregir la categoria de UN movimiento no siempre

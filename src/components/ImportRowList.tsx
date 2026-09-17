@@ -2,6 +2,7 @@ import { Amount } from "@/components/Amount";
 import { discardRow } from "@/app/import-actions";
 import { RowCategorySelect } from "@/components/RowCategorySelect";
 import { KIND_LABELS, type Kind } from "@/lib/domain";
+import type { NotasPorCategoria } from "@/lib/data";
 import { centsFromDb } from "@/lib/money";
 import { botonIcono, lista } from "@/components/ui/estilos";
 
@@ -16,6 +17,7 @@ export type ImportRow = {
   cuota_current: number | null;
   cuota_total: number | null;
   suggested_category_id: string | null;
+  nota: string | null;
 };
 
 /**
@@ -28,11 +30,13 @@ export type ImportRow = {
 export function ImportRowList({
   rows,
   categories,
+  notas,
   importId,
   readOnly = false,
 }: {
   rows: ImportRow[];
   categories: { id: string; name: string; kind: Kind }[];
+  notas: NotasPorCategoria;
   importId: string;
   readOnly?: boolean;
 }) {
@@ -50,7 +54,18 @@ export function ImportRowList({
               {row.occurred_on?.slice(5)}
             </span>
             <div className="min-w-0 flex-1">
-              <div className="truncate">{row.raw_description}</div>
+              {/* Al reves que en la vista del mes, aca manda el texto del
+                  resumen: esta pantalla existe para contrastar la
+                  transcripcion contra el PDF, y la nota adelante taparia justo
+                  lo que hay que verificar. Ademas la nota ya esta a la vista en
+                  su propio campo — salvo en una fila ya importada, que no lo
+                  tiene, y ahi si se muestra. */}
+              <div className="truncate">
+                {row.raw_description}
+                {readOnly && row.nota ? (
+                  <span className="text-muted"> · {row.nota}</span>
+                ) : null}
+              </div>
               <div className="text-xs text-muted">
                 {[
                   kind !== "consumption" ? KIND_LABELS[kind] : null,
@@ -77,11 +92,13 @@ export function ImportRowList({
                 // Remonta el selector cuando cambia lo guardado, asi despues de
                 // un save siempre muestra lo que quedo en la base y no la
                 // eleccion local que lo produjo.
-                key={`${row.kind}-${row.suggested_category_id ?? ""}`}
+                key={`${row.kind}-${row.suggested_category_id ?? ""}-${row.nota ?? ""}`}
                 rowId={row.id}
                 categories={categories}
+                notas={notas}
                 defaultKind={kind}
                 defaultValue={row.suggested_category_id ?? ""}
+                defaultNota={row.nota ?? ""}
               />
             )}
             {!readOnly ? (

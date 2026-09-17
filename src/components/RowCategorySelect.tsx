@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 
 import { setRowCategory } from "@/app/import-actions";
 import { botonBorde, campoCompacto } from "@/components/ui/estilos";
+import { NotaInput } from "@/components/NotaInput";
+import type { NotasPorCategoria } from "@/lib/data";
 import {
   CATEGORY_KIND_FOR,
   KIND_LABELS,
@@ -25,16 +27,23 @@ import {
 export function RowCategorySelect({
   rowId,
   categories,
+  notas,
   defaultKind,
   defaultValue,
+  defaultNota,
 }: {
   rowId: string;
   categories: { id: string; name: string; kind: string }[];
+  notas: NotasPorCategoria;
   defaultKind: Kind;
   defaultValue: string;
+  defaultNota: string;
 }) {
   const [kind, setKind] = useState<Kind>(defaultKind);
   const [creating, setCreating] = useState(false);
+  // El select de categoria era no controlado, y sigue siendolo para el envio:
+  // esto es solo para saber a que categoria pedirle las sugerencias de la nota.
+  const [categoriaId, setCategoriaId] = useState(defaultValue);
 
   const opciones = useMemo(
     () => categories.filter((c) => c.kind === CATEGORY_KIND_FOR[kind]),
@@ -60,6 +69,7 @@ export function RowCategorySelect({
           setKind(e.target.value as Kind);
           // La categoria elegida pertenece a la familia del tipo anterior.
           setCreating(false);
+          setCategoriaId("");
         }}
         aria-label="Tipo de movimiento"
         className={`${campoCompacto} min-w-28 flex-1 sm:w-36 sm:flex-none`}
@@ -89,6 +99,7 @@ export function RowCategorySelect({
           defaultValue={kind === defaultKind ? defaultValue : ""}
           onChange={(e) => {
             if (e.target.value === "__nueva__") setCreating(true);
+            else setCategoriaId(e.target.value);
           }}
           aria-label="Categoria"
           className={`${campoCompacto} min-w-32 flex-1 sm:w-44 sm:flex-none`}
@@ -102,6 +113,15 @@ export function RowCategorySelect({
           <option value="__nueva__">+ Nueva categoria...</option>
         </select>
       )}
+
+      <NotaInput
+        notas={notas}
+        categoryId={categoriaId}
+        defaultValue={defaultNota}
+        compacto
+        id={`nota-${rowId}`}
+        className="min-w-32 flex-1 sm:w-44 sm:flex-none"
+      />
 
       <button
         type="submit"

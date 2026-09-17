@@ -52,10 +52,33 @@ const medir = (f) =>
   f.evaluate((min) => {
     const de = document.documentElement;
     const vw = de.clientWidth;
+    /**
+     * Un recorte con elipsis es intencional, y hay que distinguirlo.
+     *
+     * El chequeo elemento por elemento existe para agarrar informacion que
+     * desaparece sin que la pagina scrollee. Pero tiene una asimetria: si la
+     * cola de un `truncate` es texto pelado no la ve, y si es un `<span>` —para
+     * pintarla distinto— la reporta como desborde. Lo mismo en pantalla, dos
+     * respuestas distintas.
+     *
+     * `text-overflow: ellipsis` es una declaracion explicita de "aca la linea
+     * se corta a proposito", asi que lo que caiga adentro de uno no cuenta. Un
+     * ancestro que recorta **sin** elipsis sigue contando: ahi el contenido
+     * desaparece sin avisar, que es justo lo que hay que encontrar.
+     */
+    const recortadoAProposito = (el) => {
+      for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+        const s = getComputedStyle(p);
+        if (s.textOverflow === "ellipsis" && /hidden|clip/.test(s.overflowX)) return true;
+      }
+      return false;
+    };
+
     const fuera = [];
     for (const el of document.querySelectorAll("body *")) {
       const c = el.getBoundingClientRect();
       if (c.width === 0 && c.height === 0) continue;
+      if (recortadoAProposito(el)) continue;
       if (c.right > vw + 1 || c.left < -1) {
         fuera.push({
           tag: el.tagName.toLowerCase(),

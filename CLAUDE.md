@@ -188,6 +188,33 @@ casilla apagada por defecto. Automático sería peor: corregir un movimiento no
 siempre quiere decir que el comercio entero esté mal clasificado, y reentrenar
 sin preguntar arruinaría el próximo resumen en silencio.
 
+**`nota` es la descripcion propia, y va aparte de `description` por dos
+razones.** La primera es que `description` ya es dos cosas a la vez: en un
+movimiento cargado a mano es lo que se tipeo, pero en uno importado es la
+transcripcion literal del resumen (`PLATAFORMA*SERVICIO-MENSUAL`, `PLAN V CONSOLID
+5-12`). Pisarla perderia lo que decia el PDF, que es justo lo que la linea
+"`import_rows` es transcripcion fiel" viene a proteger.
+
+La segunda es la que decide: **`description` entra en la huella**. Anotar un
+movimiento la recalcularia, y entonces reimportar ese resumen lo traeria de
+nuevo como si fuera otro. Una nota es algo que se toca seguido —esa es toda la
+idea— asi que meterla en la huella romperia la red anti-duplicados de forma
+sistematica. `nota` queda afuera, y eso es estructural y no una promesa:
+`fingerprintKey` solo lee los campos de `Fingerprintable`, y `nota` no esta ahi.
+
+Se elige de un `<datalist>` con las notas ya usadas **en esa categoria**, o se
+tipea una nueva. Es un `<input list>` nativo: da el desplegable, filtra al
+tipear y deja escribir cualquier cosa que no este en la lista, que son las dos
+cosas que hacen falta. Un combobox propio serian ~80 lineas de JS al cliente
+para llegar al mismo lugar con el teclado peor resuelto.
+
+Donde se muestra cambia segun para que sirve la pantalla. En la vista del mes va
+la nota primero y el texto del resumen atras en gris: esa linea trunca, y
+adelante tiene que ir lo legible. En la revision del import es al reves —manda
+el texto del resumen— porque esa pantalla existe para contrastar la
+transcripcion contra el PDF, y ahi la nota ya esta a la vista en su propio
+campo.
+
 **Montos en `numeric(18,2)`.** Nunca float. En el cliente, enteros en centavos.
 Todo pasa por `src/lib/money.ts`: parseo de lo que se tipea, string para la base
 armado con aritmética entera, y `centsFromDb` que redondea al centavo porque lo
@@ -767,7 +794,12 @@ revisión de un resumen se verificó durante meses contra una copia a mano.
 La auditoría se corre a **320, 375, 414, 667, 768, 1024, 1280 y 1920**, en claro
 y en oscuro, midiendo `scrollWidth` contra el viewport **y** elemento por
 elemento (un hijo puede salirse sin que la página scrollee, si un ancestro lo
-recorta: eso no es un desborde, es información que desaparece). Y no alcanza con
+recorta: eso no es un desborde, es información que desaparece). **Salvo un
+recorte con elipsis, que es intencional**: ese chequeo tenía una asimetría —si
+la cola de un `truncate` es texto pelado no la ve, y si es un `<span>` (para
+pintarla distinto) la reportaba—, lo mismo en pantalla con dos respuestas
+distintas. Un ancestro que recorta **sin** elipsis sigue contando, que es donde
+el contenido desaparece sin avisar. Y no alcanza con
 el estado inicial: los desbordes que quedaban estaban en lo que se abre —el
 desplegable del filtro, el editor en línea de un movimiento, el editor de una
 cuenta y el confirmar de borrado—, así que hay que hacer click y volver a medir.

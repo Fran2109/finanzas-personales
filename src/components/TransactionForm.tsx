@@ -11,17 +11,20 @@ import {
   type Currency,
   type Kind,
 } from "@/lib/domain";
-import type { Account, Category } from "@/lib/data";
+import type { Account, Category, NotasPorCategoria } from "@/lib/data";
+import { NotaInput } from "@/components/NotaInput";
 import { campo as field, chip, etiqueta as label } from "@/components/ui/estilos";
 import { Aviso } from "@/components/ui/Aviso";
 
 export function TransactionForm({
   accounts,
   categories,
+  notas,
   defaultDate,
 }: {
   accounts: Account[];
   categories: Category[];
+  notas: NotasPorCategoria;
   defaultDate: string;
 }) {
   const [state, action] = useActionState<FormState, FormData>(createTransaction, {});
@@ -250,6 +253,16 @@ export function TransactionForm({
             />
           </div>
         ) : null}
+      </div>
+
+      {/* Va despues de la categoria y no antes, porque las sugerencias salen de
+          la categoria elegida: el orden del formulario deja ver esa dependencia
+          en vez de esconderla. */}
+      <div>
+        <label className={label} htmlFor="nota">
+          Nota
+        </label>
+        <NotaInput notas={notas} categoryId={categoriaElegida} />
       </div>
 
       {state.error ? (

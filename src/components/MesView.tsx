@@ -6,7 +6,7 @@ import { MonthFilters } from "@/components/MonthFilters";
 import { TransactionForm } from "@/components/TransactionForm";
 import { StackedShare } from "@/components/charts/StackedShare";
 import { TransactionRow } from "@/components/TransactionRow";
-import type { Account, Category, Transaction } from "@/lib/data";
+import type { Account, Category, NotasPorCategoria, Transaction } from "@/lib/data";
 import { formatPeriod, shiftPeriod, type Currency } from "@/lib/domain";
 import { hasActiveFilters, monthQuery, type Filters } from "@/lib/filters";
 import { type Cents } from "@/lib/money";
@@ -31,6 +31,7 @@ export function MesView({
   accounts,
   categories,
   transactions,
+  notas,
   totalSinFiltrar,
   summary,
   currencies,
@@ -43,6 +44,7 @@ export function MesView({
   accounts: Account[];
   categories: Category[];
   transactions: Transaction[];
+  notas: NotasPorCategoria;
   totalSinFiltrar: number;
   summary: MonthSummary;
   currencies: Currency[];
@@ -110,6 +112,7 @@ export function MesView({
             transactions={transactions}
             accounts={accounts}
             categories={categories}
+            notas={notas}
           />
         </div>
 
@@ -119,6 +122,7 @@ export function MesView({
             <TransactionForm
               accounts={accounts.filter((a) => a.active)}
               categories={categories}
+              notas={notas}
               defaultDate={defaultDate}
             />
           </section>
@@ -266,10 +270,12 @@ function TransactionList({
   transactions,
   accounts,
   categories,
+  notas,
 }: {
   transactions: Transaction[];
   accounts: Account[];
   categories: Category[];
+  notas: NotasPorCategoria;
 }) {
   if (transactions.length === 0) return null;
 
@@ -289,6 +295,7 @@ function TransactionList({
             tx={tx}
             accounts={accounts}
             categories={categories}
+            notas={notas}
           />
         ))}
       </ul>

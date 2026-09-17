@@ -7,7 +7,7 @@ import { ImportRowList, type ImportRow } from "@/components/ImportRowList";
 import { ImportAccountSelect } from "@/components/ImportAccountSelect";
 import { DeleteImportButton } from "@/components/DeleteImportButton";
 import { createClient } from "@/lib/supabase/server";
-import { getAccounts, getCategories } from "@/lib/data";
+import { getAccounts, getCategories, getNotas } from "@/lib/data";
 import {
   accountConflict,
   statementLabel,
@@ -29,11 +29,12 @@ export default async function ReviewImportPage({
   const { error } = await searchParams;
 
   const supabase = await createClient();
-  const [imported, rowsResult, categories, accounts, movimientos] = await Promise.all([
+  const [imported, rowsResult, categories, accounts, notas, movimientos] = await Promise.all([
     supabase.from("finanzas_imports").select("*").eq("id", id).single(),
     supabase.from("finanzas_import_rows").select("*").eq("import_id", id).order("line_no"),
     getCategories(),
     getAccounts(),
+    getNotas(),
     // Una vez confirmado, las filas de staging pasan a "accepted": lo que este
     // resumen dejo en las cuentas hay que contarlo en transactions.
     supabase
@@ -142,7 +143,7 @@ export default async function ReviewImportPage({
             Lo que categorices acá se guarda como regla: el próximo resumen lo
             mapea solo.
           </p>
-          <ImportRowList rows={porRevisar} categories={categories} importId={id} />
+          <ImportRowList rows={porRevisar} categories={categories} notas={notas} importId={id} />
         </section>
       ) : null}
 
@@ -156,6 +157,7 @@ export default async function ReviewImportPage({
             (r) => !r.needs_review,
           )}
           categories={categories}
+          notas={notas}
           importId={id}
           readOnly={yaImportado}
         />

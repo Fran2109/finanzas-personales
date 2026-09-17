@@ -5,7 +5,7 @@
  * texto largo, nunca el corto. Y no sale de ningun resumen: en el repo no va
  * ningun dato real, solo la logica de como leerlos.
  */
-import type { Account, Category, Transaction } from "@/lib/data";
+import type { Account, Category, NotasPorCategoria, Transaction } from "@/lib/data";
 import type { Currency } from "@/lib/domain";
 import type { InstallmentRow } from "@/lib/commitments";
 import type { ImportRow } from "@/components/ImportRowList";
@@ -34,8 +34,22 @@ const DESCS = [
   "ALMACEN",
 ];
 
+/**
+ * Las notas de prueba, con el caso que importa: una nota larga delante de una
+ * descripcion larga, que es donde se ve si la linea aguanta en un telefono.
+ */
+const NOTAS = [
+  "regalo de cumple de la madre de un amigo",
+  null,
+  "la suscripcion que siempre me olvido de dar de baja",
+  null,
+  null,
+  "compra semanal",
+];
+
 export const movimientos: Transaction[] = DESCS.map((description, i) => ({
   id: `t${i}`,
+  nota: NOTAS[i],
   occurred_on: `2026-09-0${(i % 9) + 1}`,
   amount: [1289539, 45000, 233400, 8990000, 12345678, 990][i] as Cents,
   currency: (i === 4 ? "USD" : "ARS") as Currency,
@@ -103,6 +117,7 @@ export const cuotas: InstallmentRow[] = [
 /** Las lineas transcritas de un resumen, como las ve la pantalla de revision. */
 export const filasImportadas: ImportRow[] = DESCS.map((raw_description, i) => ({
   id: `r${i}`,
+  nota: NOTAS[i],
   occurred_on: `2026-09-0${(i % 9) + 1}`,
   raw_description,
   amount: [12895.39, 450, 2334, 89900, 123456.78, 9.9][i],
@@ -132,3 +147,9 @@ export const resumenes: ImportedStatement[] = [
   { id: "i1", filename: "pegado-2026-09.txt", period_close: "2026-09-30", status: "reconciled", provisional: true, declared_total_ars: 233400.5, declared_total_usd: 0, account: { name: cuentas[1].name } },
   { id: "i2", filename: "resumen-2026-08.pdf", period_close: "2026-08-28", status: "rejected", provisional: false, declared_total_ars: 98765.43, declared_total_usd: 0, account: null },
 ];
+
+/** Las notas ya usadas, para que el desplegable tenga algo que ofrecer. */
+export const notas: NotasPorCategoria = {
+  [categorias[0].id]: ["compra semanal", "kiosco", "verduleria"],
+  [categorias[2].id]: ["con los del trabajo", "cumpleanos"],
+};

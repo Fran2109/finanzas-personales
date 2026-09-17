@@ -45,6 +45,7 @@ import {
 import {
   cuentas,
   categorias,
+  notas,
   cuotas,
   filasDescartadas,
   filasImportadas,
@@ -136,6 +137,7 @@ function Mes() {
         accounts={cuentas}
         categories={categorias}
         transactions={movimientos}
+        notas={notas}
         totalSinFiltrar={movimientos.length + 3}
         summary={summary}
         currencies={["ARS", "USD"]}
@@ -374,12 +376,12 @@ function Revision() {
           Lo que categorices acá se guarda como regla: el próximo resumen lo
           mapea solo.
         </p>
-        <ImportRowList rows={[porRevisar]} categories={categorias} importId="i0" />
+        <ImportRowList rows={[porRevisar]} categories={categorias} notas={notas} importId="i0" />
       </section>
 
       <section>
         <h2 className="mb-3 text-base font-semibold">Ya mapeadas ({mapeadas.length})</h2>
-        <ImportRowList rows={mapeadas} categories={categorias} importId="i0" />
+        <ImportRowList rows={mapeadas} categories={categorias} notas={notas} importId="i0" />
       </section>
 
       <section>

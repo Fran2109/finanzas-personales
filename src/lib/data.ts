@@ -37,6 +37,14 @@ export type Transaction = {
   currency: Currency;
   kind: Kind;
   description: string | null;
+  /**
+   * La nota propia, aparte de `description` y fuera de la huella.
+   *
+   * `description` en un movimiento importado es la transcripcion del resumen;
+   * esto es lo que uno dice que fue. Que no entre en la huella es lo que
+   * permite anotar sin que reimportar el resumen traiga el movimiento de nuevo.
+   */
+  nota: string | null;
   card_last4: string | null;
   is_projected: boolean;
   /** Solo los que vinieron de un resumen. Editarlos la invalida. */
@@ -70,7 +78,7 @@ export async function getCategories(): Promise<Category[]> {
 }
 
 const TX_SELECT =
-  "id, occurred_on, amount, currency, kind, description, card_last4, is_projected, fingerprint," +
+  "id, occurred_on, amount, currency, kind, description, nota, card_last4, is_projected, fingerprint," +
   " statement_period, created_at," +
   " account:finanzas_accounts!inner(id, name, is_liability), category:finanzas_categories(id, name)";
 
@@ -313,4 +321,54 @@ export async function getAccountsWithActivity(): Promise<AccountActivity[]> {
     ...account,
     movements: porCuenta.get(account.id) ?? 0,
   }));
+}
+
+/**
+ * Las notas que ya se usaron, agrupadas por categoria.
+ *
+ * Es lo que alimenta el desplegable: anotar un movimiento es casi siempre
+ * repetir algo que ya se escribio ("compra semanal", "nafta", "regalo"), y
+ * tipearlo entero cada vez es la clase de friccion que hace que uno deje de
+ * anotar. Escribir algo nuevo sigue siendo tipear y listo — el `<datalist>`
+ * sugiere sin obligar.
+ *
+ * Por categoria y no global porque una lista de todas las notas de la app no
+ * ayuda: al elegir "Supermercado" lo que sirve son las notas de supermercado.
+ *
+ * Se agrupa en memoria, como el resto de esta capa: el volumen es chico y un
+ * `group by` en PostgREST no se lee mejor. Ordenadas por uso, que es el orden
+ * en que conviene ofrecerlas.
+ */
+export type NotasPorCategoria = Record<string, string[]>;
+
+/** La clave del grupo para un movimiento sin categoria. */
+export const SIN_CATEGORIA = "";
+
+export async function getNotas(): Promise<NotasPorCategoria> {
+  const supabase = await createClient();
+  const { data, error } = await withRetry(() =>
+    supabase
+      .from("finanzas_transactions")
+      .select("category_id, nota")
+      .not("nota", "is", null),
+  );
+  if (error) throw new Error(`No se pudieron leer las notas: ${describeError(error)}`);
+
+  const usos = new Map<string, Map<string, number>>();
+  for (const row of data ?? []) {
+    const nota = (row.nota ?? "").trim();
+    if (!nota) continue;
+    const clave = row.category_id ?? SIN_CATEGORIA;
+    const porNota = usos.get(clave) ?? new Map<string, number>();
+    porNota.set(nota, (porNota.get(nota) ?? 0) + 1);
+    usos.set(clave, porNota);
+  }
+
+  const notas: NotasPorCategoria = {};
+  for (const [clave, porNota] of usos) {
+    notas[clave] = [...porNota]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "es"))
+      .map(([nota]) => nota);
+  }
+  return notas;
 }
