@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import { describeError } from "@/lib/retry";
+import { camposDeNota, leerNota } from "@/lib/nota";
 import { parseAmountToCents, centsToNumeric, centsFromDb } from "@/lib/money";
 import {
   CATEGORY_KIND_FOR,
@@ -144,23 +145,6 @@ async function resolveCategoryId(
   return { id: existente.id };
 }
 
-/**
- * La nota del formulario, recortada.
- *
- * El tope tambien esta en el `maxLength` del campo, pero eso es una cortesia
- * del navegador y toda Server Action es alcanzable por POST directo. Recorta en
- * vez de rechazar: es una nota, no un dato que haya que validar, y devolver un
- * error por dos caracteres de mas seria mas molesto que el problema.
- */
-const NOTA_MAX = 80;
-
-function leerNota(formData: FormData): string | null {
-  const nota = String(formData.get("nota") ?? "")
-    .trim()
-    .slice(0, NOTA_MAX);
-  return nota || null;
-}
-
 // ---------------------------------------------------------------------------
 // Movimientos
 // ---------------------------------------------------------------------------
@@ -210,7 +194,7 @@ export async function createTransaction(
     currency,
     kind,
     description: description || null,
-    nota,
+    ...camposDeNota(nota),
     merchant_normalized: description ? normalizeMerchant(description) : null,
     card_last4: cardLast4 || null,
     // Sin fingerprint a proposito: es la red anti-duplicados de los imports.
@@ -343,7 +327,7 @@ export async function updateTransaction(
       currency,
       kind,
       description: description || null,
-      nota,
+      ...camposDeNota(nota),
       merchant_normalized: description ? normalizeMerchant(description) : null,
       card_last4: cardLast4 || null,
       cuota_number: cuotaNumber,
@@ -404,7 +388,7 @@ export async function updateNota(
 
   const { error } = await supabase
     .from("finanzas_transactions")
-    .update({ nota: leerNota(formData) })
+    .update(camposDeNota(leerNota(formData)))
     .eq("id", id);
 
   if (error) return fail(`No se pudo guardar: ${describeError(error)}`);

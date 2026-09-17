@@ -47,3 +47,6 @@ next-env.d.ts
 /fixtures/
 resumen*.json
 raw.txt
+
+# Basura de la CLI de Supabase.
+supabase/.temp/

@@ -19,6 +19,7 @@ import {
   type Kind,
 } from "@/lib/domain";
 import { centsToNumeric } from "@/lib/money";
+import { camposDeNota, leerNota } from "@/lib/nota";
 import { extractPdfText } from "@/lib/import/pdf";
 import { BANK_LABELS, parseStatement } from "@/lib/import/detect";
 import { parsePastedStatement } from "@/lib/import/pegado";
@@ -429,17 +430,15 @@ export async function setRowCategory(formData: FormData) {
   const esGasto = isExpenseKind(kind);
 
   // La nota se guarda con el resto: es el mismo gesto de clasificar la fila, y
-  // un boton aparte para ella seria un guardado de mas por movimiento.
-  const nota = String(formData.get("nota") ?? "")
-    .trim()
-    .slice(0, 80);
-
+  // un boton aparte para ella seria un guardado de mas por movimiento. Sin
+  // `nota_at`: aca la nota todavia no se uso —el import puede no confirmarse
+  // nunca— y la fecha la pone `commitImport` cuando la fila pasa a movimiento.
   await supabase
     .from("finanzas_import_rows")
     .update({
       suggested_category_id: esGasto ? categoryId || null : null,
       kind,
-      nota: nota || null,
+      nota: leerNota(formData),
       needs_review: esGasto && !categoryId,
       status: esGasto ? "pending" : "discarded",
     })
@@ -592,7 +591,9 @@ export async function commitImport(formData: FormData): Promise<void> {
       currency: r.currency,
       kind: r.kind,
       description: r.description,
-      nota: r.nota,
+      // La nota pasa a estar "usada" recien aca, al confirmar: hasta ahora era
+      // una fila de staging que podia no llegar nunca a ser un movimiento.
+      ...camposDeNota(r.nota),
       merchant_normalized: normalizeMerchant(r.description),
       card_last4: r.cardLast4,
       cuota_number: r.cuotaCurrent,

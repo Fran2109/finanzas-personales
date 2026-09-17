@@ -220,6 +220,31 @@ tipear y deja escribir cualquier cosa que no este en la lista, que son las dos
 cosas que hacen falta. Un combobox propio serian ~80 lineas de JS al cliente
 para llegar al mismo lugar con el teclado peor resuelto.
 
+**Las opciones van de la mas recientemente usada a la menos, y no por
+frecuencia.** Anotar se hace de a tandas: al anotar diez movimientos seguidos,
+la nota que acabas de escribir es la que mas chances tiene de ser la proxima, y
+por frecuencia quedaba sepultada abajo de una vieja que se uso mucho hace meses.
+
+Eso necesito una columna (`nota_at`) porque **ninguna de las que habia contesta
+la pregunta**: `created_at` es cuando entro la fila —en un import, todas
+iguales— y `occurred_on` es cuando se hizo la compra, asi que una nota escrita
+hoy sobre un movimiento de julio ordenaria por julio. El orden completo es
+recencia, despues frecuencia, despues alfabetico: la frecuencia desempata lo que
+comparte fecha (las filas de un mismo import, y todo lo anotado antes de que la
+columna existiera), y el alfabetico esta para que dos cargas iguales den la
+misma lista.
+
+`nota` y `nota_at` se escriben **siempre juntas** (`camposDeNota`), porque por
+separado cada una rompe algo: una nota sin fecha queda ultima para siempre, y
+una fecha sin nota hace que algo que ya no existe siga ordenando. El criterio de
+orden vive en `ordenarNotas`, en `src/lib/nota.ts` y no en `data.ts`, para que
+se pueda testear sin base de datos — `data.ts` lleva `server-only` y con el no
+entra en `node --test`.
+
+Una nota puesta en la pantalla de revision **no lleva fecha todavia**:
+`import_rows` guarda solo el texto, y la fecha la pone `commitImport`. Es la
+diferencia entre escribirla y usarla — un import puede no confirmarse nunca.
+
 Donde se muestra cambia segun para que sirve la pantalla. En la revision del
 import manda el texto del resumen, porque esa pantalla existe para contrastar la
 transcripcion contra el PDF y ahi la nota ya esta a la vista en su propio campo.
@@ -960,6 +985,11 @@ y los últimos cuatro se borran quitando un import.
 
 - Los nombres de archivo en `supabase/migrations/` tienen que coincidir con las
   versiones registradas en el remoto, o `db push` intenta reaplicar y falla.
+  **El `apply_migration` del MCP elige el timestamp el solo**, y no es el que
+  uno le puso al archivo: hay que mirar `list_migrations` despues de aplicar y
+  renombrar el archivo a la version que quedo registrada. Aplicar y no mirar
+  deja el repo con un archivo que el remoto no conoce y una version remota sin
+  archivo — las dos mitades del invariante rotas de un saque.
 - RLS activo en todas las tablas, siempre, aunque haya un solo usuario.
 - Cuando la fase 2 traiga la tabla de cotizaciones, va como data de referencia
   compartida: lectura para `authenticated`, escritura solo desde el cron con

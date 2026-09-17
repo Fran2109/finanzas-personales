@@ -14,6 +14,7 @@ import {
   type Period,
 } from "@/lib/domain";
 import type { InstallmentRow } from "@/lib/commitments";
+import { ordenarNotas, type NotaUsada } from "@/lib/nota";
 
 export type Account = {
   id: string;
@@ -336,8 +337,19 @@ export async function getAccountsWithActivity(): Promise<AccountActivity[]> {
  * ayuda: al elegir "Supermercado" lo que sirve son las notas de supermercado.
  *
  * Se agrupa en memoria, como el resto de esta capa: el volumen es chico y un
- * `group by` en PostgREST no se lee mejor. Ordenadas por uso, que es el orden
- * en que conviene ofrecerlas.
+ * `group by` en PostgREST no se lee mejor.
+ *
+ * **Ordenadas por la ultima vez que se usaron, no por cuantas veces.** Anotar
+ * se hace de a tandas: al anotar diez movimientos seguidos, la nota que acabas
+ * de escribir es la que mas chances tiene de ser la proxima, y ordenando por
+ * frecuencia quedaba sepultada abajo de una vieja que se uso mucho hace meses.
+ * De ahi que `nota_at` exista: `created_at` es cuando entro la fila —en un
+ * import, todas iguales— y `occurred_on` es cuando se hizo la compra, asi que
+ * una nota escrita hoy sobre un movimiento de julio ordenaria por julio.
+ *
+ * La frecuencia queda de desempate y no se fue del todo: lo anotado antes de
+ * que existiera `nota_at` comparte la fecha de su import, y ahi sigue siendo la
+ * mejor senal de cual ofrecer primero.
  */
 export type NotasPorCategoria = Record<string, string[]>;
 
@@ -349,26 +361,23 @@ export async function getNotas(): Promise<NotasPorCategoria> {
   const { data, error } = await withRetry(() =>
     supabase
       .from("finanzas_transactions")
-      .select("category_id, nota")
+      .select("category_id, nota, nota_at")
       .not("nota", "is", null),
   );
   if (error) throw new Error(`No se pudieron leer las notas: ${describeError(error)}`);
 
-  const usos = new Map<string, Map<string, number>>();
+  // Esta capa solo agrupa; el criterio de que ofrecer primero vive en
+  // `ordenarNotas`, que se puede testear sin base de datos.
+  const porCategoria = new Map<string, NotaUsada[]>();
   for (const row of data ?? []) {
-    const nota = (row.nota ?? "").trim();
-    if (!nota) continue;
     const clave = row.category_id ?? SIN_CATEGORIA;
-    const porNota = usos.get(clave) ?? new Map<string, number>();
-    porNota.set(nota, (porNota.get(nota) ?? 0) + 1);
-    usos.set(clave, porNota);
+    porCategoria.set(clave, [...(porCategoria.get(clave) ?? []), row]);
   }
 
   const notas: NotasPorCategoria = {};
-  for (const [clave, porNota] of usos) {
-    notas[clave] = [...porNota]
-      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "es"))
-      .map(([nota]) => nota);
+  for (const [clave, filas] of porCategoria) {
+    const ordenadas = ordenarNotas(filas);
+    if (ordenadas.length > 0) notas[clave] = ordenadas;
   }
   return notas;
 }
