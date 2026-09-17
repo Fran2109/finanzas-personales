@@ -13,6 +13,24 @@ test("distingue lo transitorio de lo que va a fallar siempre", () => {
   assert.equal(isTransient({ message: "no rows", code: "PGRST116" }), false);
 });
 
+test("el desfasaje de reloj llega con codigo de PostgREST y se reintenta igual", () => {
+  // **La forma real del error, que es lo que este test agrega.** PostgREST
+  // rechaza un JWT con `PGRST301` (no se pudo decodificar) o `PGRST303` (fallo
+  // la validacion de claims, que es el caso del `iat` adelantado), los dos con
+  // 401. Los tests de abajo lo construian sin `code`, y por eso pasaban
+  // mientras produccion fallaba: la guarda de codigos descartaba el error por
+  // el prefijo `PGRST` antes de mirar el mensaje, el reintento nunca corria y
+  // ni siquiera quedaba la linea de `[clock-skew]` que lo habria delatado.
+  assert.equal(isTransient({ message: "JWT issued at future", code: "PGRST303" }), true);
+  assert.equal(isTransient({ message: "JWT issued at future", code: "PGRST301" }), true);
+  assert.equal(isTransient({ message: "JWT not yet valid", code: "PGRST303" }), true);
+
+  // Y lo que la guarda protege sigue protegido: un JWT vencido o mal firmado
+  // viene con el mismo codigo y NO se arregla esperando.
+  assert.equal(isTransient({ message: "JWT expired", code: "PGRST301" }), false);
+  assert.equal(isTransient({ message: "JWSError JWSInvalidSignature", code: "PGRST301" }), false);
+});
+
 test("reintenta y devuelve el resultado bueno", async () => {
   let calls = 0;
   const result = await withRetry(

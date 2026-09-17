@@ -651,6 +651,33 @@ intentos comunes (~450ms) se rendía antes de tiempo. Si se agota, queda en los
 logs cuántos ms esperó: si pasa seguido, el desfasaje es más grande que un
 redondeo de relojes y hay que mirar el proyecto, no seguir subiendo el tope.
 
+**Ese reintento estuvo escrito y sin correr ni una vez, y cómo se descubrió
+importa más que el bug.** PostgREST rechaza un JWT con `PGRST301` o `PGRST303`,
+y `isTransient` empezaba descartando todo lo que tuviera código `PGRST` —la
+guarda que evita reintentar permisos y constraints, que fallan igual siempre—
+antes de mirar el mensaje. El desfasaje entraba por la puerta que lo dejaba
+afuera. Ahora el desfasaje se pregunta **primero**: es el único error con código
+de PostgREST que el próximo intento puede resolver, porque no depende de la
+consulta sino de la hora. Un token vencido o mal firmado llega con el mismo
+código y sigue cayendo en la guarda.
+
+Dos cosas que dejó:
+
+- **El silencio en los logs no probaba lo que parecía.** La ausencia de una
+  línea de `[clock-skew]` se había leído como "el proxy no esperó, así que el
+  desfasaje está entre Auth y PostgREST". La mitad era cierta; la otra mitad es
+  que el reintento nunca se ejecutó, y por eso tampoco podía llegar a agotarse y
+  loguear. Cuando la única prueba de que algo anda es que **no** aparece un log,
+  hay que verificar que ese log pueda aparecer.
+- **Los tests pasaban porque construían el error sin el código.** `{ message:
+  "JWT issued at future" }` no es la forma que devuelve PostgREST, y esa
+  diferencia era exactamente el bug. Un test que inventa la forma del error
+  prueba el código contra sí mismo. Los de ahora llevan `code: "PGRST303"`.
+
+Y el mensaje que se guarda ahora incluye el código (`describeError`): que
+faltara es la razón de que diagnosticar esto pidiera leer el fuente y la
+documentación de PostgREST en vez de mirar una línea de log.
+
 ## Responsive
 
 La app se usa en el teléfono tanto como en la compu, así que **nada puede

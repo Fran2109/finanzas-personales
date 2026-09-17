@@ -37,8 +37,16 @@ const CLOCK_SKEW = /issued at future|not yet valid/i;
  * El proxy tambien espera, leyendo el `iat` del token, pero mide contra el
  * reloj de Vercel y el que rechaza es PostgREST: si el desfasaje esta entre
  * Supabase Auth y PostgREST, desde Vercel el token ya parece valido y el proxy
- * no espera nada. Se vio en produccion —un 500 a las 16:50 sin una sola linea
- * de `[clock-skew]` en los logs— y es la razon de que esto exista aparte.
+ * no espera nada. Por eso esto existe aparte.
+ *
+ * **Y durante un tiempo no corrio ni una vez.** La evidencia que decia este
+ * comentario —un 500 sin una sola linea de `[clock-skew]` en los logs— se leyo
+ * como que el proxy no habia esperado, y era la mitad de la historia: la otra
+ * mitad es que `isTransient` descartaba el error por su codigo `PGRST` antes de
+ * mirar el mensaje. O sea que el silencio en los logs no probaba la teoria del
+ * proxy, probaba que el reintento no se estaba ejecutando. Cuando la unica
+ * prueba de que algo anda es que **no** aparece un log, conviene verificar que
+ * ese log pueda aparecer.
  *
  * El reintento no necesita saber de que reloj es el problema: reacciona al
  * rechazo, que es la unica evidencia que hay de cuando el token empezo a
@@ -49,6 +57,22 @@ const CLOCK_SKEW_ATTEMPTS = 4;
 
 export function isTransient(error: { message?: string; code?: string } | null): boolean {
   if (!error) return false;
+
+  // **El desfasaje se pregunta antes que el codigo, y ese orden es el arreglo.**
+  //
+  // PostgREST rechaza un JWT con `PGRST301` o `PGRST303` —los dos 401— y la
+  // guarda de abajo descarta todo lo que empiece con `PGRST` sin mirar el
+  // mensaje. O sea que el desfasaje entraba por la puerta que lo dejaba afuera:
+  // el reintento no corria nunca, y como tampoco llegaba a agotarse, ni
+  // siquiera quedaba la linea de `[clock-skew]` que lo habria delatado. Un 500
+  // en pantalla y cero rastro en los logs.
+  //
+  // Es el unico error con codigo de PostgREST que el proximo intento puede
+  // resolver, porque no depende de la consulta sino de la hora. Un token
+  // vencido o mal firmado llega con el mismo codigo y sigue cayendo en la
+  // guarda: esos no se arreglan esperando.
+  if (CLOCK_SKEW.test(error.message ?? "")) return true;
+
   if (error.code && /^(PGRST|22|23|42)/.test(error.code)) return false;
   return TRANSIENT.test(error.message ?? "");
 }
@@ -64,6 +88,20 @@ export function retryDelayMs(
 }
 
 export type Result<T> = { data: T | null; error: { message: string; code?: string } | null };
+
+/**
+ * El error, con su codigo, para el mensaje que termina en los logs.
+ *
+ * Existe porque su ausencia costo caro. Los `throw` de `data.ts` interpolaban
+ * solo `error.message`, asi que en produccion se leia `JWT issued at future` y
+ * nada mas — y el codigo era justamente el dato que explicaba por que el
+ * reintento no lo agarraba. Diagnosticarlo pidio leer el codigo fuente y la
+ * documentacion de PostgREST para adivinar que codigo venia. Con el codigo a
+ * la vista se contestaba solo.
+ */
+export function describeError(error: { message: string; code?: string }): string {
+  return error.code ? `${error.message} [${error.code}]` : error.message;
+}
 
 /**
  * Corre la consulta y la reintenta con backoff mientras el error parezca

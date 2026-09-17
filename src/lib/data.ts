@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
-import { withRetry } from "@/lib/retry";
+import { describeError, withRetry } from "@/lib/retry";
 import { centsFromDb, type Cents } from "@/lib/money";
 import {
   isExpenseKind,
@@ -56,7 +56,7 @@ export async function getAccounts(): Promise<Account[]> {
       .order("is_liability")
       .order("name"),
   );
-  if (error) throw new Error(`No se pudieron leer las cuentas: ${error.message}`);
+  if (error) throw new Error(`No se pudieron leer las cuentas: ${describeError(error)}`);
   return (data ?? []) as Account[];
 }
 
@@ -65,7 +65,7 @@ export async function getCategories(): Promise<Category[]> {
   const { data, error } = await withRetry(() =>
     supabase.from("finanzas_categories").select("id, name, kind").order("kind").order("name"),
   );
-  if (error) throw new Error(`No se pudieron leer las categorias: ${error.message}`);
+  if (error) throw new Error(`No se pudieron leer las categorias: ${describeError(error)}`);
   return (data ?? []) as Category[];
 }
 
@@ -108,7 +108,7 @@ export async function getTransactionsForPeriod(period: Period): Promise<Transact
   ]);
 
   const error = delResumen.error ?? porFecha.error;
-  if (error) throw new Error(`No se pudieron leer los movimientos: ${error.message}`);
+  if (error) throw new Error(`No se pudieron leer los movimientos: ${describeError(error)}`);
 
   const rows = [
     ...((delResumen.data ?? []) as unknown as RawTransaction[]),
@@ -212,7 +212,7 @@ export async function getInstallmentRows(): Promise<InstallmentRow[]> {
       .eq("kind", "installment")
       .not("cuota_total", "is", null),
   );
-  if (error) throw new Error(`No se pudieron leer las cuotas: ${error.message}`);
+  if (error) throw new Error(`No se pudieron leer las cuotas: ${describeError(error)}`);
 
   const rows: InstallmentRow[] = [];
   for (const row of data ?? []) {
@@ -264,7 +264,7 @@ export async function getMonthlyRows(): Promise<MonthlyRow[]> {
         "amount, currency, kind, occurred_on, statement_period, is_projected, account_id, category:finanzas_categories(name)",
       ),
   );
-  if (error) throw new Error(`No se pudieron leer los movimientos: ${error.message}`);
+  if (error) throw new Error(`No se pudieron leer los movimientos: ${describeError(error)}`);
 
   const rows: MonthlyRow[] = [];
   for (const row of data ?? []) {
@@ -301,7 +301,7 @@ export async function getAccountsWithActivity(): Promise<AccountActivity[]> {
   ]);
 
   if (movements.error) {
-    throw new Error(`No se pudieron contar los movimientos: ${movements.error.message}`);
+    throw new Error(`No se pudieron contar los movimientos: ${describeError(movements.error)}`);
   }
 
   const porCuenta = new Map<string, number>();
