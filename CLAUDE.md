@@ -32,6 +32,16 @@ sin comillas. Tres cosas que se siguen de compartir:
   es la unica fuente y `db push` el unico camino. El DDL de job-hunter se aplica
   desde su `schema.sql` y **no se registra** aca: si se registrara, `db push`
   fallaria al ver versiones remotas que no tiene localmente.
+
+  **Y ya paso una vez, asi que conviene saber como.** El historial es del
+  proyecto, no del repo, y hay herramientas que escriben en el sin avisar: el
+  `apply_migration` del MCP de Supabase registra la version, igual que un
+  `db push` desde el repo de job-hunter. Una sola de esas —`20260915103840_jobhunter_user_id_rls`—
+  dejo `db push` de finanzas roto hasta que se saco. Para el DDL de la otra app
+  va `execute_sql`, que aplica sin registrar. Si igual se cuela, el arreglo es
+  sacar la fila del historial (`supabase migration repair --status reverted
+  <version>`, o el `delete` equivalente): **eso no deshace el DDL**, solo borra
+  el registro contable.
 - **La service_role key de job-hunter bypassa RLS sobre todo el proyecto**, estas
   tablas incluidas. Antes el aislamiento lo daba el proyecto; ahora no lo da nada.
   El RLS de aca sigue protegiendo al cliente, no a la otra app.
@@ -63,13 +73,15 @@ sin comillas. Tres cosas que se siguen de compartir:
 - [ ] Fase 1 aceptada: una semana de gastos reales cargados sin que dé fastidio
 - [x] Deploy en Vercel: https://finanzas-personales-rouge-eta.vercel.app
 
-El esquema del remoto está versionado en `supabase/migrations/`. Los nombres de
-archivo coinciden con las versiones registradas (`20260914112501_init`,
-`20260914134533_add_installment_kind`, `20260914140347_add_statement_period`,
-`20260914170801_add_provisional_imports`, `20260914181405_add_cuota_total`,
-`20260915102537_rename_tables_prefix`,
-`20260915113020_backfill_cuota_total_from_import_rows`), así que `db push` no
-los reaplica.
+El esquema del remoto está versionado en `supabase/migrations/`. El invariante
+es **un archivo por versión registrada y nada más**, en los dos sentidos: una
+versión remota sin archivo rompe `db push`, y un archivo sin versión remota se
+reaplica. Antes acá había una lista de nombres y se desactualizó dos veces, que
+es lo que pasa siempre con una lista; esto en cambio se contesta solo:
+
+```sh
+supabase migration list   # local y remoto, lado a lado
+```
 
 El rename a `finanzas_*` es `alter table ... rename`: preserva datos, índices,
 constraints, foreign keys y políticas, no recrea ni mueve nada. Renombra también
