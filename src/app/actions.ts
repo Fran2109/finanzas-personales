@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
+import { describeError } from "@/lib/retry";
 import { parseAmountToCents, centsToNumeric, centsFromDb } from "@/lib/money";
 import {
   CATEGORY_KIND_FOR,
@@ -377,6 +378,39 @@ export async function updateTransaction(
 
   revalidatePath("/", "layout");
   return { ok: `Guardado.${aprendido}` };
+}
+
+/**
+ * Guardar **solo** la nota, desde la lista del mes.
+ *
+ * Es una accion aparte y no `updateTransaction` con los otros campos vacios: no
+ * lee ni escribe nada mas que `nota`, asi que no hay forma de que corregir un
+ * texto pise un monto o una cuenta por un campo que el formulario no mando.
+ *
+ * Y puede ser de un solo campo justamente porque **`nota` no entra en la
+ * huella**. El editor completo tiene que recalcularla —toca descripcion, monto,
+ * fecha y cuenta, que si entran— y por eso arrastra el movimiento entero; acá
+ * no hay nada que recalcular, y eso es lo que permite anotar cuarenta
+ * movimientos sin que ninguno deje de coincidir con su linea del resumen.
+ */
+export async function updateNota(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const { supabase } = await requireUser();
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) return fail("Falta el movimiento.");
+
+  const { error } = await supabase
+    .from("finanzas_transactions")
+    .update({ nota: leerNota(formData) })
+    .eq("id", id);
+
+  if (error) return fail(`No se pudo guardar: ${describeError(error)}`);
+
+  revalidatePath("/", "layout");
+  return { ok: "Guardado." };
 }
 
 export async function deleteTransaction(formData: FormData) {

@@ -28,6 +28,7 @@ export function NotaInput({
   categoryId,
   defaultValue,
   compacto = false,
+  autoFocus = false,
   id = "nota",
   name = "nota",
   className = "",
@@ -38,6 +39,8 @@ export function NotaInput({
   defaultValue?: string;
   /** Adentro de una fila, donde el campo de pagina entera queda grande. */
   compacto?: boolean;
+  /** Cuando el campo es lo unico que se abrio, no hay nada mas que enfocar. */
+  autoFocus?: boolean;
   id?: string;
   name?: string;
   className?: string;
@@ -53,6 +56,7 @@ export function NotaInput({
         name={name}
         list={sugerencias.length > 0 ? listId : undefined}
         defaultValue={defaultValue}
+        autoFocus={autoFocus}
         autoComplete="off"
         maxLength={80}
         placeholder={sugerencias[0] ? `${sugerencias[0]}...` : "En que se fue"}

@@ -49,10 +49,10 @@ const b = await chromium.launch();
   // La fila se toma por posicion y no por "la que tiene el boton Editar": al
   // abrirse ese boton desaparece, asi que un filtro por contenido se va a la
   // fila siguiente y termina midiendo la que no es. Paso.
-  const filas = p.locator('ul:has(button[aria-label^="Editar"])').first();
+  const filas = p.locator('ul:has(button[aria-label^="Corregir"])').first();
   const fila = filas.locator("> li").first();
   const antes = (await fila.boundingBox())?.height ?? 0;
-  await fila.locator('button[aria-label^="Editar"]').click();
+  await fila.locator('button[aria-label^="Corregir"]').click();
 
   // A mitad de camino: si el alto ya es el final, la transicion no engancho.
   await p.waitForTimeout(100);
@@ -64,6 +64,35 @@ const b = await chromium.launch();
   else if (medio >= final - 2) mal("editor", `salto al alto final en el primer frame (${medio} de ${final})`);
   else if (medio <= antes) mal("editor", `a los 100ms todavia no arranco (${medio})`);
   else ok(`editor: ${Math.round(antes)} -> ${Math.round(medio)} -> ${Math.round(final)} px`);
+  await p.close();
+}
+
+// ------------------------------------------------------ el editor de la nota
+//
+// El mismo mecanismo que el editor completo, y por eso mismo se mide aparte:
+// los dos estados de la fila arrancan con un `<div>`, asi que si se pierde la
+// `key` que los distingue React reusa el nodo, el navegador no lo ve nacer y
+// `@starting-style` no aplica. Eso ya paso una vez con el editor completo, y no
+// dio un solo error — la fila simplemente salta a su alto final.
+{
+  const p = await b.newPage({ viewport: { width: 900, height: 1000 } });
+  await p.goto(`${BASE}/verificacion?p=mes`);
+  await p.waitForTimeout(400);
+
+  const gatillo = p.locator('button[aria-label^="Agregar una nota"]').first();
+  const fila = gatillo.locator("xpath=ancestor::li[1]");
+  const antes = (await fila.boundingBox())?.height ?? 0;
+  await gatillo.click();
+
+  await p.waitForTimeout(100);
+  const medio = (await fila.boundingBox())?.height ?? 0;
+  await p.waitForTimeout(500);
+  const final = (await fila.boundingBox())?.height ?? 0;
+
+  if (final <= antes) mal("nota", `no crecio: ${antes} -> ${final}`);
+  else if (medio >= final - 2) mal("nota", `salto al alto final en el primer frame (${medio} de ${final})`);
+  else if (medio <= antes) mal("nota", `a los 100ms todavia no arranco (${medio})`);
+  else ok(`nota: ${Math.round(antes)} -> ${Math.round(medio)} -> ${Math.round(final)} px`);
   await p.close();
 }
 
@@ -129,10 +158,10 @@ const b = await chromium.launch();
   // La fila se toma por posicion y no por "la que tiene el boton Editar": al
   // abrirse ese boton desaparece, asi que un filtro por contenido se va a la
   // fila siguiente y termina midiendo la que no es. Paso.
-  const filas = p.locator('ul:has(button[aria-label^="Editar"])').first();
+  const filas = p.locator('ul:has(button[aria-label^="Corregir"])').first();
   const fila = filas.locator("> li").first();
   const antes = (await fila.boundingBox())?.height ?? 0;
-  await fila.locator('button[aria-label^="Editar"]').click();
+  await fila.locator('button[aria-label^="Corregir"]').click();
   await p.waitForTimeout(60);
   const enseguida = (await fila.boundingBox())?.height ?? 0;
   if (enseguida <= antes) mal("reduce", "el editor no abrio");
@@ -146,4 +175,4 @@ if (fallos.length) {
   console.error(`\n${fallos.length} problema(s).`);
   process.exit(1);
 }
-console.log("\nLos tres se abren animando, y ninguno anima bajo reduced-motion.");
+console.log("\nLos cuatro se abren animando, y ninguno anima bajo reduced-motion.");

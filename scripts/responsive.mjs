@@ -164,12 +164,29 @@ for (const tema of ["light", "dark"]) {
       }
 
       const f2 = await abrir("mes");
-      await f2.locator('button[aria-label^="Editar"]').first().click();
+      await f2.locator('button[aria-label^="Corregir"]').first().click();
       await p.waitForTimeout(400);
       if ((await f2.locator('button:has-text("Guardar")').count()) === 0) {
         problemas.push({ donde: `${tema} ${w}`, tipo: "el editor no abrio" });
       }
       revisar(await medir(f2), `${tema} ${w} mes · editor abierto`);
+
+      // El editor de solo la nota, que es el otro estado que se abre en una
+      // fila. Se miran los dos gatillos porque no son el mismo control: el de
+      // agregar lleva texto ("+ nota") y el de editar es un simbolo, asi que
+      // ocupan anchos distintos en la linea que ya se recorta.
+      for (const [gatillo, como] of [
+        ['button[aria-label^="Agregar una nota"]', "sin nota"],
+        ['button[aria-label^="Editar la nota"]', "con nota"],
+      ]) {
+        const f5 = await abrir("mes");
+        await f5.locator(gatillo).first().click();
+        await p.waitForTimeout(400);
+        if ((await f5.locator('button:has-text("Guardar")').count()) === 0) {
+          problemas.push({ donde: `${tema} ${w}`, tipo: `la nota (${como}) no abrio` });
+        }
+        revisar(await medir(f5), `${tema} ${w} mes · nota abierta (${como})`);
+      }
     }
 
     // Cuentas tiene sus dos estados que se abren, y hasta ahora no los medía

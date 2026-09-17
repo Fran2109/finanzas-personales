@@ -220,12 +220,45 @@ tipear y deja escribir cualquier cosa que no este en la lista, que son las dos
 cosas que hacen falta. Un combobox propio serian ~80 lineas de JS al cliente
 para llegar al mismo lugar con el teclado peor resuelto.
 
-Donde se muestra cambia segun para que sirve la pantalla. En la vista del mes va
-la nota primero y el texto del resumen atras en gris: esa linea trunca, y
-adelante tiene que ir lo legible. En la revision del import es al reves —manda
-el texto del resumen— porque esa pantalla existe para contrastar la
-transcripcion contra el PDF, y ahi la nota ya esta a la vista en su propio
-campo.
+Donde se muestra cambia segun para que sirve la pantalla. En la revision del
+import manda el texto del resumen, porque esa pantalla existe para contrastar la
+transcripcion contra el PDF y ahi la nota ya esta a la vista en su propio campo.
+
+En la vista del mes la fila es de **tres lineas**, y cada una hace un trabajo:
+
+- **El titulo** es la nota si la hay, y si no el texto del resumen. Va en cuerpo
+  y con peso, y es **la unica linea que envuelve en vez de truncarse**. Comparte
+  renglon con el importe, asi que en un telefono le quedan ~120px: truncando,
+  una nota de 39 caracteres se leia hasta "regalo de cumpl..." y justo el dato
+  que uno escribio desaparecia. Con tope de tres lineas, que es donde envolver
+  deja de pagar — sin tope, un `PERCEPCION RG 4240 SOBRE CONSUMOS EN MONEDA
+  EXTRANJERA` sin nota se comia seis renglones.
+- **La linea de la nota** lleva el gatillo primero y despues el texto del
+  resumen. Que el gatillo diga `+ nota` **solo donde falta** es lo que convierte
+  "que me queda por anotar" en mirar una columna, y va adelante del texto —no
+  atras— porque atras caia en una x distinta en cada fila y dejaba de ser
+  columna. Cuando ya hay nota es un lapiz, que abre el mismo editor.
+- **Los metadatos** (la insignia, categoria, cuenta, plastico) se quedan con
+  todo su ancho. Ahi estuvo la razon de mudar el gatillo: mientras vivia en esta
+  linea, `+ nota` se comia ~60px de la unica linea que ya se recorta por diseno,
+  y en un telefono eso era la diferencia entre decir la cuenta o no decirla.
+
+Antes las dos primeras compartian renglon separadas por un punto, y eso las
+hacia competir por el mismo ancho: con una nota larga desaparecia el resumen, y
+con un resumen largo se perdia el final de la nota.
+
+**Anotar es un gesto y no cinco.** `updateNota` escribe un solo campo desde la
+lista, sin abrir el editor completo. Se puede separar asi justamente porque
+`nota` no entra en la huella: el editor completo toca descripcion, monto, fecha
+y cuenta —que si entran— y por eso tiene que arrastrar el movimiento entero.
+
+Para que el gatillo pudiera ser un boton hubo que dar vuelta la fila: **el boton
+que abre el editor pasa a cubrirla por debajo** (`absolute inset-0`) en vez de
+contenerla. Un `<button>` no puede vivir adentro de otro, asi que mientras la
+fila era un solo boton no habia donde poner una accion mas. Al estar
+posicionado, el overlay pinta por encima del texto en flujo normal y se lleva
+los clicks igual que antes; los dos controles que tienen que recibir el suyo
+—la nota y el borrar— se suben con `relative z-10`.
 
 **Montos en `numeric(18,2)`.** Nunca float. En el cliente, enteros en centavos.
 Todo pasa por `src/lib/money.ts`: parseo de lo que se tipea, string para la base
@@ -601,6 +634,16 @@ en la rama que no matchea no crea ni una tween.
 | El mes que cambia | `<ViewTransition>` | Es un round-trip al servidor: el DOM viejo se destruye y no hay nada entre qué interpolar. GSAP sólo podría fadear lo nuevo *después* de la espera, que hace sentir más lenta una navegación que ya lo es |
 | La entrada de `/` y `/analisis` | GSAP | Un reloj compartido: la coreografía se retunea en un lugar y las piezas no se desfasan |
 
+**Lo que se abre necesita que React monte un nodo nuevo, y eso se rompe sin
+hacer ruido.** `@starting-style` da el estado de entrada de un elemento **recién
+insertado**; si React reusa el nodo que ya estaba, el navegador nunca lo ve
+nacer, la regla no aplica y la fila salta a su alto final en el primer frame —la
+animación entera perdida, sin un error en la consola—. Pasó al rediseñar la fila
+del mes: los dos estados pasaron a arrancar con un `<div>`, así que React
+reconcilió el mismo nodo en vez de reemplazarlo. Lo que lo sostiene es una `key`
+distinta en cada rama, que es lo único que fuerza el remonte. Lo agarró `npm run
+abre`, que mide a mitad de camino; un assert del estado final habría pasado.
+
 **El panel del filtro anima `translate` y no `transform`**, y eso no es un
 detalle de estilo: el `transform` de ese panel lo escribe el JS que lo corre
 para que no se salga de la pantalla en un teléfono. Son dos propiedades que el
@@ -828,7 +871,7 @@ Cinco scripts en `scripts/`, todos contra el banco de pruebas levantado con
 | `responsive` | 7 pantallas × 8 anchos × 2 temas, desborde y targets, más lo que se abre |
 | `motion:red` | Que el contenido **no pueda** quedar invisible: con JS, bajo reduced-motion y sin JS |
 | `gsap` | Que GSAP anime donde tiene que animar, no se cobre donde no, y no deje nada a medias |
-| `abre` | Que el editor, el panel del filtro y el crossfade del mes de verdad animen |
+| `abre` | Que el editor, el de la nota, el panel del filtro y el crossfade del mes de verdad animen |
 | `capturas` | Diff pixel a pixel contra una baseline, para probar que algo **no** cambió |
 
 **Todos miden a mitad de la animación, y ésa es la regla que hay que entender.**
