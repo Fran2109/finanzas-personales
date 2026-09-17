@@ -4,11 +4,14 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { MultiSelect } from "@/components/MultiSelect";
+import { chip } from "@/components/ui/estilos";
 import { KIND_LABELS, MANUAL_KINDS } from "@/lib/domain";
 import {
+  CON_NOTA,
   countActiveFilters,
   monthQuery,
   SIN_CATEGORIA,
+  SIN_NOTA,
   type Filters,
 } from "@/lib/filters";
 
@@ -109,6 +112,36 @@ export function MonthFilters({
           seleccion={filters.moneda}
           onChange={(moneda) => navigate({ moneda })}
         />
+
+        {/* Estos dos van como chips y no como un desplegable mas, y la razon es
+            para que sirven: "que me queda por anotar" es la pregunta que uno se
+            hace muchas veces seguidas, y con un desplegable son tres gestos
+            —abrir, tildar, cerrar— contra uno. Encima el estado queda a la
+            vista sin abrir nada, que con dos opciones es todo lo que hay que
+            mostrar. Tildar los dos es lo mismo que ninguno: todos. */}
+        {[
+          { value: SIN_NOTA, label: "Sin nota" },
+          { value: CON_NOTA, label: "Con nota" },
+        ].map(({ value, label }) => {
+          const activo = filters.nota.includes(value);
+          return (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={activo}
+              onClick={() =>
+                navigate({
+                  nota: activo
+                    ? filters.nota.filter((v) => v !== value)
+                    : [...filters.nota, value],
+                })
+              }
+              className={chip(activo)}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
 
       {activos > 0 ? (

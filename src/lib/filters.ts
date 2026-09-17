@@ -5,6 +5,7 @@ export type Filterable = {
   kind: Kind;
   currency: Currency;
   description: string | null;
+  nota: string | null;
   account: { id: string } | null;
   category: { id: string } | null;
 };
@@ -25,11 +26,12 @@ export type Filters = {
   categoria: string[];
   tipo: string[];
   moneda: string[];
+  nota: string[];
   q: string;
 };
 
 /** Los filtros de lista. `q` va aparte porque es texto libre. */
-export const MULTI_KEYS = ["cuenta", "categoria", "tipo", "moneda"] as const;
+export const MULTI_KEYS = ["cuenta", "categoria", "tipo", "moneda", "nota"] as const;
 export type MultiKey = (typeof MULTI_KEYS)[number];
 
 export const EMPTY_FILTERS: Filters = {
@@ -37,11 +39,24 @@ export const EMPTY_FILTERS: Filters = {
   categoria: [],
   tipo: [],
   moneda: [],
+  nota: [],
   q: "",
 };
 
 /** Marca especial: movimientos a los que nadie les puso categoria. */
 export const SIN_CATEGORIA = "sin";
+
+/**
+ * Los dos valores del filtro de nota.
+ *
+ * Es una lista como los demas y no un booleano, y eso no es por simetria: con
+ * una lista, "los dos" y "ninguno" son el mismo estado —todos— y se escribe
+ * solo. Un booleano de tres estados (si / no / cualquiera) habria necesitado su
+ * propia lectura de la URL, su propio "que pasa si dice cualquier otra cosa" y
+ * su propia rama en `monthQuery`.
+ */
+export const CON_NOTA = "con";
+export const SIN_NOTA = "sin";
 
 /**
  * Una lista de la URL: "a,b,c".
@@ -60,6 +75,7 @@ export function readFilters(params: Record<string, string | undefined>): Filters
     categoria: readList(params.categoria),
     tipo: readList(params.tipo),
     moneda: readList(params.moneda),
+    nota: readList(params.nota),
     q: (params.q ?? "").trim(),
   };
 }
@@ -90,6 +106,14 @@ export function applyFilters<T extends Filterable>(rows: T[], filters: Filters):
     if (filters.categoria.length > 0) {
       const id = row.category?.id ?? SIN_CATEGORIA;
       if (!filters.categoria.includes(id)) return false;
+    }
+
+    // Una nota en blanco o de puros espacios es no tener nota: `leerNota`
+    // guarda `null` en ese caso, pero la fila pudo entrar por otro camino y
+    // "sin nota" tiene que encontrarla igual.
+    if (filters.nota.length > 0) {
+      const tiene = row.nota?.trim() ? CON_NOTA : SIN_NOTA;
+      if (!filters.nota.includes(tiene)) return false;
     }
 
     if (termino && !normalizeMerchant(row.description ?? "").includes(termino)) {

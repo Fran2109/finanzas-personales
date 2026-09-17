@@ -2,11 +2,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   applyFilters,
+  CON_NOTA,
   EMPTY_FILTERS,
   hasActiveFilters,
   monthQuery,
   readFilters,
   SIN_CATEGORIA,
+  SIN_NOTA,
   type Filterable,
 } from "./filters.ts";
 
@@ -14,21 +16,27 @@ const rows: Filterable[] = [
   {
     kind: "consumption", currency: "ARS",
     description: "PVS*COMERCIO UNO",
+    nota: "compra semanal",
     account: { id: "visa" }, category: { id: "super" },
   },
   {
     kind: "installment", currency: "ARS",
     description: "COMERCIO DOS",
+    nota: null,
     account: { id: "visa" }, category: { id: "salud" },
   },
   {
     kind: "consumption", currency: "USD",
     description: "Suscripci\u00f3n mensual",
+    // De puros espacios: para la app es no tener nota, y el filtro tiene que
+    // verla igual que un `null`.
+    nota: "   ",
     account: { id: "visa" }, category: null,
   },
   {
     kind: "payment", currency: "ARS",
     description: "SU PAGO EN PESOS",
+    nota: null,
     account: { id: "master" }, category: { id: "pagos" },
   },
 ];
@@ -77,6 +85,35 @@ test("se puede filtrar por lo que no tiene categoria", () => {
   const r = applyFilters(rows, { ...EMPTY_FILTERS, categoria: [SIN_CATEGORIA] });
   assert.equal(r.length, 1);
   assert.equal(r[0].description, "Suscripci\u00f3n mensual");
+});
+
+test("se puede filtrar por tener o no tener nota", () => {
+  const con = applyFilters(rows, { ...EMPTY_FILTERS, nota: [CON_NOTA] });
+  assert.deepEqual(
+    con.map((r) => r.description),
+    ["PVS*COMERCIO UNO"],
+  );
+
+  // Los tres restantes: dos con `null` y el de puros espacios, que cuenta como
+  // sin nota. Si contara como "con", la lista de lo que falta anotar mentiria.
+  assert.equal(applyFilters(rows, { ...EMPTY_FILTERS, nota: [SIN_NOTA] }).length, 3);
+});
+
+test("pedir las dos notas es lo mismo que no pedir ninguna", () => {
+  assert.equal(
+    applyFilters(rows, { ...EMPTY_FILTERS, nota: [CON_NOTA, SIN_NOTA] }).length,
+    4,
+  );
+  assert.equal(applyFilters(rows, { ...EMPTY_FILTERS, nota: [] }).length, 4);
+});
+
+test("el filtro de nota viaja en la URL y cuenta como filtro activo", () => {
+  assert.deepEqual(readFilters({ nota: "sin" }).nota, [SIN_NOTA]);
+  assert.equal(hasActiveFilters({ ...EMPTY_FILTERS, nota: [SIN_NOTA] }), true);
+  assert.equal(
+    monthQuery("2026-09", { ...EMPTY_FILTERS, nota: [SIN_NOTA] }),
+    "mes=2026-09&nota=sin",
+  );
 });
 
 test("la busqueda ignora mayusculas, acentos y signos", () => {

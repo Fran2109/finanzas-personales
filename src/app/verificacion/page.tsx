@@ -34,6 +34,7 @@ import { ImportAccountSelect } from "@/components/ImportAccountSelect";
 import { ImportRowList } from "@/components/ImportRowList";
 import { StatementRow } from "@/components/StatementRow";
 import { UploadStatementForm } from "@/components/UploadStatementForm";
+import { EMPTY_FILTERS } from "@/lib/filters";
 import {
   commitmentCalendar,
   committedShare,
@@ -133,7 +134,7 @@ function Mes() {
     <Orquesta pantalla="mes">
       <MesView
         period={MES}
-        filters={{ q: "", cuenta: [], categoria: [], tipo: [], moneda: [] }}
+        filters={EMPTY_FILTERS}
         accounts={cuentas}
         categories={categorias}
         transactions={movimientos}

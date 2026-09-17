@@ -247,6 +247,19 @@ Antes las dos primeras compartian renglon separadas por un punto, y eso las
 hacia competir por el mismo ancho: con una nota larga desaparecia el resumen, y
 con un resumen largo se perdia el final de la nota.
 
+**Se filtra por tener o no tener nota**, y va como **dos chips** y no como un
+quinto desplegable: "qué me queda por anotar" es una pregunta que uno se hace
+muchas veces seguidas, y un desplegable son tres gestos —abrir, tildar, cerrar—
+contra uno. Con dos opciones, encima, el estado entra a la vista sin abrir nada.
+
+Por dentro es una lista como los otros cuatro filtros y no un booleano, y eso
+tampoco es simetría: con una lista, "los dos" y "ninguno" son el mismo estado
+—todos— y se escribe solo. Un booleano de tres estados habría necesitado su
+propia lectura de la URL, su propio "qué pasa si dice cualquier otra cosa" y su
+propia rama en `monthQuery`. Una nota de puros espacios cuenta como **sin**
+nota: `leerNota` ya guarda `null` en ese caso, pero si una fila entrara por otro
+camino, la lista de lo que falta anotar mentiría.
+
 **Anotar es un gesto y no cinco.** `updateNota` escribe un solo campo desde la
 lista, sin abrir el editor completo. Se puede separar asi justamente porque
 `nota` no entra en la huella: el editor completo toca descripcion, monto, fecha
