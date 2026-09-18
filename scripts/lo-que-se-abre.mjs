@@ -96,6 +96,52 @@ const b = await chromium.launch();
   await p.close();
 }
 
+// -------------------------------------------- de la nota a repetir, sin cerrar
+//
+// El caso que la `key` del panel existe para cubrir: los dos comparten sitio y
+// el mismo `.abre`, asi que sin ella React reusa el nodo, `@starting-style` no
+// aplica —solo vale para uno recien insertado— y el segundo panel aparece de
+// golpe. No da ningun error: por eso se mide, y se mide a mitad de camino.
+{
+  const p = await b.newPage({ viewport: { width: 900, height: 1000 } });
+  await p.goto(`${BASE}/verificacion?p=mes`);
+  await p.waitForTimeout(400);
+
+  const fila = p
+    .locator('li:has(button[aria-label^="Repetir "])')
+    .first();
+  await fila.locator('button[aria-label*="nota"]').first().click();
+  await p.waitForTimeout(600);
+  const conNota = (await fila.boundingBox())?.height ?? 0;
+
+  // Sin cerrar el primero: es el cambio de panel lo que se quiere mirar.
+  await fila.locator('button[aria-label^="Repetir "]').click();
+  await p.waitForTimeout(80);
+  const medio = (await fila.boundingBox())?.height ?? 0;
+  await p.waitForTimeout(500);
+  const final = (await fila.boundingBox())?.height ?? 0;
+
+  // La condicion es **solo** contra el final, y no "entre el arranque y el
+  // final" como en los otros chequeos: el panel viejo se desmonta y el nuevo
+  // crece desde cero, asi que a mitad de camino la fila mide *menos* que antes
+  // de tocar nada. Una primera version pedia que el medio estuviera arriba del
+  // arranque tambien, y con eso el chequeo daba ok con la `key` sacada —que es
+  // el bug que existe para encontrar—: sin `key` la medicion es 129, 145, 145,
+  // y el 129 de arranque alcanzaba para salvarla.
+  if (final <= 0) mal("panel que cambia", "la fila desaparecio");
+  else if (medio >= final - 2) {
+    mal(
+      "panel que cambia",
+      `salto al alto final en el primer frame (${medio} de ${final}); ¿se perdio la key del panel?`,
+    );
+  } else {
+    ok(
+      `panel que cambia: nota ${Math.round(conNota)} -> ${Math.round(medio)} -> repetir ${Math.round(final)} px`,
+    );
+  }
+  await p.close();
+}
+
 // ----------------------------------------------------------- panel del filtro
 {
   const p = await b.newPage({ viewport: { width: 900, height: 1000 } });
@@ -175,4 +221,4 @@ if (fallos.length) {
   console.error(`\n${fallos.length} problema(s).`);
   process.exit(1);
 }
-console.log("\nLos cuatro se abren animando, y ninguno anima bajo reduced-motion.");
+console.log("\nLos cinco se abren animando, y ninguno anima bajo reduced-motion.");

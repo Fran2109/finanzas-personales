@@ -285,6 +285,34 @@ propia rama en `monthQuery`. Una nota de puros espacios cuenta como **sin**
 nota: `leerNota` ya guarda `null` en ese caso, pero si una fila entrara por otro
 camino, la lista de lo que falta anotar mentiría.
 
+**Un gasto se repite en otra fecha desde la misma fila** (`repeatTransaction`).
+Hay gastos que vuelven iguales —un estacionamiento, un café, el mismo viaje— y
+cargarlos de cero es tipear otra vez la cuenta, la categoría, el tipo y la
+descripción para cambiar un solo campo. El panel pregunta **cuándo y cuánto**, y
+nada más: el monto va editable porque un gasto que se repite no siempre sale
+igual, y obligar a corregirlo después en el editor completo devolvería la
+fricción que esto viene a sacar. La fecha arranca en hoy.
+
+**Sólo se repite lo que no vino de un resumen**, y la regla es
+`fingerprint is null` — no una lista de cuentas. Un movimiento importado es la
+transcripción de una línea del PDF, así que una copia suya sería un movimiento
+que el resumen no tiene: plata contada de más que además desaparece al
+reimportar. Que hoy eso dé justo Efectivo y Mercado Pago es una consecuencia
+—las 144 filas de tarjeta tienen huella y las 18 de esas dos cuentas no tienen
+ninguna—, no la definición; el día que entre un extracto bancario, sus filas
+traerán huella y quedarán afuera solas. La copia **nace sin huella**, igual que
+un alta manual: dos estacionamientos de $6.000 el mismo día son dos gastos
+reales y no un duplicado.
+
+Repetir estrena la fecha de la nota, y eso no es un detalle suelto: es
+literalmente el caso que `nota_at` modela — volver a usar una nota la manda al
+frente del desplegable.
+
+**Los dos paneles de la fila —la nota y repetir— son un solo estado** y no dos
+banderas: dos paneles abiertos a la vez en una banda de 60px no se leen. Comparten
+el mismo `.abre`, así que llevan `key={panel}`; sin ella, pasar de uno al otro
+sin cerrar reusa el nodo y `@starting-style` no aplica.
+
 **Anotar es un gesto y no cinco.** `updateNota` escribe un solo campo desde la
 lista, sin abrir el editor completo. Se puede separar asi justamente porque
 `nota` no entra en la huella: el editor completo toca descripcion, monto, fecha
@@ -909,7 +937,7 @@ Cinco scripts en `scripts/`, todos contra el banco de pruebas levantado con
 | `responsive` | 7 pantallas × 8 anchos × 2 temas, desborde y targets, más lo que se abre |
 | `motion:red` | Que el contenido **no pueda** quedar invisible: con JS, bajo reduced-motion y sin JS |
 | `gsap` | Que GSAP anime donde tiene que animar, no se cobre donde no, y no deje nada a medias |
-| `abre` | Que el editor, el de la nota, el panel del filtro y el crossfade del mes de verdad animen |
+| `abre` | Que el editor, el de la nota, el cambio de panel, el panel del filtro y el crossfade del mes de verdad animen |
 | `capturas` | Diff pixel a pixel contra una baseline, para probar que algo **no** cambió |
 
 **Todos miden a mitad de la animación, y ésa es la regla que hay que entender.**
@@ -936,7 +964,7 @@ contestan mal:
   salir idénticas pixel a pixel contra el build sin GSAP. Cualquier diferencia
   ahí es un agujero en el switch.
 
-**La verificación mintió tres veces, y las tres valen recordarse:**
+**La verificación mintió cuatro veces, y las cuatro valen recordarse:**
 
 - Un **`next-server` que quedó vivo** sirve el build anterior. Verificar que el
   HTML servido tenga el markup nuevo **antes** de medir.
@@ -949,6 +977,13 @@ contestan mal:
   desde que la pantalla aparece, entre el commit de React y el primer frame de
   GSAP hay una ventana en la que todo está en opacidad 1. Se muestrea la ventana
   entera y se pregunta si **en algún momento** hubo algo entrando.
+- Y la cuarta, que es de un chequeo y no de la app: **un chequeo nuevo no vale
+  hasta verlo fallar.** El del cambio de panel se escribió pidiendo que el valor
+  del medio estuviera *entre* el de arranque y el final, como los otros tres — y
+  con esa condición daba verde con el bug puesto, porque ahí el panel viejo se
+  desmonta y el nuevo crece desde cero, así que a mitad de camino la fila mide
+  **menos** que antes de tocar nada. Copiar la forma de un chequeo que funciona
+  no es lo mismo que chequear. Cada uno se prueba inyectando su bug.
 
 Y como no hay base de datos alcanzable desde el contenedor, todo esto corre
 contra `/verificacion`, que arma cada pantalla con sus **componentes reales** y

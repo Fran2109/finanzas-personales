@@ -4,6 +4,7 @@ import { useActionState, useEffect, useMemo, useState } from "react";
 
 import {
   deleteTransaction,
+  repeatTransaction,
   updateNota,
   updateTransaction,
   type FormState,
@@ -47,10 +48,15 @@ export function TransactionRow({
   notas: NotasPorCategoria;
 }) {
   const [abierto, setAbierto] = useState(false);
-  const [notaAbierta, setNotaAbierta] = useState(false);
+  // Un solo panel abierto por fila, y por eso es un estado y no una bandera por
+  // accion: dos paneles abiertos a la vez en una banda de 60px no se leen.
+  const [panel, setPanel] = useState<"nota" | "repetir" | null>(null);
 
   if (!abierto) {
     const titulo = tx.nota || tx.description || KIND_LABELS[tx.kind];
+    // Lo que vino de un resumen no se repite: la copia seria un movimiento que
+    // el PDF no tiene. Ver `repeatTransaction`.
+    const repetible = tx.fingerprint === null;
 
     return (
       <li>
@@ -124,7 +130,7 @@ export function TransactionRow({
                   distinto en cada fila, el lapiz quedaba desparramado. */}
               <button
                 type="button"
-                onClick={() => setNotaAbierta(true)}
+                onClick={() => setPanel("nota")}
                 aria-label={
                   tx.nota ? `Editar la nota de ${titulo}` : `Agregar una nota a ${titulo}`
                 }
@@ -134,6 +140,23 @@ export function TransactionRow({
               >
                 {tx.nota ? "✎" : "+ nota"}
               </button>
+
+              {/* "Repetir" vive en esta linea y no en la columna de acciones
+                  por la misma razon que el gatillo de la nota: a la derecha le
+                  sacaria ancho al titulo en un telefono. Y cae justo donde hay
+                  lugar — una fila que se puede repetir es una cargada a mano,
+                  o sea sin texto de resumen que poner al lado. */}
+              {repetible ? (
+                <button
+                  type="button"
+                  onClick={() => setPanel("repetir")}
+                  aria-label={`Repetir ${titulo} en otra fecha`}
+                  className="relative z-10 -my-1.5 shrink-0 rounded-control px-2 py-1.5 underline decoration-dotted underline-offset-2 transition hover:text-foreground"
+                >
+                  repetir
+                </button>
+              ) : null}
+
               {tx.nota && tx.description ? (
                 <span className="min-w-0 truncate">{tx.description}</span>
               ) : null}
@@ -181,15 +204,18 @@ export function TransactionRow({
           </form>
         </div>
 
-        {notaAbierta ? (
-          <div className="abre">
+        {/* `key={panel}`: pasar de un panel al otro sin cerrar reusaria el
+            mismo nodo, y `@starting-style` solo aplica a uno recien insertado.
+            Sin esto el segundo aparece de golpe. */}
+        {panel ? (
+          <div key={panel} className="abre">
             <div>
               <div className="px-3 pb-3">
-                <NotaForm
-                  tx={tx}
-                  notas={notas}
-                  cerrar={() => setNotaAbierta(false)}
-                />
+                {panel === "nota" ? (
+                  <NotaForm tx={tx} notas={notas} cerrar={() => setPanel(null)} />
+                ) : (
+                  <RepetirForm tx={tx} cerrar={() => setPanel(null)} />
+                )}
               </div>
             </div>
           </div>
@@ -266,6 +292,71 @@ function NotaForm({
         />
       </span>
       <SubmitButton>Guardar</SubmitButton>
+      <button type="button" onClick={cerrar} className={botonBorde()}>
+        Cancelar
+      </button>
+      {state.error ? (
+        <span className="basis-full">
+          <Aviso tono="negativo" compacto>
+            {state.error}
+          </Aviso>
+        </span>
+      ) : null}
+    </form>
+  );
+}
+
+/**
+ * Volver a cargar el mismo gasto en otra fecha.
+ *
+ * Pregunta **cuando y cuanto, y nada mas**: todo lo demas —cuenta, categoria,
+ * tipo, descripcion, nota— se copia, que es justo lo que hace que repetir sea
+ * mas barato que cargar de cero. El monto va editable y no fijo porque un gasto
+ * que se repite no siempre sale igual: el mismo estacionamiento puede salir
+ * distinto, y obligar a corregirlo despues en el editor completo seria devolver
+ * la friccion que esto viene a sacar.
+ *
+ * La fecha arranca **hoy**, que es el caso que trae a alguien a repetir algo.
+ */
+function RepetirForm({ tx, cerrar }: { tx: Transaction; cerrar: () => void }) {
+  const [state, action] = useActionState<FormState, FormData>(repeatTransaction, {});
+
+  useEffect(() => {
+    if (state.ok) cerrar();
+  }, [state.ok, cerrar]);
+
+  return (
+    <form action={action} className="flex flex-wrap items-end gap-2">
+      <input type="hidden" name="id" value={tx.id} />
+      <div className="min-w-0 flex-1 basis-36">
+        <label className={label} htmlFor={`rep-fecha-${tx.id}`}>
+          Fecha
+        </label>
+        <input
+          id={`rep-fecha-${tx.id}`}
+          name="occurred_on"
+          type="date"
+          defaultValue={new Date().toISOString().slice(0, 10)}
+          required
+          autoFocus
+          className={`${field} tabular`}
+        />
+      </div>
+      <div className="min-w-0 flex-1 basis-28">
+        <label className={label} htmlFor={`rep-monto-${tx.id}`}>
+          Monto
+        </label>
+        <input
+          id={`rep-monto-${tx.id}`}
+          name="amount"
+          inputMode="decimal"
+          autoComplete="off"
+          defaultValue={(tx.amount / 100).toFixed(2).replace(".", ",")}
+          required
+          className={`${field} tabular`}
+        />
+      </div>
+      <SubmitButton pendingLabel="Repitiendo...">Repetir</SubmitButton>
       <button type="button" onClick={cerrar} className={botonBorde()}>
         Cancelar
       </button>

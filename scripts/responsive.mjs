@@ -175,17 +175,28 @@ for (const tema of ["light", "dark"]) {
       // fila. Se miran los dos gatillos porque no son el mismo control: el de
       // agregar lleva texto ("+ nota") y el de editar es un simbolo, asi que
       // ocupan anchos distintos en la linea que ya se recorta.
-      for (const [gatillo, como] of [
-        ['button[aria-label^="Agregar una nota"]', "sin nota"],
-        ['button[aria-label^="Editar la nota"]', "con nota"],
+      // Cada uno se afirma por **su** boton de confirmar y no por uno
+      // cualquiera: si los tres se buscaran por "Guardar", el de repetir —que
+      // dice "Repetir"— reportaria "no abrio" aunque hubiera abierto, o peor,
+      // pasaria por el de otra fila.
+      for (const [gatillo, confirma, como] of [
+        ['button[aria-label^="Agregar una nota"]', "Guardar", "nota sin nota"],
+        ['button[aria-label^="Editar la nota"]', "Guardar", "nota con nota"],
+        // El de repetir es el panel mas ancho de los tres: dos campos mas dos
+        // botones en la banda de una fila.
+        ['button[aria-label^="Repetir "]', "Repetir", "repetir"],
       ]) {
         const f5 = await abrir("mes");
+        if ((await f5.locator(gatillo).count()) === 0) {
+          problemas.push({ donde: `${tema} ${w}`, tipo: `no encontre el gatillo de ${como}` });
+          continue;
+        }
         await f5.locator(gatillo).first().click();
         await p.waitForTimeout(400);
-        if ((await f5.locator('button:has-text("Guardar")').count()) === 0) {
-          problemas.push({ donde: `${tema} ${w}`, tipo: `la nota (${como}) no abrio` });
+        if ((await f5.locator(`button:has-text("${confirma}")`).count()) === 0) {
+          problemas.push({ donde: `${tema} ${w}`, tipo: `el panel de ${como} no abrio` });
         }
-        revisar(await medir(f5), `${tema} ${w} mes · nota abierta (${como})`);
+        revisar(await medir(f5), `${tema} ${w} mes · ${como} abierto`);
       }
     }
 

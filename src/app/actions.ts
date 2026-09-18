@@ -397,6 +397,80 @@ export async function updateNota(
   return { ok: "Guardado." };
 }
 
+/**
+ * Volver a cargar un movimiento en otra fecha.
+ *
+ * Hay gastos que se repiten iguales —un estacionamiento, un cafe, el mismo
+ * viaje— y cargarlos de cero es tipear otra vez la cuenta, la categoria, el
+ * tipo y la descripcion para cambiar un solo campo. Esto copia todo y pregunta
+ * lo unico que cambia: cuando, y cuanto.
+ *
+ * **Solo se puede repetir lo que no vino de un resumen**, y la regla es
+ * `fingerprint is null`. No es "efectivo y Mercado Pago" escrito en codigo, que
+ * seria una lista de cuentas para desactualizar: es la razon de fondo. Un
+ * movimiento de un resumen es la transcripcion de una linea del PDF, y una
+ * copia suya seria un movimiento que el resumen no tiene — plata contada de mas
+ * que ademas desaparece al reimportar. Que hoy eso de justo las dos cuentas que
+ * se cargan a mano es una consecuencia, no la definicion.
+ *
+ * La copia **no lleva huella**, igual que un alta manual: dos estacionamientos
+ * de $6.000 el mismo dia son dos gastos reales, no un duplicado.
+ */
+export async function repeatTransaction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const { supabase } = await requireUser();
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) return fail("Falta el movimiento.");
+
+  const { data: origen } = await supabase
+    .from("finanzas_transactions")
+    .select(
+      "account_id, category_id, currency, kind, description, nota, card_last4, fingerprint",
+    )
+    .eq("id", id)
+    .single();
+  if (!origen) return fail("No encontre ese movimiento.");
+
+  // La UI no ofrece el boton en una fila de resumen, pero toda Server Action es
+  // alcanzable por POST directo.
+  if (origen.fingerprint !== null) {
+    return fail("Ese movimiento vino de un resumen y no se puede repetir.");
+  }
+
+  const occurredOn = String(formData.get("occurred_on") ?? "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(occurredOn)) return fail("Fecha invalida.");
+
+  const amountRaw = String(formData.get("amount") ?? "");
+  const cents = parseAmountToCents(amountRaw);
+  if (cents === null) return fail(`No entiendo el monto "${amountRaw}".`);
+  if (cents === 0) return fail("El monto no puede ser cero.");
+
+  const { error } = await supabase.from("finanzas_transactions").insert({
+    account_id: origen.account_id,
+    category_id: origen.category_id,
+    occurred_on: occurredOn,
+    amount: centsToNumeric(cents),
+    currency: origen.currency,
+    kind: origen.kind,
+    description: origen.description,
+    // Repetir es usar la nota de nuevo, asi que la copia estrena fecha y pasa
+    // al frente del desplegable. Es literalmente el caso que `nota_at` modela.
+    ...camposDeNota(origen.nota),
+    merchant_normalized: origen.description
+      ? normalizeMerchant(origen.description)
+      : null,
+    card_last4: origen.card_last4,
+  });
+
+  if (error) return fail(`No se pudo repetir: ${describeError(error)}`);
+
+  revalidatePath("/", "layout");
+  return { ok: "Repetido." };
+}
+
 export async function deleteTransaction(formData: FormData) {
   const { supabase } = await requireUser();
   const id = String(formData.get("id") ?? "");
