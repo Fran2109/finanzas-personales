@@ -19,7 +19,7 @@ import {
   type Kind,
 } from "@/lib/domain";
 import { centsToNumeric } from "@/lib/money";
-import { camposDeNota, leerNota } from "@/lib/nota";
+import { camposDeNota, conNotaHeredada, leerNota, type NotaPrevia } from "@/lib/nota";
 import { extractPdfText } from "@/lib/import/pdf";
 import { BANK_LABELS, parseStatement } from "@/lib/import/detect";
 import { parsePastedStatement } from "@/lib/import/pegado";
@@ -536,7 +536,24 @@ export async function commitImport(formData: FormData): Promise<void> {
   // insert a proposito: las filas que se repiten tienen la misma huella, y la
   // base rechazaria el import entero por duplicado en vez de reemplazarlo.
   let reemplazados = 0;
+
+  // Las notas de lo provisorio que esta por borrarse. Se leen **antes** del
+  // delete, que es la unica ventana donde todavia existen, y las hereda
+  // `conNotaHeredada` por huella. Sin esto, anotar el mes en curso era trabajo
+  // que se tiraba: el borrado se lleva la fila entera y las nuevas nacen en
+  // blanco, porque el resumen parseado no tiene de donde sacar una nota.
+  let notasPrevias: NotaPrevia[] = [];
+
   if (statementPeriod) {
+    const { data: porBorrar } = await supabase
+      .from("finanzas_transactions")
+      .select("fingerprint, nota")
+      .eq("account_id", imported.account_id)
+      .eq("statement_period", statementPeriod)
+      .eq("is_projected", true)
+      .not("nota", "is", null);
+    notasPrevias = porBorrar ?? [];
+
     const { count } = await supabase
       .from("finanzas_transactions")
       .delete({ count: "exact" })
@@ -580,7 +597,9 @@ export async function commitImport(formData: FormData): Promise<void> {
     };
   });
 
-  const fingerprinted = withFingerprints(preparadas);
+  // La huella se necesita para las dos cosas: para la red anti-duplicados y
+  // para saber que fila de la tanda anterior reemplaza a cual.
+  const fingerprinted = conNotaHeredada(withFingerprints(preparadas), notasPrevias);
 
   const { error } = await supabase.from("finanzas_transactions").insert(
     fingerprinted.map((r) => ({

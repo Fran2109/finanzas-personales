@@ -245,6 +245,30 @@ Una nota puesta en la pantalla de revision **no lleva fecha todavia**:
 `import_rows` guarda solo el texto, y la fecha la pone `commitImport`. Es la
 diferencia entre escribirla y usarla — un import puede no confirmarse nunca.
 
+**Al reemplazar lo provisorio, la nota se hereda por huella** (`conNotaHeredada`).
+Confirmar un import borra lo provisorio de ese periodo y las filas nuevas nacen
+en blanco, porque el resumen parseado no tiene de donde sacar una nota: sin esto,
+anotar el mes en curso era trabajo que se tiraba cada vez que se pegaba de nuevo.
+Las notas se leen **antes** del delete, que es la unica ventana donde todavia
+existen.
+
+Se empareja **por huella y no por comercio + monto**, que cubriria mas casos: la
+huella identifica *esa* linea y no una parecida, asi que en un mes con dos
+compras similares ninguna nota puede terminar pegada al movimiento que no es.
+Perder una nota molesta; describir un gasto con la descripcion de otro es peor,
+porque no se nota. Lo que cubre se sigue de eso: volver a pegar la misma tabla no
+pierde ninguna, y de lo pegado al PDF real se conserva solo lo que coincida
+—la descripcion entra en la huella y el home banking llama a los comercios
+distinto que el resumen, el mismo desacuerdo que complica deducir los planes.
+
+Que eso funcione depende de que **`withFingerprints` sea deterministico sobre la
+tanda entera**, duplicados incluidos, y de que `pending` vaya ordenado por
+`line_no`: el `seq` de un duplicado sale de su posicion en la lista, asi que sin
+ese orden emparejar seria una loteria. Las dos cosas tienen test.
+
+La nota tipeada en la revision le gana a la heredada: si alguien escribio algo
+para *este* import, es lo que quiso decir.
+
 Donde se muestra cambia segun para que sirve la pantalla. En la revision del
 import manda el texto del resumen, porque esa pantalla existe para contrastar la
 transcripcion contra el PDF y ahi la nota ya esta a la vista en su propio campo.

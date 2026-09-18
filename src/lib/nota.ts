@@ -48,6 +48,51 @@ export function camposDeNota(nota: string | null): {
   return { nota, nota_at: nota ? new Date().toISOString() : null };
 }
 
+/** Un movimiento que se va a reemplazar, con lo que hay que rescatarle. */
+export type NotaPrevia = { fingerprint: string | null; nota: string | null };
+
+/**
+ * Devuelve las filas con la nota que les corresponde, heredando la de la fila
+ * que reemplazan cuando comparten huella.
+ *
+ * Sin esto, anotar el mes en curso era trabajo que se tiraba: al confirmar un
+ * import se borra lo provisorio de ese periodo, y las filas nuevas nacen en
+ * blanco porque el resumen parseado no tiene de donde sacar una nota.
+ *
+ * **Se empareja por huella y no por comercio + monto**, que cubriria mas casos.
+ * La huella identifica *esa* linea y no una parecida, asi que en un mes con dos
+ * compras similares no hay forma de que una nota termine pegada al movimiento
+ * que no es. Perder una nota molesta; describir un gasto con la descripcion de
+ * otro es peor, porque no se nota.
+ *
+ * Lo que cubre y lo que no se sigue de esa eleccion. Volver a pegar la misma
+ * tabla da las mismas filas y por lo tanto las mismas huellas, asi que ahi no
+ * se pierde ninguna. De lo pegado al PDF real se conserva solo lo que coincida:
+ * la descripcion entra en la huella y el home banking llama a los comercios
+ * distinto que el resumen.
+ *
+ * La nota propia gana sobre la heredada, y no al reves: si alguien escribio
+ * algo para *este* import, es lo que quiso decir.
+ */
+export function conNotaHeredada<T extends { fingerprint: string; nota: string | null }>(
+  filas: T[],
+  previas: NotaPrevia[],
+): T[] {
+  const porHuella = new Map<string, string>();
+  for (const previa of previas) {
+    const nota = previa.nota?.trim();
+    // Una nota en blanco no es una nota: heredarla pisaria con nada.
+    if (previa.fingerprint && nota) porHuella.set(previa.fingerprint, nota);
+  }
+  if (porHuella.size === 0) return filas;
+
+  return filas.map((fila) =>
+    fila.nota?.trim()
+      ? fila
+      : { ...fila, nota: porHuella.get(fila.fingerprint) ?? fila.nota },
+  );
+}
+
 /** Lo que `ordenarNotas` necesita de cada movimiento anotado. */
 export type NotaUsada = { nota: string | null; nota_at: string | null };
 

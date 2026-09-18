@@ -45,6 +45,33 @@ test("dos movimientos identicos en el mismo resumen se numeran", () => {
   assert.notEqual(a.fingerprint, b.fingerprint);
 });
 
+test("la misma tanda dos veces da las mismas huellas, duplicados incluidos", () => {
+  // De esto depende que heredar la nota al reemplazar lo provisorio funcione:
+  // volver a pegar la misma tabla tiene que emparejar fila con fila. El caso
+  // que importa son los duplicados, porque ahi la huella no sale solo de la
+  // fila sino de cuantas iguales vinieron antes en la lista.
+  const tanda = [
+    { ...base },
+    { ...base, description: "OTRO" },
+    { ...base },
+    { ...base },
+  ];
+  assert.deepEqual(
+    withFingerprints(tanda).map((r) => r.fingerprint),
+    withFingerprints(tanda).map((r) => r.fingerprint),
+  );
+});
+
+test("el orden de la tanda decide la huella de los duplicados", () => {
+  // La contracara del test anterior, y el limite que hay que conocer: el `seq`
+  // sale de la posicion, asi que dos tandas con las mismas filas en distinto
+  // orden no emparejan. Por eso `pending` se ordena por `line_no` antes de
+  // calcular nada — sin ese orden, heredar notas seria una loteria.
+  const a = withFingerprints([{ ...base }, { ...base, description: "OTRO" }, { ...base }]);
+  const b = withFingerprints([{ ...base }, { ...base }, { ...base, description: "OTRO" }]);
+  assert.notEqual(a[2].fingerprint, b[2].fingerprint);
+});
+
 test("cambiar fecha, monto, moneda o plastico cambia la huella", () => {
   const [ref] = withFingerprints([{ ...base }]);
   for (const variante of [

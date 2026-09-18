@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { camposDeNota, ordenarNotas, NOTA_MAX } from "./nota.ts";
+import { camposDeNota, conNotaHeredada, ordenarNotas, NOTA_MAX } from "./nota.ts";
 
 /** Una fila anotada, con la fecha escrita como la manda PostgREST. */
 const usada = (nota: string | null, cuando: string | null) => ({
@@ -87,4 +87,58 @@ test("la nota y su fecha se escriben juntas o no se escriben", () => {
 
 test("el tope de la nota es el mismo que dice el campo", () => {
   assert.equal(NOTA_MAX, 80);
+});
+
+// --------------------------------------------------------------------------
+// Heredar la nota al reemplazar lo provisorio
+// --------------------------------------------------------------------------
+
+const fila = (fingerprint: string, nota: string | null = null) => ({ fingerprint, nota });
+
+test("la nota viaja a la fila nueva que tiene la misma huella", () => {
+  const nuevas = [fila("aaa"), fila("bbb")];
+  const previas = [{ fingerprint: "bbb", nota: "Cena con bri" }];
+  assert.deepEqual(
+    conNotaHeredada(nuevas, previas).map((f) => f.nota),
+    [null, "Cena con bri"],
+  );
+});
+
+test("una huella que no vuelve a aparecer no le pega su nota a nadie", () => {
+  // Es el caso de pegado a PDF real: el home banking llama al comercio distinto
+  // que el resumen, la descripcion entra en la huella y la fila deja de
+  // coincidir. Se pierde esa nota, y eso es preferible a adivinar.
+  const nuevas = [fila("aaa"), fila("bbb")];
+  const previas = [{ fingerprint: "zzz", nota: "Nafta del auto" }];
+  assert.deepEqual(
+    conNotaHeredada(nuevas, previas).map((f) => f.nota),
+    [null, null],
+  );
+});
+
+test("la nota tipeada en la revision le gana a la heredada", () => {
+  const nuevas = [fila("aaa", "Lo que puse ahora")];
+  const previas = [{ fingerprint: "aaa", nota: "Lo que habia antes" }];
+  assert.equal(conNotaHeredada(nuevas, previas)[0].nota, "Lo que puse ahora");
+});
+
+test("una nota previa en blanco no pisa con nada", () => {
+  const nuevas = [fila("aaa")];
+  for (const vacia of [null, "", "   "]) {
+    assert.equal(conNotaHeredada(nuevas, [{ fingerprint: "aaa", nota: vacia }])[0].nota, null);
+  }
+});
+
+test("una previa sin huella no hereda a nadie", () => {
+  // Un movimiento cargado a mano no tiene huella. Si `null` entrara al mapa,
+  // todas las previas sin huella compartirian clave y la ultima le pegaria su
+  // nota a cualquier fila nueva que tampoco la tuviera.
+  const nuevas = [fila("aaa")];
+  const previas = [{ fingerprint: null, nota: "De un alta manual" }];
+  assert.equal(conNotaHeredada(nuevas, previas)[0].nota, null);
+});
+
+test("sin previas anotadas las filas vuelven tal cual", () => {
+  const nuevas = [fila("aaa", "propia"), fila("bbb")];
+  assert.deepEqual(conNotaHeredada(nuevas, []), nuevas);
 });
